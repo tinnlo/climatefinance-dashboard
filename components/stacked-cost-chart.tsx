@@ -132,14 +132,14 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       <CardContent className="flex-1 min-h-0">
         <div className="h-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
               <XAxis
                 dataKey="year"
                 tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={40}
               />
               <YAxis
                 label={{

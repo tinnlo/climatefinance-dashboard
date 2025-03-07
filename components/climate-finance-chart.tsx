@@ -117,18 +117,19 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
     border: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
     borderRadius: "6px",
     padding: "12px",
-    color: theme === "dark" ? "white" : "black",
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    zIndex: 1000
   }
 
   const tooltipLabelStyle = {
     color: theme === "dark" ? "white" : "black",
-    fontWeight: "bold",
-    marginBottom: "4px",
+    fontWeight: 500,
+    marginBottom: "4px"
   }
 
   const tooltipItemStyle = {
     color: theme === "dark" ? "white" : "black",
+    opacity: 0.9
   }
 
   const axisStyle = {
@@ -165,7 +166,7 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
                 contentStyle={tooltipStyle}
                 labelStyle={tooltipLabelStyle}
                 itemStyle={tooltipItemStyle}
-                formatter={(value: number) => [`$${value}bn`, "Value"]}
+                formatter={(value: number) => [`$${value.toFixed(1)}bn`, "Value"]}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {chartData.finance.map((entry: any, index: number) => (
@@ -195,7 +196,7 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
                 contentStyle={tooltipStyle}
                 labelStyle={tooltipLabelStyle}
                 itemStyle={tooltipItemStyle}
-                formatter={(value: number) => [`${value}%`, "Value"]}
+                formatter={(value: number) => [`${value.toFixed(1)}%`, "Value"]}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {chartData.fiscal.map((entry: any, index: number) => (

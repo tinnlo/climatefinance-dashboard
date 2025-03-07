@@ -104,7 +104,7 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
     padding: "12px",
     color: theme === "dark" ? "white" : "black",
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-    zIndex: 10,
+    zIndex: 1000,
   }
 
   const renderTooltipContent = (props: any) => {
@@ -173,16 +173,22 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col min-h-0 pb-2">
-        <div className="grid grid-cols-2 gap-4 flex-1">
+      <CardContent className="flex flex-col justify-center gap-8 py-8">
+        <div className="grid grid-cols-2 gap-4">
           <div className="w-full flex flex-col">
-            <div className="relative flex-1" style={{ minHeight: "220px" }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="relative" style={{ height: "180px" }}>
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+              >
+                <p className="text-2xl font-bold leading-none mb-1">${data.totalCost.toFixed(1)}T</p>
+                <p className="text-sm text-muted-foreground mt-1">{data.costGdpPercentage}% of GDP</p>
+              </div>
+              <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart>
                   <Pie
                     data={costsData}
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={75}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
@@ -197,25 +203,24 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
                   <Tooltip content={renderTooltipContent} />
                 </PieChart>
               </ResponsiveContainer>
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-                style={{ transform: "translateY(-10px)" }}
-              >
-                <p className="text-2xl font-bold leading-none mb-1">${data.totalCost.toFixed(1)}T</p>
-                <p className="text-sm text-muted-foreground mt-1">{data.costGdpPercentage}% of GDP</p>
-              </div>
             </div>
-            <p className="text-center font-medium mt-2">Total Cost</p>
+            <p className="text-center font-medium">Total Cost</p>
           </div>
 
           <div className="w-full flex flex-col">
-            <div className="relative flex-1" style={{ minHeight: "220px" }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="relative" style={{ height: "180px" }}>
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+              >
+                <p className="text-2xl font-bold leading-none mb-1">${data.totalBenefit.toFixed(1)}T</p>
+                <p className="text-sm text-muted-foreground mt-1">{data.benefitGdpPercentage}% of GDP</p>
+              </div>
+              <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart>
                   <Pie
                     data={benefitsData}
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={75}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
@@ -230,19 +235,12 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
                   <Tooltip content={renderTooltipContent} />
                 </PieChart>
               </ResponsiveContainer>
-              <div
-                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-                style={{ transform: "translateY(-10px)" }}
-              >
-                <p className="text-2xl font-bold leading-none mb-1">${data.totalBenefit.toFixed(1)}T</p>
-                <p className="text-sm text-muted-foreground mt-1">{data.benefitGdpPercentage}% of GDP</p>
-              </div>
             </div>
-            <p className="text-center font-medium mt-2">Total Benefit</p>
+            <p className="text-center font-medium">Total Benefit</p>
           </div>
         </div>
 
-        <div className="flex justify-center mt-1">
+        <div className="flex justify-center mt-8">
           <Button variant="outline" onClick={handleDownload} className="bg-black/20">
             <Download className="mr-2 h-4 w-4" />
             Download Yearly Data

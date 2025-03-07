@@ -57,10 +57,10 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   const colors = useMemo(
     () => ({
       background: currentTheme === "dark" ? "#000000" : "#ffffff",
-      land: currentTheme === "dark" ? "#000000" : "#ffffff",
-      border: currentTheme === "dark" ? "#333333" : "#cccccc",
+      land: currentTheme === "dark" ? "#2F3A2F" : "#e6efe6",
+      border: currentTheme === "dark" ? "#3F4F3F" : "#c2d6c2",
       text: currentTheme === "dark" ? "#ffffff" : "#000000",
-      controls: currentTheme === "dark" ? "#333333" : "#ffffff",
+      controls: currentTheme === "dark" ? "#2F3A2F" : "#e6efe6",
       legendFill: currentTheme === "dark" ? "#000000" : "#ffffff",
       legendStroke: currentTheme === "dark" ? "#ffffff" : "#000000",
     }),
@@ -148,12 +148,15 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       .attr("class", "tooltip")
       .style("opacity", 0)
       .style("position", "absolute")
-      .style("background-color", colors.controls)
+      .style("background-color", currentTheme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)")
       .style("color", colors.text)
-      .style("border", "solid")
-      .style("border-width", "1px")
-      .style("border-radius", "5px")
-      .style("padding", "10px")
+      .style("border", `1px solid ${currentTheme === "dark" ? "#374151" : "#e5e7eb"}`)
+      .style("border-radius", "6px")
+      .style("padding", "12px")
+      .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)")
+      .style("z-index", "1000")
+      .style("pointer-events", "none")
+      .style("font-size", "14px")
 
     pointsGroup
       .selectAll(".plant-point")
@@ -177,7 +180,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
             .attr("fill", (d) => colorScale(d.phase_out_year))
             .attr("stroke", "#ffffff")
             .attr("stroke-width", 0.5)
-            .attr("opacity", 0.6),
+            .attr("opacity", 0.8),
         (update) => update,
       )
       .attr("visibility", (d) => (d.phase_out_year <= currentYear ? "visible" : "hidden"))
@@ -185,12 +188,23 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         d3.select(event.currentTarget).attr("opacity", 1).attr("stroke", colors.border).attr("stroke-width", 2)
         tooltip.transition().duration(200).style("opacity", 0.9)
         tooltip
-          .html(`Asset: ${d.name}<br/>Emissions: ${d.emissions.toFixed(2)}`)
+          .html(
+            `<div>
+              <div style="font-weight: 500; margin-bottom: 4px; color: ${colors.text}">
+                ${d.name}
+              </div>
+              <div style="opacity: 0.9; color: ${colors.text}">
+                Emissions: ${d.emissions.toFixed(1)} MtCO2<br/>
+                Phase-out Year: ${d.phase_out_year}<br/>
+                Fuel Type: ${d.fuel_type}
+              </div>
+            </div>`
+          )
           .style("left", event.pageX + 10 + "px")
           .style("top", event.pageY - 28 + "px")
       })
       .on("mouseout", (event, d) => {
-        d3.select(event.currentTarget).attr("opacity", 0.6).attr("stroke", null).attr("stroke-width", null)
+        d3.select(event.currentTarget).attr("opacity", 0.8).attr("stroke", null).attr("stroke-width", null)
         tooltip.transition().duration(500).style("opacity", 0)
       })
   }, [data, projection, colorScale, getSymbol, sizeScale, currentYear, colors])
@@ -239,7 +253,8 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("d", path as any)
           .attr("fill", colors.land)
           .attr("stroke", colors.border)
-          .attr("stroke-width", 0.5)
+          .attr("stroke-width", 1)
+          .attr("stroke-opacity", 0.9)
 
         container.append("g").attr("class", "points-group")
 
@@ -289,6 +304,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("y", -10)
           .text("Phase-out Year")
           .style("font-size", "12px")
+          .style("user-select", "none")
           .attr("fill", colors.text)
 
         const fuelTypes = ["Coal", "Oil", "Gas"]
@@ -314,6 +330,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
             .attr("y", i * 20 + 5)
             .text(fuel)
             .style("font-size", "12px")
+            .style("user-select", "none")
             .attr("fill", colors.text)
         })
 
@@ -333,6 +350,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("y", dimensions.height - 10)
           .attr("text-anchor", "middle")
           .style("font-size", "12px")
+          .style("user-select", "none")
           .attr("fill", colors.text)
           .text("Note: Marker size proportional to emissions")
 
@@ -355,6 +373,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("text-anchor", "middle")
           .style("font-size", "16px")
           .style("cursor", "pointer")
+          .style("user-select", "none")
           .attr("fill", colors.text)
           .text("+")
           .on("click", () => {
@@ -371,6 +390,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("text-anchor", "middle")
           .style("font-size", "16px")
           .style("cursor", "pointer")
+          .style("user-select", "none")
           .attr("fill", colors.text)
           .text("−")
           .on("click", () => {
@@ -397,6 +417,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("text-anchor", "middle")
           .style("font-size", "12px")
           .style("cursor", "pointer")
+          .style("user-select", "none")
           .attr("fill", colors.text)
           .text("⌂")
           .on("click", () => {
@@ -430,11 +451,15 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     if (svgRef.current && mapInitialized) {
       const svg = d3.select(svgRef.current)
 
-      // Update background
+      // Update background (ocean)
       svg.select("rect").attr("fill", colors.background)
 
       // Update country paths
-      svg.selectAll("path.country-path").attr("fill", colors.land).attr("stroke", colors.border)
+      svg.selectAll("path.country-path")
+        .attr("fill", colors.land)
+        .attr("stroke", colors.border)
+        .attr("stroke-width", 1)
+        .attr("stroke-opacity", 0.9)
 
       // Update text elements
       svg.selectAll("text").attr("fill", colors.text)
@@ -483,12 +508,28 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
 
   return (
     <div className="space-y-4">
-      <div ref={containerRef} className="relative w-full h-[400px]" style={{ backgroundColor: colors.background }}>
+      <div 
+        ref={containerRef} 
+        className="relative w-full h-[400px] select-none" 
+        style={{ 
+          backgroundColor: colors.background,
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none',
+          userSelect: 'none'
+        }}
+      >
         <svg
           ref={svgRef}
           className="w-full h-full"
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
           preserveAspectRatio="xMidYMid meet"
+          style={{
+            WebkitUserSelect: 'none',
+            MozUserSelect: 'none',
+            msUserSelect: 'none',
+            userSelect: 'none'
+          }}
         />
       </div>
       <div className="flex items-center justify-between gap-4">

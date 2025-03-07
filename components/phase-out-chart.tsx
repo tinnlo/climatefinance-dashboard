@@ -43,8 +43,8 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
 
   const colors = {
     // Bar colors
-    Coal: "#264653", // Dark blue
-    Gas: "#2a9d8f", // Teal
+    Coal: "#0194C5", // Brighter blue
+    Gas: "#319B9D", // Teal
     Oil: "#e9c46a", // Yellow
 
     // Line colors
@@ -90,9 +90,9 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
           </SelectContent>
         </Select>
       </div>
-      <div ref={chartRef} className="w-full h-[520px]">
-        <ResponsiveContainer width="100%" height="88%">
-          <ComposedChart data={chartData} margin={{ top: 20, right: 80, left: 65, bottom: 30 }}>
+      <div ref={chartRef} className="w-full h-[450px]">
+        <ResponsiveContainer width="100%" height="92%">
+          <ComposedChart data={chartData} margin={{ top: 20, right: 80, left: 65, bottom: 20 }}>
             <XAxis
               dataKey="year"
               stroke={colors.text}
@@ -126,13 +126,15 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: colors.tooltipBackground,
-                border: `1px solid ${colors.tooltipBorder}`,
-                borderRadius: "8px",
-                padding: "10px",
+                backgroundColor: currentTheme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)",
+                border: `1px solid ${currentTheme === "dark" ? "#374151" : "#e5e7eb"}`,
+                borderRadius: "6px",
+                padding: "12px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                zIndex: 1000
               }}
-              itemStyle={{ color: colors.text }}
-              labelStyle={{ color: colors.text, fontWeight: "bold", marginBottom: "5px" }}
+              itemStyle={{ color: colors.text, opacity: 0.9 }}
+              labelStyle={{ color: colors.text, fontWeight: 500, marginBottom: "4px" }}
               formatter={(value: any, name: string) => {
                 if (name === "Annual emissions reduction") {
                   return [`${Number(value).toFixed(2)} MtCO2`, name]
@@ -182,10 +184,10 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
             {/* Custom Legend Layout */}
             <Legend
               verticalAlign="bottom"
-              height={60}
+              height={50}
               content={({ payload }) => (
-                <div className="flex flex-col items-center gap-2 text-sm w-full max-w-4xl px-4">
-                  <div className="flex items-center justify-center gap-4">
+                <div className="flex flex-col gap-1 text-sm w-full max-w-4xl px-12">
+                  <div className="flex items-center gap-6">
                     {payload?.slice(0, 3).map((entry: any, index: number) => (
                       <div key={`item-${index}`} className="flex items-center gap-1">
                         <div className="w-3 h-3" style={{ backgroundColor: entry.color }} />
@@ -193,32 +195,29 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-center gap-4 w-full">
-                    {payload?.slice(3).map((entry: any, index: number) => (
-                      <div key={`line-${index}`} className="flex items-center gap-1 flex-1 max-w-xs">
-                        <div
-                          className="w-4 h-0.5 flex-shrink-0"
-                          style={{
-                            backgroundColor: entry.color,
-                            borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
-                            borderColor: entry.color,
-                          }}
-                        />
-                        <span className="text-xs whitespace-normal" title={entry.value}>
-                          {entry.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {payload?.slice(3).map((entry: any, index: number) => (
+                    <div key={`line-${index}`} className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-0.5 flex-shrink-0"
+                        style={{
+                          backgroundColor: entry.color,
+                          borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
+                          borderColor: entry.color,
+                        }}
+                      />
+                      <span className="text-xs" title={entry.value}>
+                        {entry.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <div className="text-xs text-center text-muted-foreground px-4 mt-2">
-          (N) = Number of plants shut down in that year
-          <br />
-          Start Rank → End Rank of plants in phase-out sequence
+        <div className="text-xs text-muted-foreground flex flex-col gap-0.5 -mt-8 absolute right-[180px] text-right">
+          <div>(N) = Number of plants shut down in that year</div>
+          <div>Start Rank → End Rank of plants in phase-out sequence</div>
         </div>
       </div>
     </div>
