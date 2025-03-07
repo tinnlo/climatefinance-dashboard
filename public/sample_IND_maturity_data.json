@@ -1,0 +1,30 @@
+[
+  {
+    "name": "Sample Plant 1",
+    "latitude": 20.5937,
+    "longitude": 78.9629,
+    "fuel_type": "Coal",
+    "phase_out_year": 2035,
+    "emissions": 1000000,
+    "uniqueId": "IND001"
+  },
+  {
+    "name": "Sample Plant 2",
+    "latitude": 28.6139,
+    "longitude": 77.209,
+    "fuel_type": "Gas",
+    "phase_out_year": 2040,
+    "emissions": 500000,
+    "uniqueId": "IND002"
+  },
+  {
+    "name": "Sample Plant 3",
+    "latitude": 19.076,
+    "longitude": 72.8777,
+    "fuel_type": "Oil",
+    "phase_out_year": 2045,
+    "emissions": 750000,
+    "uniqueId": "IND003"
+  }
+]
+
