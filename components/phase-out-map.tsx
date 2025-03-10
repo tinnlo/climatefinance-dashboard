@@ -45,6 +45,37 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   const zoomRef = useRef<any>(null)
   const { theme, systemTheme } = useTheme()
 
+  // Filter out points with invalid coordinates
+  const validData = useMemo(() => 
+    data?.filter(d => !isNaN(d.latitude) && !isNaN(d.longitude)) || [], 
+    [data]
+  )
+
+  const invalidDataCount = useMemo(() => 
+    data ? data.length - validData.length : 0,
+    [data, validData]
+  )
+
+  // Add debug logging for data
+  console.log('Phase-out Map Debug:', {
+    totalDataPoints: data?.length || 0,
+    validDataPoints: validData.length,
+    invalidDataPoints: invalidDataCount,
+    firstPoint: data?.[0] || null,
+    uniqueYears: validData ? Array.from(new Set(validData.map(d => d.phase_out_year))).sort() : [],
+    uniqueFuelTypes: validData ? Array.from(new Set(validData.map(d => d.fuel_type))).sort() : [],
+    boundingBox: validData.length > 0 ? {
+      lat: {
+        min: Math.min(...validData.map(d => d.latitude)),
+        max: Math.max(...validData.map(d => d.latitude))
+      },
+      lon: {
+        min: Math.min(...validData.map(d => d.longitude)),
+        max: Math.max(...validData.map(d => d.longitude))
+      }
+    } : null
+  })
+
   // Reset map when data changes
   useEffect(() => {
     setMapInitialized(false)
@@ -95,12 +126,12 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   )
 
   const projection = useMemo(() => {
-    if (dimensions.width === 0 || !data || data.length === 0) return null;
+    if (dimensions.width === 0 || !validData || validData.length === 0) return null;
     
     // Reset the projection when data changes
     const bounds = d3.geoBounds({
       type: "FeatureCollection",
-      features: data.map((d) => ({
+      features: validData.map((d) => ({
         type: "Feature",
         geometry: {
           type: "Point",
@@ -144,7 +175,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         ],
       },
     )
-  }, [data, dimensions, margin])
+  }, [validData, dimensions, margin])
 
   const colorScale = useMemo(
     () => d3.scaleSequential().domain([2025, 2050]).interpolator(d3.interpolate("#ffeda0", "#bd0026")),
@@ -155,9 +186,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     () =>
       d3
         .scaleSqrt()
-        .domain([0, d3.max(data, (d: any) => d.emissions) || 0])
+        .domain([0, d3.max(validData, (d: any) => d.emissions) || 0])
         .range([0.5, 2.5]),
-    [data],
+    [validData],
   )
 
   const getSymbol = useCallback((fuelType: string) => {
@@ -213,7 +244,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
 
     pointsGroup
       .selectAll(".plant-point")
-      .data(data, (d: any) => d.uniqueId)
+      .data(validData, (d: any) => d.uniqueId)
       .join(
         (enter: any) =>
           enter
@@ -260,7 +291,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         d3.select(event.currentTarget).attr("opacity", 0.8).attr("stroke", "#ffffff").attr("stroke-width", 0.5)
         tooltip.transition().duration(500).style("opacity", 0)
       })
-  }, [data, projection, colorScale, getSymbol, sizeScale, currentYear, colors, currentTheme])
+  }, [validData, projection, colorScale, getSymbol, sizeScale, currentYear, colors, currentTheme])
 
   const updateLegend = useCallback(() => {
     if (!svgRef.current || !projection) return
@@ -577,6 +608,27 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
 
   return (
     <div className="space-y-4">
+      {invalidDataCount > 0 && (
+        <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                Missing Location Data
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
+                <p>
+                  {invalidDataCount} power {invalidDataCount === 1 ? 'plant has' : 'plants have'} missing or invalid coordinates and {invalidDataCount === 1 ? 'is' : 'are'} not shown on the map.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div 
         ref={containerRef} 
         className="relative w-full h-[400px] overflow-hidden rounded-lg border border-border" 

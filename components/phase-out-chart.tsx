@@ -4,13 +4,30 @@ import { useState, useRef } from "react"
 import { useTheme } from "next-themes"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts"
-import { COUNTRY_NAMES } from "@/lib/constants"
+import { convertToIso3, iso2ToIso3Map } from "@/lib/utils"
 
+// Update scenario values to match the data structure
 const scenarios = [
   { value: "maturity", label: "By Power Plant Maturity" },
   { value: "emission_factor", label: "By Power Plant Emission Intensity" },
   { value: "benefits_cost_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
 ]
+
+// Country names mapping
+const COUNTRY_NAMES: { [key: string]: string } = {
+  'eg': 'Egypt',
+  'id': 'Indonesia',
+  'in': 'India',
+  'ir': 'Iran',
+  'ke': 'Kenya',
+  'mx': 'Mexico',
+  'ng': 'Nigeria',
+  'th': 'Thailand',
+  'tz': 'Tanzania',
+  'ug': 'Uganda',
+  'vn': 'Vietnam',
+  'za': 'South Africa'
+} as const
 
 interface PhaseOutData {
   year: number
@@ -34,13 +51,29 @@ interface ChartData {
   }
 }
 
-export function PhaseOutChart({ country = "IN", data }: { country?: string; data: ChartData | null }) {
+export function PhaseOutChart({ country = "in", data }: { country?: string; data: ChartData | null }) {
   const [selectedScenario, setSelectedScenario] = useState("maturity")
   const { theme, systemTheme } = useTheme()
   const chartRef = useRef<HTMLDivElement>(null)
 
   const currentTheme = theme === "system" ? systemTheme : theme
-  const countryName = COUNTRY_NAMES[country.toLowerCase()] || country
+  const countryCode = convertToIso3(country)
+  const countryName = COUNTRY_NAMES[country.toLowerCase()] || countryCode
+
+  // Enhanced debug logging
+  console.log('Phase-out Chart Debug:', {
+    inputCountry: country,
+    convertedCode: countryCode,
+    countryName,
+    dataExists: !!data,
+    scenariosExist: data && !!data.scenarios,
+    availableScenarios: data?.scenarios ? Object.keys(data.scenarios) : 'no scenarios',
+    selectedScenario,
+    scenarioDataExists: data?.scenarios?.[selectedScenario] ? true : false,
+    scenarioDataLength: data?.scenarios?.[selectedScenario]?.length || 0,
+    firstDataPoint: data?.scenarios?.[selectedScenario]?.[0] || null,
+    rawData: data
+  })
 
   const colors = {
     // Bar colors
@@ -64,7 +97,7 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
     return (
       <div className="flex justify-center items-center h-[400px]">
         <span className="text-muted-foreground text-lg">
-          No data available for this country and scenario.
+          No phase-out data available for {countryName} ({countryCode}) in the {scenarios.find(s => s.value === selectedScenario)?.label.toLowerCase() || selectedScenario} scenario.
         </span>
       </div>
     )
