@@ -8,15 +8,18 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 const countries = [
-  { value: "in", label: "India" },
+  { value: "eg", label: "Egypt" },
   { value: "id", label: "Indonesia" },
+  { value: "in", label: "India" },
+  { value: "ir", label: "Iran" },
+  { value: "ke", label: "Kenya" },
+  { value: "mx", label: "Mexico" },
+  { value: "ng", label: "Nigeria" },
+  { value: "th", label: "Thailand" },
+  { value: "tz", label: "Tanzania" },
+  { value: "ug", label: "Uganda" },
   { value: "vn", label: "Vietnam" },
-  { value: "tr", label: "Turkey" },
-  { value: "de", label: "Germany" },
-  { value: "pl", label: "Poland" },
-  { value: "kz", label: "Kazakhstan" },
-  { value: "us", label: "USA" },
-  { value: "emde", label: "EMDEs" },
+  { value: "za", label: "South Africa" },
 ]
 
 export function SearchCountry({

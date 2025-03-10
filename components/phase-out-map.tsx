@@ -15,8 +15,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Feature, FeatureCollection, Geometry } from 'geojson'
+import { Topology, GeometryObject } from 'topojson-specification'
 
-const FIGURE_NOTES = "Placeholder for phase-out map figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the phase-out map visualization."
+const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year."
 
 interface MapData {
   name: string
@@ -43,6 +45,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   const zoomRef = useRef<any>(null)
   const { theme, systemTheme } = useTheme()
 
+  // Reset map when data changes
+  useEffect(() => {
+    setMapInitialized(false)
+  }, [data])
+
   useEffect(() => {
     if (containerRef.current) {
       const resizeObserver = new ResizeObserver((entries) => {
@@ -55,7 +62,13 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       })
 
       resizeObserver.observe(containerRef.current)
-      return () => resizeObserver.disconnect()
+      return () => {
+        resizeObserver.disconnect()
+        // Clean up D3 elements when component unmounts
+        if (svgRef.current) {
+          d3.select(svgRef.current).selectAll("*").remove()
+        }
+      }
     }
   }, [])
 
@@ -82,8 +95,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   )
 
   const projection = useMemo(() => {
-    if (dimensions.width === 0) return null;
+    if (dimensions.width === 0 || !data || data.length === 0) return null;
     
+    // Reset the projection when data changes
     const bounds = d3.geoBounds({
       type: "FeatureCollection",
       features: data.map((d) => ({
@@ -95,6 +109,13 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         properties: {},
       })),
     })
+
+    // Add padding to the bounds
+    const padding = 0.5 // degrees
+    const adjustedBounds = [
+      [bounds[0][0] - padding, bounds[0][1] - padding],
+      [bounds[1][0] + padding, bounds[1][1] + padding]
+    ]
 
     return d3.geoMercator().fitExtent(
       [
@@ -110,11 +131,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
               type: "Polygon",
               coordinates: [
                 [
-                  [bounds[0][0] - 2, bounds[0][1] - 2],
-                  [bounds[0][0] - 2, bounds[1][1] + 2],
-                  [bounds[1][0] + 2, bounds[1][1] + 2],
-                  [bounds[1][0] + 2, bounds[0][1] - 2],
-                  [bounds[0][0] - 2, bounds[0][1] - 2],
+                  [adjustedBounds[0][0], adjustedBounds[0][1]],
+                  [adjustedBounds[0][0], adjustedBounds[1][1]],
+                  [adjustedBounds[1][0], adjustedBounds[1][1]],
+                  [adjustedBounds[1][0], adjustedBounds[0][1]],
+                  [adjustedBounds[0][0], adjustedBounds[0][1]],
                 ],
               ],
             },
@@ -411,11 +432,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   const initializeMap = useCallback(() => {
     if (!data || !svgRef.current || !projection || mapInitialized) return
 
+    // Clear existing content
     const svg = d3.select(svgRef.current)
+    svg.selectAll("*").remove()
 
     try {
-      svg.selectAll("*").remove()
-
       // Set the background color for the entire SVG
       svg.append("rect")
         .attr("width", dimensions.width)
@@ -452,7 +473,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       const path = d3.geoPath().projection(projection)
 
       d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then((worldData: any) => {
-        const countries = feature(worldData, worldData.objects.countries)
+        if (!worldData) return
+
+        const countries = feature(worldData, worldData.objects.countries) as unknown as FeatureCollection<Geometry>
 
         // Update country paths with theme-appropriate colors
         container
@@ -461,7 +484,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .data(countries.features)
           .enter()
           .append("path")
-          .attr("d", path)
+          .attr("d", (d) => path(d as any) || "")
           .attr("fill", colors.land)
           .attr("stroke", colors.border)
           .attr("stroke-width", 0.5)
@@ -471,6 +494,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         
         // Add points
         updatePoints()
+
+        // Reset zoom to fit the new data
+        handleResetView()
 
         setMapInitialized(true)
       }).catch((error: any) => {
@@ -539,11 +565,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     }
   }
 
-  if (error) {
+  if (!data || data.length === 0) {
     return (
       <div className="flex justify-center items-center h-[400px]">
         <span className="text-muted-foreground text-lg">
-          No data available for this country and scenario.
+          No power plant data available for this country and scenario.
         </span>
       </div>
     )

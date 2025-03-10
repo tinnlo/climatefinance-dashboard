@@ -11,10 +11,10 @@ import { SearchCountry } from "@/components/search-country"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Info } from "lucide-react"
-import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StackedCostChart } from "@/components/stacked-cost-chart"
 import { Button } from "@/components/ui/button"
+import { convertToIso3 } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+
+// Country names mapping
+const COUNTRY_NAMES: { [key: string]: string } = {
+  'eg': 'Egypt',
+  'id': 'Indonesia',
+  'in': 'India',
+  'ir': 'Iran',
+  'ke': 'Kenya',
+  'mx': 'Mexico',
+  'ng': 'Nigeria',
+  'th': 'Thailand',
+  'tz': 'Tanzania',
+  'ug': 'Uganda',
+  'vn': 'Vietnam',
+  'za': 'South Africa'
+} as const
 
 const orders = [
   { value: "maturity", label: "By Power Plant Maturity" },
@@ -48,8 +64,11 @@ export default function DashboardClientPage() {
     setIsLoading(true)
     setError(null)
 
+    // Get three-letter ISO code for API calls
+    const countryCode = convertToIso3(selectedCountry)
+
     // Fetch map data
-    fetch(`/api/map-data?country=${selectedCountry}&order=${selectedOrder}`)
+    fetch(`/api/map-data?country=${countryCode}&order=${selectedOrder}`)
       .then((response) => response.json())
       .then((data) => {
         if (data.error) {
@@ -63,7 +82,7 @@ export default function DashboardClientPage() {
       })
 
     // Fetch phase-out data
-    fetch(`/api/phase-out-data?country=${selectedCountry}`)
+    fetch(`/api/phase-out-data?country=${countryCode}`)
       .then((response) => response.json())
       .then((data) => {
         if (data.error) {
