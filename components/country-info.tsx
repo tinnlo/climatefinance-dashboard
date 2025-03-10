@@ -126,14 +126,14 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
               </p>
             </div>
             <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Emissions (2023)</p>
+              <p className="text-xl font-medium">{data.Emission_2023.toFixed(2)} Mt CO2e/year</p>
+            </div>
+            <div className="col-span-2 space-y-1">
               <p className="text-sm text-muted-foreground">Target Year</p>
               <p className="text-xl font-medium">
                 {data.End_target_year || 'N/A'}
               </p>
-            </div>
-            <div className="col-span-2 space-y-1">
-              <p className="text-sm text-muted-foreground">Emissions (2023)</p>
-              <p className="text-xl font-medium">{data.Emission_2023.toFixed(2)} Mt CO2e/year</p>
             </div>
             {data.End_target_percentage_reduction && (
               <div className="col-span-2 space-y-1">

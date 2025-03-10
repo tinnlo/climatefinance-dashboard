@@ -11,6 +11,8 @@ export async function GET(request: Request) {
   let url: string
   if (country === "IN" || country === "IND") {
     url = "https://fapublicdata.blob.core.windows.net/fa-public-data/phaser_out_bar_charts/phaseout_data_IN.json"
+  } else if (country === "VN") {
+    url = "https://fapublicdata.blob.core.windows.net/fa-public-data/phaser_out_bar_charts/phaseout_data_VN.json"
   } else {
     url = `https://fapublicdata.blob.core.windows.net/fa-public-data/phaser_out_bar_charts/phaseout_data_${country}.json`
   }
@@ -24,7 +26,12 @@ export async function GET(request: Request) {
     return NextResponse.json(data)
   } catch (error) {
     console.error("Error fetching phase-out data:", error)
-    return NextResponse.json({ error: "Failed to fetch phase-out data" }, { status: 500 })
+    // Return an empty data structure instead of an error
+    return NextResponse.json({
+      country_code: country,
+      country_name: country,
+      scenarios: {}
+    })
   }
 }
 

@@ -7,6 +7,7 @@ import { CountryInfo } from "@/components/country-info"
 import { Header } from "@/components/header"
 import { PhaseOutMap } from "@/components/phase-out-map"
 import { PhaseOutChart } from "@/components/phase-out-chart"
+import { SearchCountry } from "@/components/search-country"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Info } from "lucide-react"
@@ -72,6 +73,7 @@ export default function DashboardClientPage() {
       })
       .catch((error) => {
         console.error("Error fetching phase-out data:", error)
+        setPhaseOutData(null) // Ensure phaseOutData is null on error
         setError((prev) =>
           prev
             ? `${prev} Also, failed to load phase-out data.`
@@ -155,13 +157,17 @@ export default function DashboardClientPage() {
                   h(Loader2, { className: "h-8 w-8 animate-spin" }),
                 )
               : error
-                ? h(Alert, { variant: "destructive" }, h(AlertTitle, null, "Error"), h(AlertDescription, null, error))
+                ? h(
+                    "div",
+                    { className: "flex justify-center items-center h-[600px]" },
+                    h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
+                  )
                 : mapData
                   ? h(PhaseOutMap, { data: mapData })
                   : h(
                       "div",
                       { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
-                      `No map data available for ${COUNTRY_NAMES[selectedCountry]}`,
+                      "No data available for this country and scenario."
                     ),
           ),
         ),
@@ -194,18 +200,18 @@ export default function DashboardClientPage() {
                 )
               )
             ),
-            h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`),
+            h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
           ),
           h(
             CardContent,
             null,
-            phaseOutData
-              ? h(PhaseOutChart, { country: selectedCountry, data: phaseOutData })
-              : h(
+            isLoading
+              ? h(
                   "div",
-                  { className: "flex justify-center items-center h-[400px] text-muted-foreground" },
-                  `No phase-out data available for ${COUNTRY_NAMES[selectedCountry]}`,
-                ),
+                  { className: "flex justify-center items-center h-[400px]" },
+                  h(Loader2, { className: "h-8 w-8 animate-spin" })
+                )
+              : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
           ),
         ),
       ),

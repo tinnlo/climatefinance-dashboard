@@ -34,12 +34,13 @@ interface ChartData {
   }
 }
 
-export function PhaseOutChart({ country = "IN", data }: { country?: string; data: ChartData }) {
+export function PhaseOutChart({ country = "IN", data }: { country?: string; data: ChartData | null }) {
   const [selectedScenario, setSelectedScenario] = useState("maturity")
   const { theme, systemTheme } = useTheme()
   const chartRef = useRef<HTMLDivElement>(null)
 
   const currentTheme = theme === "system" ? systemTheme : theme
+  const countryName = COUNTRY_NAMES[country.toLowerCase()] || country
 
   const colors = {
     // Bar colors
@@ -58,10 +59,13 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
     tooltipBorder: currentTheme === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)",
   }
 
-  if (!data || !data.scenarios[selectedScenario]) {
+  // Check if data is available for the selected country and scenario
+  if (!data || !data.scenarios || !data.scenarios[selectedScenario] || data.scenarios[selectedScenario].length === 0) {
     return (
-      <div className="flex justify-center items-center h-[400px] text-muted-foreground">
-        No data available for {COUNTRY_NAMES[country]} and this scenario.
+      <div className="flex justify-center items-center h-[400px]">
+        <span className="text-muted-foreground text-lg">
+          No data available for this country and scenario.
+        </span>
       </div>
     )
   }

@@ -541,9 +541,10 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
 
   if (error) {
     return (
-      <div className="p-4 bg-destructive/10 text-destructive rounded-md">
-        <h3 className="font-semibold mb-2">Error Loading Map</h3>
-        <p>{error}</p>
+      <div className="flex justify-center items-center h-[400px]">
+        <span className="text-muted-foreground text-lg">
+          No data available for this country and scenario.
+        </span>
       </div>
     )
   }
