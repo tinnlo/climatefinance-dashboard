@@ -5,8 +5,18 @@ import * as d3 from "d3"
 import { feature } from "topojson-client"
 import { TimelineSlider } from "./timeline-slider"
 import { Button } from "@/components/ui/button"
-import { Home } from "lucide-react"
+import { Home, Info } from "lucide-react"
 import { useTheme } from "next-themes"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const FIGURE_NOTES = "Placeholder for phase-out map figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the phase-out map visualization."
 
 interface MapData {
   name: string
@@ -30,6 +40,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   const [mapInitialized, setMapInitialized] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 0, height: 400 })
   const initialTransformRef = useRef<d3.ZoomTransform | null>(null)
+  const zoomRef = useRef<any>(null)
   const { theme, systemTheme } = useTheme()
 
   useEffect(() => {
@@ -48,7 +59,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     }
   }, [])
 
-  const margin = { top: 20, right: 30, bottom: 40, left: 40 }
+  const margin = { top: 20, right: 30, bottom: 60, left: 40 }
 
   // Get the actual theme considering system preference
   const currentTheme = theme === "system" ? systemTheme : theme
@@ -56,18 +67,23 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   // Define color variables for light and dark modes
   const colors = useMemo(
     () => ({
-      background: currentTheme === "dark" ? "#000000" : "#ffffff",
+      background: currentTheme === "dark" ? "#121212" : "#ffffff",
       land: currentTheme === "dark" ? "#2F3A2F" : "#e6efe6",
       border: currentTheme === "dark" ? "#3F4F3F" : "#c2d6c2",
       text: currentTheme === "dark" ? "#ffffff" : "#000000",
       controls: currentTheme === "dark" ? "#2F3A2F" : "#e6efe6",
-      legendFill: currentTheme === "dark" ? "#000000" : "#ffffff",
-      legendStroke: currentTheme === "dark" ? "#ffffff" : "#000000",
+      legendFill: currentTheme === "dark" ? "#1e1e1e" : "#ffffff",
+      legendStroke: currentTheme === "dark" ? "#3F4F3F" : "#c2d6c2",
+      coal: currentTheme === "dark" ? "#0194C5" : "#0194C5", // Brighter blue
+      gas: currentTheme === "dark" ? "#319B9D" : "#319B9D", // Teal
+      oil: currentTheme === "dark" ? "#e9c46a" : "#e9c46a", // Yellow
     }),
     [currentTheme],
   )
 
   const projection = useMemo(() => {
+    if (dimensions.width === 0) return null;
+    
     const bounds = d3.geoBounds({
       type: "FeatureCollection",
       features: data.map((d) => ({
@@ -107,7 +123,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         ],
       },
     )
-  }, [data, dimensions])
+  }, [data, dimensions, margin])
 
   const colorScale = useMemo(
     () => d3.scaleSequential().domain([2025, 2050]).interpolator(d3.interpolate("#ffeda0", "#bd0026")),
@@ -118,7 +134,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     () =>
       d3
         .scaleSqrt()
-        .domain([0, d3.max(data, (d) => d.emissions) || 0])
+        .domain([0, d3.max(data, (d: any) => d.emissions) || 0])
         .range([0.5, 2.5]),
     [data],
   )
@@ -136,16 +152,32 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     }
   }, [])
 
+  const getFuelColor = useCallback((fuelType: string) => {
+    switch (fuelType.toLowerCase()) {
+      case "coal":
+        return colors.coal
+      case "oil":
+        return colors.oil
+      case "gas":
+        return colors.gas
+      default:
+        return "#aaaaaa"
+    }
+  }, [colors])
+
   const updatePoints = useCallback(() => {
-    if (!svgRef.current) return
+    if (!svgRef.current || !projection) return
 
     const svg = d3.select(svgRef.current)
     const pointsGroup = svg.select(".points-group")
 
+    // Remove any existing tooltips before creating a new one
+    d3.select("body").selectAll(".map-tooltip").remove()
+
     const tooltip = d3
       .select("body")
       .append("div")
-      .attr("class", "tooltip")
+      .attr("class", "map-tooltip")
       .style("opacity", 0)
       .style("position", "absolute")
       .style("background-color", currentTheme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)")
@@ -162,29 +194,29 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       .selectAll(".plant-point")
       .data(data, (d: any) => d.uniqueId)
       .join(
-        (enter) =>
+        (enter: any) =>
           enter
             .append("path")
             .attr("class", "plant-point")
-            .attr("d", (d) => {
+            .attr("d", (d: any) => {
               const symbol = d3
                 .symbol()
                 .type(getSymbol(d.fuel_type))
                 .size(sizeScale(d.emissions) * 25)
               return symbol()
             })
-            .attr("transform", (d) => {
+            .attr("transform", (d: any) => {
               const coords = projection([d.longitude, d.latitude])
               return coords ? `translate(${coords[0]},${coords[1]})` : null
             })
-            .attr("fill", (d) => colorScale(d.phase_out_year))
+            .attr("fill", (d: any) => colorScale(d.phase_out_year))
             .attr("stroke", "#ffffff")
             .attr("stroke-width", 0.5)
             .attr("opacity", 0.8),
-        (update) => update,
+        (update: any) => update,
       )
-      .attr("visibility", (d) => (d.phase_out_year <= currentYear ? "visible" : "hidden"))
-      .on("mouseover", (event, d) => {
+      .attr("visibility", (d: any) => (d.phase_out_year <= currentYear ? "visible" : "hidden"))
+      .on("mouseover", (event: any, d: any) => {
         d3.select(event.currentTarget).attr("opacity", 1).attr("stroke", colors.border).attr("stroke-width", 2)
         tooltip.transition().duration(200).style("opacity", 0.9)
         tooltip
@@ -203,14 +235,181 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .style("left", event.pageX + 10 + "px")
           .style("top", event.pageY - 28 + "px")
       })
-      .on("mouseout", (event, d) => {
-        d3.select(event.currentTarget).attr("opacity", 0.8).attr("stroke", null).attr("stroke-width", null)
+      .on("mouseout", (event: any, d: any) => {
+        d3.select(event.currentTarget).attr("opacity", 0.8).attr("stroke", "#ffffff").attr("stroke-width", 0.5)
         tooltip.transition().duration(500).style("opacity", 0)
       })
-  }, [data, projection, colorScale, getSymbol, sizeScale, currentYear, colors])
+  }, [data, projection, colorScale, getSymbol, sizeScale, currentYear, colors, currentTheme])
+
+  const updateLegend = useCallback(() => {
+    if (!svgRef.current || !projection) return
+
+    const svg = d3.select(svgRef.current)
+    const container = svg.select(".map-container")
+    
+    // Remove existing legends
+    container.select(".legend-group").remove()
+    svg.select(".fuel-legend").remove()
+    svg.select(".description-text").remove()
+    
+    // Create new legend group
+    const legendGroup = container.append("g").attr("class", "legend-group")
+    
+    // Calculate responsive legend position
+    const legendWidth = Math.min(200, dimensions.width * 0.4)
+    const legendHeight = 60
+    
+    // Position legends much lower on the map
+    // Leave only 30px from the bottom for the description text
+    const legendX = dimensions.width - legendWidth - margin.right
+    const legendY = dimensions.height - legendHeight - 30
+    
+    // Add fuel type legend - position above the phase-out year legend with more space
+    const fuelLegendX = legendX
+    const fuelLegendY = legendY - 55 // Significantly increased space between legends
+    
+    // Create fuel legend group
+    const fuelLegend = svg
+      .append("g")
+      .attr("class", "fuel-legend")
+    
+    // Fuel legend background - increased height for more space
+    fuelLegend
+      .append("rect")
+      .attr("x", fuelLegendX)
+      .attr("y", fuelLegendY)
+      .attr("width", legendWidth)
+      .attr("height", 40) // Further increased height for better spacing
+      .attr("fill", colors.legendFill)
+      .attr("stroke", colors.legendStroke)
+      .attr("stroke-width", 1)
+      .attr("rx", 4)
+      .attr("opacity", 0.8)
+    
+    // Fuel legend title - using same font size as phase-out year title
+    fuelLegend
+      .append("text")
+      .attr("x", fuelLegendX + 10)
+      .attr("y", fuelLegendY + 15)
+      .attr("fill", colors.text)
+      .attr("font-size", "12px") // Standardized font size
+      .attr("font-weight", "bold")
+      .text("Fuel Types")
+    
+    const fuelTypes = [
+      { type: "Coal", symbol: d3.symbolCircle },
+      { type: "Gas", symbol: d3.symbolTriangle },
+      { type: "Oil", symbol: d3.symbolSquare },
+    ]
+    
+    // Calculate spacing based on available width
+    const itemWidth = legendWidth / fuelTypes.length
+    
+    // Position fuel symbols much lower to avoid overlap with title
+    fuelTypes.forEach((fuel, i) => {
+      const symbolGen = d3.symbol().type(fuel.symbol).size(50)
+      
+      fuelLegend
+        .append("path")
+        .attr("d", symbolGen)
+        .attr("transform", `translate(${fuelLegendX + (i + 0.5) * itemWidth - 15}, ${fuelLegendY + 28})`) // Moved even lower
+        .attr("fill", currentTheme === "dark" ? "#ffffff" : "#000000") // Monochrome based on theme
+        .attr("stroke", "none")
+        .attr("opacity", 0.9)
+        
+      fuelLegend
+        .append("text")
+        .attr("x", fuelLegendX + (i + 0.5) * itemWidth)
+        .attr("y", fuelLegendY + 31) // Moved even lower
+        .attr("text-anchor", "middle")
+        .attr("fill", colors.text)
+        .attr("font-size", "9px")
+        .text(fuel.type)
+    })
+    
+    // Phase-out year legend background
+    legendGroup
+      .append("rect")
+      .attr("x", legendX)
+      .attr("y", legendY)
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .attr("fill", colors.legendFill)
+      .attr("stroke", colors.legendStroke)
+      .attr("stroke-width", 1)
+      .attr("rx", 4)
+      .attr("opacity", 0.8)
+    
+    // Phase-out year legend title - font size already 12px
+    legendGroup
+      .append("text")
+      .attr("x", legendX + 10)
+      .attr("y", legendY + 20)
+      .attr("fill", colors.text)
+      .attr("font-size", "12px") // Already standardized
+      .attr("font-weight", "bold")
+      .text("Phase-out Year")
+    
+    // Legend gradient
+    const gradientWidth = legendWidth - 20
+    const gradientHeight = 10
+    const gradientX = legendX + 10
+    const gradientY = legendY + 30
+    
+    // Create gradient stops
+    const gradientStops = d3.range(2025, 2051, 5).map((year: any) => ({
+      year,
+      color: colorScale(year),
+      x: ((year - 2025) / 25) * gradientWidth,
+    }))
+    
+    // Add gradient rectangles
+    gradientStops.forEach((stop: any, i: any) => {
+      if (i < gradientStops.length - 1) {
+        const width = gradientStops[i + 1].x - stop.x
+        legendGroup
+          .append("rect")
+          .attr("x", gradientX + stop.x)
+          .attr("y", gradientY)
+          .attr("width", width)
+          .attr("height", gradientHeight)
+          .attr("fill", stop.color)
+      }
+    })
+    
+    // Add gradient labels
+    legendGroup
+      .append("text")
+      .attr("x", gradientX)
+      .attr("y", gradientY + gradientHeight + 15)
+      .attr("fill", colors.text)
+      .attr("font-size", "10px")
+      .text("2025")
+    
+    legendGroup
+      .append("text")
+      .attr("x", gradientX + gradientWidth)
+      .attr("y", gradientY + gradientHeight + 15)
+      .attr("text-anchor", "end")
+      .attr("fill", colors.text)
+      .attr("font-size", "10px")
+      .text("2050")
+    
+    // Add bottom description text - positioned at the very bottom
+    svg
+      .append("text")
+      .attr("class", "description-text")
+      .attr("x", dimensions.width / 2)
+      .attr("y", dimensions.height - 10) // Positioned at the very bottom
+      .attr("text-anchor", "middle")
+      .attr("fill", colors.text)
+      .attr("font-size", "12px")
+      .text("Note: Marker size proportional to emissions")
+    
+  }, [dimensions, colors, margin, projection, colorScale, currentTheme])
 
   const initializeMap = useCallback(() => {
-    if (!data || !svgRef.current || mapInitialized) return
+    if (!data || !svgRef.current || !projection || mapInitialized) return
 
     const svg = d3.select(svgRef.current)
 
@@ -218,24 +417,37 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       svg.selectAll("*").remove()
 
       // Set the background color for the entire SVG
-      svg.append("rect").attr("width", "100%").attr("height", "100%").attr("fill", colors.background)
+      svg.append("rect")
+        .attr("width", dimensions.width)
+        .attr("height", dimensions.height)
+        .attr("fill", colors.background)
 
       const container = svg.append("g").attr("class", "map-container")
 
+      // Create groups for different map elements
+      container.append("g").attr("class", "countries-group")
+      container.append("g").attr("class", "points-group")
+
+      // Create and store the zoom behavior
       const zoom = d3
         .zoom()
         .scaleExtent([1, 8])
         .translateExtent([
-          [-200, -200],
-          [dimensions.width + 200, dimensions.height + 200],
+          [0, 0],
+          [dimensions.width, dimensions.height],
         ])
-        .on("zoom", (event) => {
+        .on("zoom", (event: any) => {
           container.attr("transform", event.transform)
         })
 
-      svg.call(zoom as any)
+      // Store the zoom reference for later use
+      zoomRef.current = zoom
 
+      // Initialize with identity transform
       initialTransformRef.current = d3.zoomIdentity
+      
+      // Apply zoom behavior to SVG
+      svg.call(zoom as any)
 
       const path = d3.geoPath().projection(projection)
 
@@ -244,300 +456,152 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
 
         // Update country paths with theme-appropriate colors
         container
-          .append("g")
+          .select(".countries-group")
           .selectAll("path")
           .data(countries.features)
           .enter()
           .append("path")
-          .attr("class", "country-path")
-          .attr("d", path as any)
+          .attr("d", path)
           .attr("fill", colors.land)
           .attr("stroke", colors.border)
-          .attr("stroke-width", 1)
-          .attr("stroke-opacity", 0.9)
+          .attr("stroke-width", 0.5)
 
-        container.append("g").attr("class", "points-group")
-
-        const legendGroup = svg.append("g").attr("transform", `translate(${dimensions.width - 180}, 20)`)
-
-        const legendHeight = 200
-        const legendWidth = 20
-        const legendScale = d3.scaleLinear().domain([2025, 2050]).range([0, legendHeight])
-
-        const legendAxis = d3.axisRight(legendScale).tickFormat(d3.format("d")).ticks(5)
-
-        const gradient = legendGroup
-          .append("defs")
-          .append("linearGradient")
-          .attr("id", "phase-out-gradient")
-          .attr("x1", "0%")
-          .attr("x2", "0%")
-          .attr("y1", "0%")
-          .attr("y2", "100%")
-
-        gradient
-          .selectAll("stop")
-          .data(d3.range(0, 1.1, 0.1))
-          .enter()
-          .append("stop")
-          .attr("offset", (d) => `${d * 100}%`)
-          .attr("stop-color", (d) => {
-            const color = colorScale(2025 + d * 25)
-            return d3.color(color)?.copy({ opacity: 1 })?.formatRgb() || color
-          })
-
-        legendGroup
-          .append("rect")
-          .attr("width", legendWidth)
-          .attr("height", legendHeight)
-          .style("fill", "url(#phase-out-gradient)")
-
-        legendGroup
-          .append("g")
-          .attr("transform", `translate(${legendWidth}, 0)`)
-          .call(legendAxis)
-          .attr("color", colors.text)
-
-        legendGroup
-          .append("text")
-          .attr("x", -10)
-          .attr("y", -10)
-          .text("Phase-out Year")
-          .style("font-size", "12px")
-          .style("user-select", "none")
-          .attr("fill", colors.text)
-
-        const fuelTypes = ["Coal", "Oil", "Gas"]
-        const fuelLegend = svg
-          .append("g")
-          .attr("class", "fuel-legend")
-          .attr("transform", `translate(${dimensions.width - 180}, ${dimensions.height - 80})`)
-
-        fuelTypes.forEach((fuel, i) => {
-          const symbol = d3.symbol().type(getSymbol(fuel)).size(100)
-
-          fuelLegend
-            .append("path")
-            .attr("class", `fuel-symbol ${fuel.toLowerCase()}`)
-            .attr("d", symbol())
-            .attr("transform", `translate(10, ${i * 20})`)
-            .attr("fill", currentTheme === "dark" ? "#ffffff" : "#000000")
-            .attr("stroke", "none")
-
-          fuelLegend
-            .append("text")
-            .attr("x", 25)
-            .attr("y", i * 20 + 5)
-            .text(fuel)
-            .style("font-size", "12px")
-            .style("user-select", "none")
-            .attr("fill", colors.text)
-        })
-
-        // Remove the duplicate note text from the map
-        // Only keep the one in the center
-        svg
-          .selectAll("text")
-          .filter(function () {
-            return d3.select(this).text() === "Note: Marker size proportional to emissions"
-          })
-          .remove()
-
-        // Update the note text position to be in the center
-        svg
-          .append("text")
-          .attr("x", dimensions.width / 2)
-          .attr("y", dimensions.height - 10)
-          .attr("text-anchor", "middle")
-          .style("font-size", "12px")
-          .style("user-select", "none")
-          .attr("fill", colors.text)
-          .text("Note: Marker size proportional to emissions")
-
-        // Zoom controls
-        const controlsGroup = svg.append("g").attr("transform", `translate(20, ${dimensions.height - 100})`)
-        controlsGroup.attr("class", "controls")
-
-        const zoomControls = controlsGroup.append("g")
-        zoomControls
-          .append("rect")
-          .attr("width", 30)
-          .attr("height", 60)
-          .attr("fill", colors.controls)
-          .attr("stroke", colors.border)
-
-        zoomControls
-          .append("text")
-          .attr("x", 15)
-          .attr("y", 20)
-          .attr("text-anchor", "middle")
-          .style("font-size", "16px")
-          .style("cursor", "pointer")
-          .style("user-select", "none")
-          .attr("fill", colors.text)
-          .text("+")
-          .on("click", () => {
-            svg
-              .transition()
-              .duration(750)
-              .call(zoom.scaleBy as any, 1.5)
-          })
-
-        zoomControls
-          .append("text")
-          .attr("x", 15)
-          .attr("y", 50)
-          .attr("text-anchor", "middle")
-          .style("font-size", "16px")
-          .style("cursor", "pointer")
-          .style("user-select", "none")
-          .attr("fill", colors.text)
-          .text("−")
-          .on("click", () => {
-            svg
-              .transition()
-              .duration(750)
-              .call(zoom.scaleBy as any, 0.67)
-          })
-
-        // Home button
-        const homeButton = controlsGroup.append("g").attr("transform", "translate(0, 70)")
-        homeButton
-          .append("rect")
-          .attr("width", 30)
-          .attr("height", 30)
-          .attr("fill", colors.controls)
-          .attr("stroke", colors.border)
-          .style("cursor", "pointer")
-
-        homeButton
-          .append("text")
-          .attr("x", 15)
-          .attr("y", 20)
-          .attr("text-anchor", "middle")
-          .style("font-size", "12px")
-          .style("cursor", "pointer")
-          .style("user-select", "none")
-          .attr("fill", colors.text)
-          .text("⌂")
-          .on("click", () => {
-            svg
-              .transition()
-              .duration(750)
-              .call(zoom.transform as any, initialTransformRef.current!)
-          })
+        // Add legend
+        updateLegend()
+        
+        // Add points
+        updatePoints()
 
         setMapInitialized(true)
-        updatePoints()
+      }).catch((error: any) => {
+        console.error("Error loading map data:", error)
+        setError("Failed to load map data. Please try again later.")
       })
-    } catch (err) {
-      console.error("Error rendering map:", err)
-      setError("An error occurred while rendering the map")
+    } catch (err: any) {
+      console.error("Error initializing map:", err)
+      setError(err.message || "An error occurred while initializing the map")
     }
-  }, [data, projection, colorScale, getSymbol, updatePoints, mapInitialized, colors, dimensions, currentTheme])
+  }, [data, svgRef, dimensions, colors, projection, updatePoints, updateLegend, mapInitialized])
 
   useEffect(() => {
+    if (dimensions.width > 0 && !mapInitialized) {
     initializeMap()
-  }, [initializeMap])
+    }
+  }, [dimensions, initializeMap, mapInitialized])
 
   useEffect(() => {
     if (mapInitialized) {
       updatePoints()
     }
-  }, [mapInitialized, updatePoints])
+  }, [currentYear, mapInitialized, updatePoints])
 
-  // Update map when theme changes
+  // Update legend when dimensions change
   useEffect(() => {
-    if (svgRef.current && mapInitialized) {
-      const svg = d3.select(svgRef.current)
-
-      // Update background (ocean)
-      svg.select("rect").attr("fill", colors.background)
-
-      // Update country paths
-      svg.selectAll("path.country-path")
+    if (mapInitialized && dimensions.width > 0) {
+      updateLegend()
+    }
+  }, [dimensions, mapInitialized, updateLegend])
+  
+  // Update when theme changes
+  useEffect(() => {
+    if (mapInitialized) {
+      // Update background color
+      if (svgRef.current) {
+        d3.select(svgRef.current)
+          .select("rect")
+          .attr("fill", colors.background)
+      }
+      
+      // Update country colors
+      d3.select(svgRef.current)
+        .select(".countries-group")
+        .selectAll("path")
         .attr("fill", colors.land)
         .attr("stroke", colors.border)
-        .attr("stroke-width", 1)
-        .attr("stroke-opacity", 0.9)
-
-      // Update text elements
-      svg.selectAll("text").attr("fill", colors.text)
-
-      // Update controls
-      svg.selectAll(".controls rect").attr("fill", colors.controls)
-
-      // Update legend shapes
-      svg
-        .selectAll(".fuel-legend .fuel-symbol")
-        .attr("fill", currentTheme === "dark" ? "#ffffff" : "#000000")
-        .attr("stroke", "none")
-
-      // Don't reset the points, just update their visibility
+      
+      // Update legends and text
+      updateLegend()
       updatePoints()
     }
-  }, [colors, mapInitialized, updatePoints, currentTheme])
+  }, [colors, mapInitialized, updateLegend, updatePoints])
 
   const handleYearChange = (year: number) => {
     setCurrentYear(year)
   }
 
-  const handleResetView = useCallback(() => {
-    if (svgRef.current) {
-      const svg = d3.select(svgRef.current)
-      const zoom = d3
-        .zoom()
-        .scaleExtent([1, 8])
-        .translateExtent([
-          [-200, -200],
-          [dimensions.width + 200, dimensions.height + 200],
-        ])
-
-      svg
+  const handleResetView = () => {
+    if (svgRef.current && zoomRef.current) {
+      // Use the stored zoom reference to reset the view
+      d3.select(svgRef.current)
         .transition()
         .duration(750)
-        .call(zoom.transform as any, d3.zoomIdentity)
-
-      svg.select(".map-container").transition().duration(750).attr("transform", "translate(0,0) scale(1)")
+        .call(zoomRef.current.transform, d3.zoomIdentity)
     }
-  }, [dimensions])
+  }
 
   if (error) {
-    return <div className="text-red-500">{error}</div>
+    return (
+      <div className="p-4 bg-destructive/10 text-destructive rounded-md">
+        <h3 className="font-semibold mb-2">Error Loading Map</h3>
+        <p>{error}</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
       <div 
         ref={containerRef} 
-        className="relative w-full h-[400px] select-none" 
-        style={{ 
-          backgroundColor: colors.background,
-          WebkitUserSelect: 'none',
-          MozUserSelect: 'none',
-          msUserSelect: 'none',
-          userSelect: 'none'
-        }}
+        className="relative w-full h-[400px] overflow-hidden rounded-lg border border-border" 
       >
+        {/* Map controls */}
+        <div className="absolute top-4 right-4 z-10 flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetView}
+            className="bg-background/80 backdrop-blur-sm"
+          >
+            <Home className="h-4 w-4 mr-1" />
+            Reset View
+          </Button>
+          
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
+                <Info className="h-4 w-4 mr-1" />
+                Info
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Figure Notes</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {FIGURE_NOTES}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </div>
+        
+        {/* SVG Map */}
         <svg
           ref={svgRef}
-          className="w-full h-full"
-          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-          preserveAspectRatio="xMidYMid meet"
-          style={{
-            WebkitUserSelect: 'none',
-            MozUserSelect: 'none',
-            msUserSelect: 'none',
-            userSelect: 'none'
-          }}
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{ background: colors.background }}
+          className="overflow-visible"
         />
       </div>
-      <div className="flex items-center justify-between gap-4">
-        <TimelineSlider minYear={2025} maxYear={2050} currentYear={currentYear} onChange={handleYearChange} />
-        <Button variant="outline" size="sm" onClick={handleResetView}>
-          <Home className="mr-2 h-4 w-4" />
-          Reset View
-        </Button>
+      
+      {/* Timeline controls */}
+      <div className="mt-4">
+        <TimelineSlider
+          minYear={2025}
+          maxYear={2050}
+          currentYear={currentYear}
+          onChange={handleYearChange}
+        />
       </div>
     </div>
   )

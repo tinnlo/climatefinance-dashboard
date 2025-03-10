@@ -8,6 +8,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
+import { Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 const COST_VARIABLES = [
   { id: "cost_battery_grid", name: "Grid Battery Cost", color: "#d67f55" },
@@ -17,6 +27,8 @@ const COST_VARIABLES = [
   { id: "investment_cost", name: "Investment Cost", color: "#329b9d" },
   { id: "opportunity_cost", name: "Opportunity Cost", color: "#00B4D8" },
 ]
+
+const FIGURE_NOTES = `In this Figure, the breakdown of the decarbonization costs of EMDEs as a whole and eight countries with large power sector emissions (i.e., India, USA, Indonesia, Vietnam, Türkiye, Germany, Poland, and Kazakhstan) are displayed, for both the time horizon to 2035 and the time horizon to 2050. Country costs of decarbonization consist of (i) the opportunity costs to phase out fossil fuel power plants early (i.e., the stranded asset value of a power plant (defined as the expected discounted value of future missed cashflows of the power plant resulting from closing it down early according to NGFS NZ2050-1.5°C-50% decarbonization scenario relative to free cashflows earned in the NGFS GCAM6.0 Current Policy scenario), the compensation to power plant workers for missed wages; and retraining cost); the (ii) investment costs in renewable power plants (plus supporting short- and long-duration energy storage and grid extensions) to replace the fossil fuel power plants that are closed early keep up with any growth in electricity demand. Here we assume that each country, and EMDEs as a whole, pays for all its decarbonization costs (i.e., no foreign climate finance offerings or private sector co-payment). For each country, and for EMDEs as a whole, we assume decarbonization occurs via a decarbonization pathway in line with the NGFS NZ2050-1.5°C-50% decarbonization scenario. We use the NGFS GCAM6.0 Current Policy scenario to project electricity demand, for each fossil fuel power plant type, in each country, under business-as-usual.`
 
 interface StackedCostChartProps {
   className?: string
@@ -111,7 +123,25 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   return (
     <Card className={cn("dark:bg-[#2F3A2F] flex flex-col", className)}>
       <CardHeader className="flex-none">
-        <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Figure Notes</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Figure Notes</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {FIGURE_NOTES}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </div>
         <CardDescription>Cost components from 2025 to 2050 - {COUNTRY_NAMES[country]}</CardDescription>
         <div className="flex flex-wrap gap-2 mb-4">
           {COST_VARIABLES.map((variable) => (

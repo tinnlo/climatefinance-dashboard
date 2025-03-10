@@ -6,6 +6,18 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 
 import { cn } from "@/lib/utils"
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { useTheme } from "next-themes"
+import { Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const FIGURE_NOTES = "Placeholder for climate finance chart figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the climate finance needs visualization."
 
 const COLORS = {
   finance: ["#b3de69", "#80b1d3", "#8dd3c7"],
@@ -141,7 +153,25 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
   return (
     <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
-        <CardTitle>Annual Climate Finance Needs</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          Annual Climate Finance Needs
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Figure Notes</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Figure Notes</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {FIGURE_NOTES}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </CardTitle>
         <CardDescription>Fiscal Cost (%) 2025-2035 - {COUNTRY_NAMES[country]}</CardDescription>
       </CardHeader>
       <CardContent>

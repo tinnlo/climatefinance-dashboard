@@ -76,7 +76,7 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4 mb-4">
+      <div className="flex justify-between items-center mb-4">
         <Select onValueChange={setSelectedScenario} defaultValue={selectedScenario}>
           <SelectTrigger className="w-[300px]">
             <SelectValue placeholder="Select a scenario" />
@@ -90,6 +90,7 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
           </SelectContent>
         </Select>
       </div>
+
       <div ref={chartRef} className="w-full h-[450px]">
         <ResponsiveContainer width="100%" height="92%">
           <ComposedChart data={chartData} margin={{ top: 20, right: 80, left: 65, bottom: 20 }}>
@@ -107,7 +108,7 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
                 position: "insideLeft",
                 fill: colors.text,
                 dx: -10,
-                dy: 110,
+                dy: 120,
               }}
             />
             <YAxis
@@ -120,7 +121,7 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
                 position: "insideRight",
                 fill: colors.text,
                 dx: 15,
-                dy: 110,
+                dy: 130,
               }}
               tickFormatter={(value) => (value / 1000).toFixed(1)}
             />
@@ -223,4 +224,3 @@ export function PhaseOutChart({ country = "IN", data }: { country?: string; data
     </div>
   )
 }
-

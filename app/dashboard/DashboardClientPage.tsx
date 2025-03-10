@@ -9,16 +9,27 @@ import { PhaseOutMap } from "@/components/phase-out-map"
 import { PhaseOutChart } from "@/components/phase-out-chart"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
+import { Loader2, Info } from "lucide-react"
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StackedCostChart } from "@/components/stacked-cost-chart"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 const orders = [
   { value: "maturity", label: "By Power Plant Maturity" },
   { value: "emission_factor", label: "By Power Plant Emission Intensity" },
   { value: "emissions_per_OC_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
 ]
+
+const PHASE_OUT_NOTES = "Placeholder for phase-out chart figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the phase-out chart."
 
 export default function DashboardClientPage() {
   const [selectedCountry, setSelectedCountry] = useState("in")
@@ -159,9 +170,31 @@ export default function DashboardClientPage() {
           { className: "dark:bg-[#2F3A2F]" },
           h(
             CardHeader,
-            null,
-            h(CardTitle, null, "Phase-Out Pipeline"),
-            h(CardDescription, null, "Annual emissions reduction and cumulative avoided emissions"),
+            { className: "relative" },
+            h(CardTitle, { className: "flex items-center justify-between" }, 
+              "Phase-Out Pipeline",
+              h(Dialog, null,
+                h(DialogTrigger, { asChild: true },
+                  h(Button, { 
+                    variant: "ghost", 
+                    size: "icon", 
+                    className: "h-8 w-8" 
+                  }, 
+                    h(Info, { className: "h-4 w-4" }),
+                    h("span", { className: "sr-only" }, "Figure Notes")
+                  )
+                ),
+                h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
+                  h(DialogHeader, null,
+                    h(DialogTitle, null, "Figure Notes"),
+                    h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
+                      PHASE_OUT_NOTES
+                    )
+                  )
+                )
+              )
+            ),
+            h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`),
           ),
           h(
             CardContent,

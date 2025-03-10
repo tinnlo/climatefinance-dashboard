@@ -1,12 +1,23 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Legend } from "recharts"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Legend, Tooltip } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { COST_COLORS, COUNTRY_NAMES } from "@/lib/constants"
 import type { CostData } from "@/lib/process-data"
 import { cn } from "@/lib/utils"
+import { Info } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const FIGURE_NOTES = "Placeholder for cost chart figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the cost variables chart."
 
 interface ApiResponse {
   countries: {
@@ -120,7 +131,25 @@ export function CostChart({ className, country = "in" }: { className?: string; c
   return (
     <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
-        <CardTitle>Total Costs: Opportunity Costs and Renewable Energy Investments</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Total Costs: Opportunity Costs and Renewable Energy Investments</CardTitle>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Figure Notes</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Figure Notes</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {FIGURE_NOTES}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </div>
         <CardDescription>All values are in Present Value (PV) - {COUNTRY_NAMES[country]}</CardDescription>
       </CardHeader>
       <CardContent>
@@ -131,12 +160,9 @@ export function CostChart({ className, country = "in" }: { className?: string; c
               tickFormatter={(value) => `${value.toFixed(1)}`}
               label={{ value: "Trillion USD", angle: -90, position: "insideLeft" }}
             />
-            <ChartTooltip>
-              <ChartTooltipContent
-                style={{ fontSize: "12px" }}
-                format={(value: number, name: string) => [`${value.toFixed(3)}T USD`, SHORT_NAMES[name] || name]}
-              />
-            </ChartTooltip>
+            <Tooltip 
+              formatter={(value: number, name: string) => [`${value.toFixed(3)}T USD`, SHORT_NAMES[name] || name]}
+            />
             <Legend
               layout="horizontal"
               align="center"

@@ -8,8 +8,18 @@ import { COUNTRY_NAMES } from "@/lib/constants"
 import { useTheme } from "next-themes"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Download, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const FIGURE_NOTES = "Placeholder for system cost and benefits figure notes. This will be replaced with detailed information about the methodology, data sources, and interpretation of the system cost and benefits chart."
 
 // Colors for the pie charts
 const COLORS = {
@@ -142,7 +152,25 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
   return (
     <Card className={cn("dark:bg-[#2F3A2F] flex flex-col", className)}>
       <CardHeader className="flex-none">
-        <CardTitle>System Cost and Benefits</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>System Cost and Benefits</CardTitle>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Figure Notes</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Figure Notes</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {FIGURE_NOTES}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </div>
         <CardDescription>
           Comparison of total costs and benefits (Trillion USD) - {COUNTRY_NAMES[country]}
         </CardDescription>
