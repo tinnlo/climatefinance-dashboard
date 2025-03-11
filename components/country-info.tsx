@@ -14,6 +14,7 @@ interface CountryData {
   GDP_2023: number
   Emission_2023: number
   Emissions_Share_2023: number
+  Emissions_Change_2023: number
   End_target_percentage_reduction?: number
   End_target_baseline_year?: number
   End_target_year?: number
@@ -138,12 +139,17 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           {/* Emissions Section */}
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Emissions (2023)</p>
-            <p className="text-xl font-medium">
-              {data.Emission_2023.toFixed(2)} Mt CO2e/year
-              <span className="text-sm ml-2 text-muted-foreground">
-                ({data.Emissions_Share_2023.toFixed(2)}% of global emissions)
-              </span>
-            </p>
+            <div>
+              <p className="text-xl font-medium flex items-center">
+                {data.Emission_2023.toFixed(2)} Mt CO2e/year
+                <span className="text-sm ml-2" style={{ color: data.Emissions_Change_2023 > 0 ? '#ef4444' : '#22c55e' }}>
+                  ({data.Emissions_Change_2023 > 0 ? '+' : ''}{data.Emissions_Change_2023.toFixed(1)}% from 2022)
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {data.Emissions_Share_2023.toFixed(2)}% of global emissions
+              </p>
+            </div>
           </div>
 
           {/* NDC Target Section */}
