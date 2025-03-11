@@ -134,8 +134,8 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
             data={chartData} 
             margin={{ 
               top: 20, 
-              right: 30, 
-              left: 10, 
+              right: 10,
+              left: 0,
               bottom: 20 
             }}
           >
@@ -149,14 +149,14 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
               yAxisId="left"
               stroke={colors.text}
               fontSize={12}
-              width={55}
+              width={40}
               label={{
                 value: "Annual Emission Reduction (MtCO2)",
                 angle: -90,
                 position: "insideLeft",
                 fill: colors.text,
                 fontSize: 12,
-                dx: -10,
+                dx: -1,
                 dy: 90,
                 className: "hidden md:block"
               }}
@@ -166,14 +166,14 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
               orientation="right"
               stroke={colors.text}
               fontSize={12}
-              width={55}
+              width={40}
               label={{
                 value: "Cumulative Avoided Emissions (GtCO2)",
                 angle: 90,
                 position: "insideRight",
                 fill: colors.text,
                 fontSize: 12,
-                dx: 15,
+                dx: 4,
                 dy: 95,
                 className: "hidden md:block"
               }}
@@ -241,8 +241,8 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
               verticalAlign="bottom"
               height={90}
               content={({ payload }) => (
-                <div className="flex flex-col gap-2 text-xs md:text-sm w-full px-2 md:px-12 mt-4">
-                  <div className="flex flex-row items-center justify-start gap-3 md:gap-4">
+                <div className="flex flex-col gap-2 text-xs md:text-sm w-full px-1 md:px-12 mt-4">
+                  <div className="flex flex-row items-center justify-start gap-2 md:gap-4">
                     {payload?.slice(0, 3).map((entry: any, index: number) => (
                       <div key={`item-${index}`} className="flex items-center gap-1">
                         <div className="w-2.5 h-2.5 md:w-3 md:h-3" style={{ backgroundColor: entry.color }} />
@@ -250,9 +250,9 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2 mt-1">
                     {payload?.slice(3).map((entry: any, index: number) => (
-                      <div key={`line-${index}`} className="flex items-center gap-2">
+                      <div key={`line-${index}`} className="flex items-center gap-1 md:gap-2">
                         <div
                           className="w-4 h-0.5 flex-shrink-0"
                           style={{

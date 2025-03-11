@@ -132,12 +132,12 @@ export default function DashboardClientPage() {
         h(
           "div",
           { className: "lg:col-span-4" },
-          h(SystemCostBenefits, { country: selectedCountry, className: "h-full" }),
+          h(SystemCostBenefits, { country: selectedCountry, className: "h-[800px] lg:h-full" }),
         ),
         h(
           "div",
           { className: "lg:col-span-6" },
-          h(StackedCostChart, { country: selectedCountry, className: "h-full" }),
+          h(StackedCostChart, { country: selectedCountry, className: "h-[800px] lg:h-full" }),
         ),
       ),
       h(

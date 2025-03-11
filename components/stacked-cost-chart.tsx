@@ -160,7 +160,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0">
-        <div className="h-full flex flex-col">
+        <div className="h-[500px] md:h-full flex flex-col">
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
