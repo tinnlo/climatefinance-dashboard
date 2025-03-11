@@ -115,7 +115,7 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
         <Select onValueChange={setSelectedScenario} defaultValue={selectedScenario}>
-          <SelectTrigger className="w-[300px]">
+          <SelectTrigger className="w-full md:w-[300px]">
             <SelectValue placeholder="Select a scenario" />
           </SelectTrigger>
           <SelectContent>
@@ -128,37 +128,54 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
         </Select>
       </div>
 
-      <div ref={chartRef} className="w-full h-[450px]">
+      <div ref={chartRef} className="w-full h-[550px] md:h-[450px]">
         <ResponsiveContainer width="100%" height="92%">
-          <ComposedChart data={chartData} margin={{ top: 20, right: 80, left: 65, bottom: 20 }}>
+          <ComposedChart 
+            data={chartData} 
+            margin={{ 
+              top: 20, 
+              right: 30, 
+              left: 10, 
+              bottom: 20 
+            }}
+          >
             <XAxis
               dataKey="year"
               stroke={colors.text}
               tickFormatter={(value) => (value % 5 === 0 ? value.toString() : "")}
+              fontSize={12}
             />
             <YAxis
               yAxisId="left"
               stroke={colors.text}
+              fontSize={12}
+              width={55}
               label={{
                 value: "Annual Emission Reduction (MtCO2)",
                 angle: -90,
                 position: "insideLeft",
                 fill: colors.text,
+                fontSize: 12,
                 dx: -10,
-                dy: 120,
+                dy: 90,
+                className: "hidden md:block"
               }}
             />
             <YAxis
               yAxisId="right"
               orientation="right"
               stroke={colors.text}
+              fontSize={12}
+              width={55}
               label={{
                 value: "Cumulative Avoided Emissions (GtCO2)",
                 angle: 90,
                 position: "insideRight",
                 fill: colors.text,
+                fontSize: 12,
                 dx: 15,
-                dy: 130,
+                dy: 95,
+                className: "hidden md:block"
               }}
               tickFormatter={(value) => (value / 1000).toFixed(1)}
             />
@@ -222,41 +239,43 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
             {/* Custom Legend Layout */}
             <Legend
               verticalAlign="bottom"
-              height={50}
+              height={90}
               content={({ payload }) => (
-                <div className="flex flex-col gap-1 text-sm w-full max-w-4xl px-12">
-                  <div className="flex items-center gap-6">
+                <div className="flex flex-col gap-2 text-xs md:text-sm w-full px-2 md:px-12 mt-4">
+                  <div className="flex flex-row items-center justify-start gap-3 md:gap-4">
                     {payload?.slice(0, 3).map((entry: any, index: number) => (
                       <div key={`item-${index}`} className="flex items-center gap-1">
-                        <div className="w-3 h-3" style={{ backgroundColor: entry.color }} />
-                        <span>{entry.value}</span>
+                        <div className="w-2.5 h-2.5 md:w-3 md:h-3" style={{ backgroundColor: entry.color }} />
+                        <span className="text-[10px] md:text-xs">{entry.value}</span>
                       </div>
                     ))}
                   </div>
-                  {payload?.slice(3).map((entry: any, index: number) => (
-                    <div key={`line-${index}`} className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-0.5 flex-shrink-0"
-                        style={{
-                          backgroundColor: entry.color,
-                          borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
-                          borderColor: entry.color,
-                        }}
-                      />
-                      <span className="text-xs" title={entry.value}>
-                        {entry.value}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
+                    {payload?.slice(3).map((entry: any, index: number) => (
+                      <div key={`line-${index}`} className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-0.5 flex-shrink-0"
+                          style={{
+                            backgroundColor: entry.color,
+                            borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
+                            borderColor: entry.color,
+                          }}
+                        />
+                        <span className="text-[10px] md:text-xs" title={entry.value}>
+                          {entry.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground flex flex-col gap-0.5 mt-1">
+                    <div>(N) = Number of plants shut down in that year</div>
+                    <div>Start Rank → End Rank of plants in phase-out sequence</div>
+                  </div>
                 </div>
               )}
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <div className="text-xs text-muted-foreground flex flex-col gap-0.5 -mt-8 absolute right-[180px] text-right">
-          <div>(N) = Number of plants shut down in that year</div>
-          <div>Start Rank → End Rank of plants in phase-out sequence</div>
-        </div>
       </div>
     </div>
   )

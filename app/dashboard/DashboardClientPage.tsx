@@ -131,8 +131,8 @@ export default function DashboardClientPage() {
         { className: "grid gap-6 lg:grid-cols-10" },
         h(
           "div",
-          { className: "lg:col-span-4" },
-          h(SystemCostBenefits, { country: selectedCountry, className: "h-[500px]" }),
+          { className: "lg:col-span-4 min-h-[700px] lg:min-h-[500px]" },
+          h(SystemCostBenefits, { country: selectedCountry }),
         ),
         h(
           "div",

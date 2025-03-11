@@ -160,42 +160,44 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
             {data.End_target_text && (
               <div className="col-span-2 space-y-1">
                 <p className="text-sm text-muted-foreground">Target Details</p>
-                <p className="text-sm text-muted-foreground mt-1">{data.End_target_text}</p>
+                <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">{data.End_target_text}</p>
               </div>
             )}
             {data.NDC_2020_statement && (
               <div className="col-span-2 space-y-1">
                 <p className="text-sm text-muted-foreground">NDC 2020 Statement</p>
-                <p className="text-sm text-muted-foreground mt-1">{data.NDC_2020_statement}</p>
+                <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">{data.NDC_2020_statement}</p>
                 {data.NDC_2020_source && (
-                  <a 
-                    href={data.NDC_2020_source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 mt-1 inline-flex items-center gap-1"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      window.open(data.NDC_2020_source, '_blank', 'noopener,noreferrer')
-                    }}
-                  >
-                    Source Document
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4"
+                  <div className="mt-2 flex items-start gap-1">
+                    <a 
+                      href={data.NDC_2020_source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 break-all"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        window.open(data.NDC_2020_source, '_blank', 'noopener,noreferrer')
+                      }}
                     >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </a>
+                      Source Document
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4 flex-shrink-0"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </a>
+                  </div>
                 )}
               </div>
             )}
