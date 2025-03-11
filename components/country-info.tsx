@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { convertToIso3 } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 interface CountryData {
   Country_ISO3: string
@@ -25,7 +26,7 @@ interface CountryData {
   NDC_2025_source?: string
 }
 
-export function CountryInfo({ country = "in" }: { country?: string }) {
+export function CountryInfo({ country = "in", className }: { country?: string; className?: string }) {
   const [data, setData] = useState<CountryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +74,7 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
 
   if (loading) {
     return (
-      <Card className="dark:bg-[#2F3A2F]">
+      <Card className={cn("dark:bg-[#2F3A2F]", className)}>
         <CardContent className="flex items-center justify-center h-[200px]">
           <p>Loading...</p>
         </CardContent>
@@ -83,7 +84,7 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
 
   if (error) {
     return (
-      <Card className="dark:bg-[#2F3A2F]">
+      <Card className={cn("dark:bg-[#2F3A2F]", className)}>
         <CardContent className="flex items-center justify-center h-[200px]">
           <p className="text-red-500">Error: {error}</p>
         </CardContent>
@@ -93,7 +94,7 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
 
   if (!data) {
     return (
-      <Card className="dark:bg-[#2F3A2F]">
+      <Card className={cn("dark:bg-[#2F3A2F]", className)}>
         <CardContent className="flex items-center justify-center h-[200px]">
           <p>No data available for country code: {country}</p>
         </CardContent>
@@ -102,7 +103,7 @@ export function CountryInfo({ country = "in" }: { country?: string }) {
   }
 
   return (
-    <Card className="dark:bg-[#2F3A2F]">
+    <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-4xl font-semibold">{data.Country.toUpperCase()}</CardTitle>

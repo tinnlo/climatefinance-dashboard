@@ -74,38 +74,30 @@ const sampleData = {
 
 export function ClimateFinanceChart({ className, country = "in" }: { className?: string; country?: string }) {
   const [data, setData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { theme } = useTheme()
 
   useEffect(() => {
-    setIsLoading(true)
+    setLoading(true)
     fetch(`/api/climate-finance?country=${country}`)
       .then(async (res) => {
         if (!res.ok) {
-          return null // Instead of throwing an error, we'll just return null
-        }
-        const contentType = res.headers.get("content-type")
-        if (!contentType || !contentType.includes("application/json")) {
-          return null // Again, return null instead of throwing an error
+          throw new Error("Failed to fetch data")
         }
         return res.json()
       })
-      .then((fetchedData) => {
-        if (fetchedData) {
-          setData(fetchedData)
-        } else {
-          // Silently fall back to sample data
-          setData(sampleData[country as keyof typeof sampleData] || sampleData.default)
-        }
+      .then((data) => {
+        setData(data)
       })
-      .catch(() => {
-        // Silently fall back to sample data without logging the error
+      .catch((error) => {
+        console.error("Error fetching data:", error)
         setData(sampleData[country as keyof typeof sampleData] || sampleData.default)
       })
-      .finally(() => setIsLoading(false))
+      .finally(() => setLoading(false))
   }, [country])
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Card className={cn("dark:bg-[#2F3A2F]", className)}>
         <CardHeader>
@@ -117,6 +109,16 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span>Loading...</span>
           </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className={cn("dark:bg-[#2F3A2F]", className)}>
+        <CardContent className="flex items-center justify-center h-[200px]">
+          <p className="text-red-500">Error: {error}</p>
         </CardContent>
       </Card>
     )

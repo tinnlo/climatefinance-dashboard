@@ -122,21 +122,21 @@ export default function DashboardClientPage() {
       ),
       h(
         "div",
-        { className: "grid gap-6 md:grid-cols-2" },
-        h(CountryInfo, { country: selectedCountry }),
-        h(ClimateFinanceChart, { country: selectedCountry }),
+        { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
+        h(CountryInfo, { className: "h-full", country: selectedCountry }),
+        h(ClimateFinanceChart, { className: "h-full", country: selectedCountry }),
       ),
       h(
         "div",
-        { className: "grid gap-6 lg:grid-cols-10" },
+        { className: "grid grid-cols-1 lg:grid-cols-10 gap-4 mt-4" },
         h(
           "div",
-          { className: "lg:col-span-4 h-[700px] lg:h-[600px]" },
+          { className: "lg:col-span-4" },
           h(SystemCostBenefits, { country: selectedCountry, className: "h-full" }),
         ),
         h(
           "div",
-          { className: "lg:col-span-6 h-[700px] lg:h-[600px]" },
+          { className: "lg:col-span-6" },
           h(StackedCostChart, { country: selectedCountry, className: "h-full" }),
         ),
       ),
