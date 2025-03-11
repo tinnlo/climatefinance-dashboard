@@ -9,15 +9,17 @@ import { cn } from "@/lib/utils"
 interface CountryData {
   Country_ISO3: string
   Country: string
+  Region: string
+  Population: number
+  GDP_2023: number
   Emission_2023: number
+  Emissions_Share_2023: number
   End_target_percentage_reduction?: number
   End_target_baseline_year?: number
   End_target_year?: number
   Status_of_end_target?: string
   Date_of_last_status_update?: number
   End_target_text?: string
-  Population?: number
-  Last_updated: string
   NDC_2020_status?: string
   NDC_2020_statement?: string
   NDC_2020_source?: string
@@ -106,19 +108,18 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-4xl font-semibold">{data.Country.toUpperCase()}</CardTitle>
-          <div className="flex gap-2">
-            {data.Status_of_end_target && (
-              <Badge variant="outline">{data.Status_of_end_target}</Badge>
-            )}
-            {data.Date_of_last_status_update && (
-              <Badge variant="secondary">Last Updated: {data.Date_of_last_status_update}</Badge>
-            )}
+          <div>
+            <CardTitle className="text-4xl font-semibold">{data.Country}</CardTitle>
+            <div className="flex gap-2 mt-2">
+              <Badge variant="outline">{data.Country_ISO3}</Badge>
+              <Badge variant="secondary">{data.Region}</Badge>
+            </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="grid gap-2">
+        <div className="grid gap-4">
+          {/* Key Statistics */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Population</p>
@@ -127,78 +128,128 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Emissions (2023)</p>
-              <p className="text-xl font-medium">{data.Emission_2023.toFixed(2)} Mt CO2e/year</p>
-            </div>
-            <div className="col-span-2 space-y-1">
-              <p className="text-sm text-muted-foreground">Target Year</p>
+              <p className="text-sm text-muted-foreground">GDP (2023)</p>
               <p className="text-xl font-medium">
-                {data.End_target_year || 'N/A'}
+                ${data.GDP_2023 ? data.GDP_2023.toLocaleString() : 'N/A'}
               </p>
             </div>
-            {data.End_target_percentage_reduction && (
-              <div className="col-span-2 space-y-1">
-                <p className="text-sm text-muted-foreground">Emission Reduction Target</p>
-                <p className="text-xl font-medium">
-                  {data.End_target_percentage_reduction}% by {data.End_target_year}
-                  {data.End_target_baseline_year && (
-                    <span className="text-sm ml-2">
-                      (from {data.End_target_baseline_year} baseline)
-                    </span>
-                  )}
-                </p>
+          </div>
+
+          {/* Emissions Section */}
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Emissions (2023)</p>
+            <p className="text-xl font-medium">
+              {data.Emission_2023.toFixed(2)} Mt CO2e/year
+              <span className="text-sm ml-2 text-muted-foreground">
+                ({(data.Emissions_Share_2023 * 100).toFixed(2)}% of global emissions)
+              </span>
+            </p>
+          </div>
+
+          {/* NDC Target Section */}
+          {data.End_target_percentage_reduction && (
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-medium">NDC Target:</p>
+                <Badge variant="outline">{data.Status_of_end_target}</Badge>
+                {data.Date_of_last_status_update && (
+                  <Badge variant="secondary">Updated: {data.Date_of_last_status_update}</Badge>
+                )}
               </div>
-            )}
+              <p className="text-xl">
+                {data.End_target_percentage_reduction}% by {data.End_target_year}
+                {data.End_target_baseline_year && (
+                  <span className="text-sm ml-2">
+                    (from {data.End_target_baseline_year} baseline)
+                  </span>
+                )}
+              </p>
+              {data.End_target_text && (
+                <p className="text-sm text-muted-foreground mt-2 break-words whitespace-pre-wrap">
+                  {data.End_target_text}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Progress Report Section */}
+          <div className="space-y-4 border-t pt-4">
+            <p className="text-lg font-medium">Progress Report</p>
+            
+            {/* 2025 NDC Status */}
             {data.NDC_2025_status && (
-              <div className="col-span-2 space-y-1">
-                <p className="text-sm text-muted-foreground">NDC 2025 Status</p>
-                <p className="text-xl font-medium">{data.NDC_2025_status}</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge>2025 NDC</Badge>
+                  <span className="font-medium">{data.NDC_2025_status}</span>
+                </div>
                 {data.NDC_2025_statement && (
-                  <p className="text-sm text-muted-foreground mt-1">{data.NDC_2025_statement}</p>
+                  <p className="text-sm text-muted-foreground">{data.NDC_2025_statement}</p>
+                )}
+                {data.NDC_2025_source && (
+                  <a 
+                    href={data.NDC_2025_source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1"
+                  >
+                    Source Document
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                    >
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </a>
                 )}
               </div>
             )}
-            {data.End_target_text && (
-              <div className="col-span-2 space-y-1">
-                <p className="text-sm text-muted-foreground">Target Details</p>
-                <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">{data.End_target_text}</p>
-              </div>
-            )}
-            {data.NDC_2020_statement && (
-              <div className="col-span-2 space-y-1">
-                <p className="text-sm text-muted-foreground">NDC 2020 Statement</p>
-                <p className="text-sm text-muted-foreground mt-1 break-words whitespace-pre-wrap">{data.NDC_2020_statement}</p>
+
+            {/* 2020 NDC Status */}
+            {data.NDC_2020_status && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge>2020 NDC</Badge>
+                  <span className="font-medium">{data.NDC_2020_status}</span>
+                </div>
+                {data.NDC_2020_statement && (
+                  <p className="text-sm text-muted-foreground">{data.NDC_2020_statement}</p>
+                )}
                 {data.NDC_2020_source && (
-                  <div className="mt-2 flex items-start gap-1">
-                    <a 
-                      href={data.NDC_2020_source}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1 break-all"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        window.open(data.NDC_2020_source, '_blank', 'noopener,noreferrer')
-                      }}
+                  <a 
+                    href={data.NDC_2020_source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center gap-1"
+                  >
+                    Source Document
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
                     >
-                      Source Document
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4 flex-shrink-0"
-                      >
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <polyline points="15 3 21 3 21 9" />
-                        <line x1="10" y1="14" x2="21" y2="3" />
-                      </svg>
-                    </a>
-                  </div>
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  </a>
                 )}
               </div>
             )}
