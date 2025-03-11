@@ -19,18 +19,12 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-medium">Address</h3>
                 <p className="text-sm text-muted-foreground">
-                  123 Climate Action Street
-                  <br />
-                  London, UK
+                  3 Cole Park Road, Twickenham, UK
                 </p>
               </div>
               <div>
                 <h3 className="font-medium">Email</h3>
-                <p className="text-sm text-muted-foreground">contact@forwardglobalinstitute.org</p>
-              </div>
-              <div>
-                <h3 className="font-medium">Phone</h3>
-                <p className="text-sm text-muted-foreground">+44 (0) 20 1234 5678</p>
+                <p className="text-sm text-muted-foreground">contact@forwardglobalinstitute.com</p>
               </div>
             </CardContent>
           </Card>
@@ -42,11 +36,11 @@ export default function ContactPage() {
             <CardContent className="space-y-4">
               <div>
                 <h3 className="font-medium">Research Department</h3>
-                <p className="text-sm text-muted-foreground">research@forwardglobalinstitute.org</p>
+                <p className="text-sm text-muted-foreground">research@forwardglobalinstitute.com</p>
               </div>
               <div>
                 <h3 className="font-medium">Data Requests</h3>
-                <p className="text-sm text-muted-foreground">data@forwardglobalinstitute.org</p>
+                <p className="text-sm text-muted-foreground">data@forwardglobalinstitute.com</p>
               </div>
             </CardContent>
           </Card>

@@ -124,13 +124,13 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Population</p>
               <p className="text-xl font-medium">
-                {data.Population ? data.Population.toLocaleString() : 'N/A'}
+                {data.Population ? `${(data.Population / 1000000).toFixed(2)}M` : 'N/A'}
               </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">GDP (2023)</p>
               <p className="text-xl font-medium">
-                ${data.GDP_2023 ? data.GDP_2023.toLocaleString() : 'N/A'}
+                ${data.GDP_2023 ? `${(data.GDP_2023 / 1000000000).toFixed(2)}B` : 'N/A'}
               </p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             <p className="text-xl font-medium">
               {data.Emission_2023.toFixed(2)} Mt CO2e/year
               <span className="text-sm ml-2 text-muted-foreground">
-                ({(data.Emissions_Share_2023 * 100).toFixed(2)}% of global emissions)
+                ({data.Emissions_Share_2023.toFixed(2)}% of global emissions)
               </span>
             </p>
           </div>
