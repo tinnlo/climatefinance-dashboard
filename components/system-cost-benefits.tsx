@@ -201,22 +201,22 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col justify-between p-4 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-4">
-          <div className="w-full flex flex-col">
-            <div className="relative h-[160px] md:h-[180px]">
+      <CardContent className="flex-1 flex flex-col justify-between p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 h-full">
+          <div className="w-full flex flex-col justify-center">
+            <div className="relative h-[160px] md:h-[220px] lg:h-[250px] mx-auto w-full max-w-[300px]">
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
-                <p className="text-3xl md:text-2xl font-bold leading-none mb-2">${data.totalCost.toFixed(1)}T</p>
-                <p className="text-base md:text-sm text-muted-foreground mt-1">{data.costGdpPercentage}% of GDP</p>
+                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">${data.totalCost.toFixed(1)}T</p>
+                <p className="text-sm md:text-sm text-muted-foreground">{data.costGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
-                <PieChart>
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
                     data={costsData}
-                    innerRadius={55}
-                    outerRadius={80}
+                    innerRadius={45}
+                    outerRadius={70}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
@@ -232,23 +232,23 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-center font-medium text-lg md:text-base mt-2">Total Cost</p>
+            <p className="text-center font-medium text-base mt-1 md:mt-2">Total Cost</p>
           </div>
 
-          <div className="w-full flex flex-col">
-            <div className="relative h-[160px] md:h-[180px]">
+          <div className="w-full flex flex-col justify-center">
+            <div className="relative h-[160px] md:h-[220px] lg:h-[250px] mx-auto w-full max-w-[300px]">
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
-                <p className="text-3xl md:text-2xl font-bold leading-none mb-2">${data.totalBenefit.toFixed(1)}T</p>
-                <p className="text-base md:text-sm text-muted-foreground mt-1">{data.benefitGdpPercentage}% of GDP</p>
+                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">${data.totalBenefit.toFixed(1)}T</p>
+                <p className="text-sm md:text-sm text-muted-foreground">{data.benefitGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
-                <PieChart>
+                <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
                     data={benefitsData}
-                    innerRadius={55}
-                    outerRadius={80}
+                    innerRadius={45}
+                    outerRadius={70}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
@@ -264,13 +264,13 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-center font-medium text-lg md:text-base mt-2">Total Benefit</p>
+            <p className="text-center font-medium text-base mt-1 md:mt-2">Total Benefit</p>
           </div>
         </div>
 
-        <div className="flex justify-center mt-2 md:mt-6">
-          <Button variant="outline" onClick={handleDownload} className="bg-black/20 py-5 md:py-4 text-base md:text-sm w-full md:w-auto mx-4 md:mx-0">
-            <Download className="mr-2 h-5 w-5 md:h-4 md:w-4" />
+        <div className="flex justify-center mt-2 md:mt-4">
+          <Button variant="outline" onClick={handleDownload} className="bg-black/20 py-4 text-sm w-full md:w-auto mx-4 md:mx-0">
+            <Download className="mr-2 h-4 w-4" />
             Download Yearly Data
           </Button>
         </div>

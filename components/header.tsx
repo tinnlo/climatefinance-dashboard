@@ -20,16 +20,19 @@ export function Header({
   return (
     <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
           <div className="flex flex-col space-y-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Forward_Global_Institute-emDMJscw6WE7xR8LftbOB61EcXg6o4.png"
-                alt="Forward Global Institute"
-                width={300}
-                height={75}
-                className={`h-auto ${theme === "light" ? "invert" : ""}`}
-              />
+            <Link href="/" className="flex items-center">
+              <div className="min-w-[220px] w-[240px] md:w-[300px]">
+                <Image
+                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Forward_Global_Institute-emDMJscw6WE7xR8LftbOB61EcXg6o4.png"
+                  alt="Forward Global Institute"
+                  width={300}
+                  height={75}
+                  className={`w-full h-auto ${theme === "light" ? "invert" : ""}`}
+                  priority
+                />
+              </div>
             </Link>
             {onCountryChange && <SearchCountry onCountryChange={onCountryChange} defaultValue={selectedCountry} />}
           </div>
