@@ -297,31 +297,28 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     if (!svgRef.current || !projection) return
 
     const svg = d3.select(svgRef.current)
-    const container = svg.select(".map-container")
+    const legendContainer = svg.select(".legend-container")
     
     // Remove existing legends
-    container.select(".legend-group").remove()
-    svg.select(".fuel-legend").remove()
-    svg.select(".description-text").remove()
+    legendContainer.selectAll("*").remove()
     
     // Create new legend group
-    const legendGroup = container.append("g").attr("class", "legend-group")
+    const legendGroup = legendContainer.append("g").attr("class", "legend-group")
     
     // Calculate responsive legend position
     const legendWidth = Math.min(200, dimensions.width * 0.4)
     const legendHeight = 60
     
     // Position legends much lower on the map
-    // Leave only 30px from the bottom for the description text
     const legendX = dimensions.width - legendWidth - margin.right
     const legendY = dimensions.height - legendHeight - 30
     
     // Add fuel type legend - position above the phase-out year legend with more space
     const fuelLegendX = legendX
-    const fuelLegendY = legendY - 55 // Significantly increased space between legends
+    const fuelLegendY = legendY - 55
     
     // Create fuel legend group
-    const fuelLegend = svg
+    const fuelLegend = legendContainer
       .append("g")
       .attr("class", "fuel-legend")
     
@@ -448,11 +445,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       .text("2050")
     
     // Add bottom description text - positioned at the very bottom
-    svg
+    legendContainer
       .append("text")
       .attr("class", "description-text")
       .attr("x", dimensions.width / 2)
-      .attr("y", dimensions.height - 10) // Positioned at the very bottom
+      .attr("y", dimensions.height - 10)
       .attr("text-anchor", "middle")
       .attr("fill", colors.text)
       .attr("font-size", "12px")
@@ -474,11 +471,13 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         .attr("height", dimensions.height)
         .attr("fill", colors.background)
 
-      const container = svg.append("g").attr("class", "map-container")
+      // Create separate containers for map and legends
+      const mapContainer = svg.append("g").attr("class", "map-container")
+      mapContainer.append("g").attr("class", "countries-group")
+      mapContainer.append("g").attr("class", "points-group")
 
-      // Create groups for different map elements
-      container.append("g").attr("class", "countries-group")
-      container.append("g").attr("class", "points-group")
+      // Create legend container that won't be affected by zoom
+      svg.append("g").attr("class", "legend-container")
 
       // Create and store the zoom behavior
       const zoom = d3
@@ -489,7 +488,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           [dimensions.width, dimensions.height],
         ])
         .on("zoom", (event: any) => {
-          container.attr("transform", event.transform)
+          mapContainer.attr("transform", event.transform)
         })
 
       // Store the zoom reference for later use
@@ -509,7 +508,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         const countries = feature(worldData, worldData.objects.countries) as unknown as FeatureCollection<Geometry>
 
         // Update country paths with theme-appropriate colors
-        container
+        mapContainer
           .select(".countries-group")
           .selectAll("path")
           .data(countries.features)
@@ -520,11 +519,11 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           .attr("stroke", colors.border)
           .attr("stroke-width", 0.5)
 
-        // Add legend
-        updateLegend()
-        
-        // Add points
+        // Add points first
         updatePoints()
+        
+        // Add legend after points
+        updateLegend()
 
         // Reset zoom to fit the new data
         handleResetView()
@@ -607,7 +606,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mt-6">
       {invalidDataCount > 0 && (
         <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4 mb-4">
           <div className="flex">
@@ -670,7 +669,15 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           height={dimensions.height}
           style={{ background: colors.background }}
           className="overflow-visible"
-        />
+        >
+          <rect
+            width={dimensions.width}
+            height={dimensions.height}
+            fill={colors.background}
+          />
+          <g className="map-container" />
+          <g className="legend-container" />
+        </svg>
       </div>
       
       {/* Timeline controls */}

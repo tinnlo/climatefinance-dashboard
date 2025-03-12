@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StackedCostChart } from "@/components/stacked-cost-chart"
 import { Button } from "@/components/ui/button"
 import { convertToIso3 } from "@/lib/utils"
+import { COUNTRY_NAMES } from "@/lib/constants"
 import {
   Dialog,
   DialogContent,
@@ -23,22 +24,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-
-// Country names mapping
-const COUNTRY_NAMES: { [key: string]: string } = {
-  'eg': 'Egypt',
-  'id': 'Indonesia',
-  'in': 'India',
-  'ir': 'Iran',
-  'ke': 'Kenya',
-  'mx': 'Mexico',
-  'ng': 'Nigeria',
-  'th': 'Thailand',
-  'tz': 'Tanzania',
-  'ug': 'Uganda',
-  'vn': 'Vietnam',
-  'za': 'South Africa'
-} as const
 
 const orders = [
   { value: "maturity", label: "By Power Plant Maturity" },
@@ -109,128 +94,135 @@ export default function DashboardClientPage() {
     h(
       "main",
       { className: "flex-1 space-y-6 p-8 pt-6" },
-      h(
-        "div",
-        { className: "flex items-center justify-between" },
-        h("h2", { className: "text-3xl font-light tracking-tight" }, "Dashboard"),
+      h("div", { className: "mx-auto max-w-[1600px]" },
         h(
           "div",
-          { className: "text-sm text-muted-foreground" },
-          "Showing data for ",
-          h("span", { className: "font-medium" }, COUNTRY_NAMES[selectedCountry]),
-        ),
-      ),
-      h(
-        "div",
-        { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
-        h(CountryInfo, { className: "h-full", country: selectedCountry }),
-        h(ClimateFinanceChart, { className: "h-full", country: selectedCountry }),
-      ),
-      h(
-        "div",
-        { className: "grid grid-cols-1 lg:grid-cols-10 gap-4 mt-4" },
-        h(
-          "div",
-          { className: "lg:col-span-4" },
-          h(SystemCostBenefits, { country: selectedCountry, className: "h-[800px] lg:h-full" }),
-        ),
-        h(
-          "div",
-          { className: "lg:col-span-6" },
-          h(StackedCostChart, { country: selectedCountry, className: "h-[800px] lg:h-full" }),
-        ),
-      ),
-      h(
-        "div",
-        { className: "space-y-6" },
-        h(
-          Card,
-          { className: "w-full dark:bg-black" },
+          { className: "space-y-4" },
           h(
-            CardHeader,
-            null,
-            h(CardTitle, null, "Power Plant Phase-Out Map"),
-            h(CardDescription, null, `Visualizing phase-out schedules for ${COUNTRY_NAMES[selectedCountry]}`),
-          ),
-          h(
-            CardContent,
-            null,
+            "div",
+            { className: "flex items-center justify-between" },
+            h("h2", { className: "text-3xl font-light tracking-tight" }, "Dashboard"),
             h(
               "div",
-              { className: "flex gap-4 mb-4" },
+              { className: "text-sm text-muted-foreground" },
+              "Showing data for ",
+              h("span", { className: "font-medium" }, COUNTRY_NAMES[selectedCountry]),
+            ),
+          ),
+          h(SearchCountry, { onCountryChange: handleCountryChange, defaultValue: selectedCountry }),
+        ),
+        h(
+          "div",
+          { className: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6" },
+          h(CountryInfo, { className: "h-full", country: selectedCountry }),
+          h(SystemCostBenefits, { className: "h-full", country: selectedCountry }),
+        ),
+        h(
+          "div",
+          { className: "grid grid-cols-1 md:grid-cols-10 gap-4 mb-6" },
+          h(
+            "div",
+            { className: "md:col-span-4" },
+            h(ClimateFinanceChart, { className: "h-auto lg:h-[600px]", country: selectedCountry }),
+          ),
+          h(
+            "div",
+            { className: "md:col-span-6" },
+            h(StackedCostChart, { className: "h-auto lg:h-[600px]", country: selectedCountry }),
+          ),
+        ),
+        h(
+          "div",
+          { className: "space-y-6" },
+          h(
+            Card,
+            { className: "w-full dark:bg-black" },
+            h(
+              CardHeader,
+              null,
+              h(CardTitle, null, "Power Plant Phase-Out Map"),
+              h(CardDescription, null, `Visualizing phase-out schedules for ${COUNTRY_NAMES[selectedCountry]}`),
+            ),
+            h(
+              CardContent,
+              null,
               h(
-                Select,
-                { onValueChange: setSelectedOrder, defaultValue: selectedOrder },
-                h(SelectTrigger, { className: "w-[280px]" }, h(SelectValue, { placeholder: "Select an order" })),
+                "div",
+                { className: "flex gap-4 mb-4" },
                 h(
-                  SelectContent,
-                  null,
-                  orders.map((order) => h(SelectItem, { key: order.value, value: order.value }, order.label)),
+                  Select,
+                  { onValueChange: setSelectedOrder, defaultValue: selectedOrder },
+                  h(SelectTrigger, { className: "w-[280px]" }, h(SelectValue, { placeholder: "Select an order" })),
+                  h(
+                    SelectContent,
+                    null,
+                    orders.map((order) => h(SelectItem, { key: order.value, value: order.value }, order.label)),
+                  ),
                 ),
               ),
-            ),
-            isLoading
-              ? h(
-                  "div",
-                  { className: "flex justify-center items-center h-[600px]" },
-                  h(Loader2, { className: "h-8 w-8 animate-spin" }),
-                )
-              : error
+              isLoading
                 ? h(
                     "div",
                     { className: "flex justify-center items-center h-[600px]" },
-                    h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
+                    h(Loader2, { className: "h-8 w-8 animate-spin" }),
                   )
-                : mapData
-                  ? h(PhaseOutMap, { data: mapData })
-                  : h(
+                : error
+                  ? h(
                       "div",
-                      { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
-                      "No data available for this country and scenario."
-                    ),
+                      { className: "flex justify-center items-center h-[600px]" },
+                      h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
+                    )
+                  : mapData
+                    ? h(PhaseOutMap, { data: mapData })
+                    : h(
+                        "div",
+                        { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
+                        "No data available for this country and scenario."
+                      ),
+            ),
           ),
-        ),
-        h(
-          Card,
-          { className: "dark:bg-[#2F3A2F]" },
           h(
-            CardHeader,
-            { className: "relative" },
-            h(CardTitle, { className: "flex items-center justify-between" }, 
-              "Phase-Out Pipeline",
-              h(Dialog, null,
-                h(DialogTrigger, { asChild: true },
-                  h(Button, { 
-                    variant: "ghost", 
-                    size: "icon", 
-                    className: "h-8 w-8" 
-                  }, 
-                    h(Info, { className: "h-4 w-4" }),
-                    h("span", { className: "sr-only" }, "Figure Notes")
-                  )
-                ),
-                h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
-                  h(DialogHeader, null,
-                    h(DialogTitle, null, "Figure Notes"),
-                    h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
-                      PHASE_OUT_NOTES
+            Card,
+            { className: "dark:bg-[#2F3A2F]" },
+            h(
+              CardHeader,
+              { className: "relative" },
+              h(CardTitle, { className: "flex items-center justify-between" }, 
+                "Phase-Out Pipeline",
+                h(Dialog, null,
+                  h(DialogTrigger, { asChild: true },
+                    h(Button, { 
+                      variant: "ghost", 
+                      size: "icon", 
+                      className: "h-8 w-8" 
+                    }, 
+                      h(Info, { className: "h-4 w-4" }),
+                      h("span", { className: "sr-only" }, "Figure Notes")
+                    )
+                  ),
+                  h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
+                    h(DialogHeader, null,
+                      h(DialogTitle, null, "Figure Notes"),
+                      h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
+                        PHASE_OUT_NOTES
+                      )
                     )
                   )
                 )
-              )
+              ),
+              h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
             ),
-            h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
-          ),
-          h(
-            CardContent,
-            null,
-            isLoading
-              ? h(
-                  "div",
-                  { className: "flex justify-center items-center h-[400px]" },
-                  h(Loader2, { className: "h-8 w-8 animate-spin" })
-                )
-              : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
+            h(
+              CardContent,
+              null,
+              isLoading
+                ? h(
+                    "div",
+                    { className: "flex justify-center items-center h-[400px]" },
+                    h(Loader2, { className: "h-8 w-8 animate-spin" })
+                  )
+                : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
+            ),
           ),
         ),
       ),

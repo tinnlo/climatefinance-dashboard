@@ -1,26 +1,20 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Search } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Search } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { COUNTRY_NAMES } from "@/lib/constants"
 
-const countries = [
-  { value: "eg", label: "Egypt" },
-  { value: "id", label: "Indonesia" },
-  { value: "in", label: "India" },
-  { value: "ir", label: "Iran" },
-  { value: "ke", label: "Kenya" },
-  { value: "mx", label: "Mexico" },
-  { value: "ng", label: "Nigeria" },
-  { value: "th", label: "Thailand" },
-  { value: "tz", label: "Tanzania" },
-  { value: "ug", label: "Uganda" },
-  { value: "vn", label: "Vietnam" },
-  { value: "za", label: "South Africa" },
-]
+// Convert COUNTRY_NAMES object to array format needed for the component
+const countries = Object.entries(COUNTRY_NAMES).map(([value, label]) => ({ value, label }))
 
 export function SearchCountry({
   onCountryChange,
@@ -29,44 +23,27 @@ export function SearchCountry({
   onCountryChange: (country: string) => void
   defaultValue?: string
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState(defaultValue)
-
   return (
-    <div className="w-full max-w-sm">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
-            <Search className="mr-2 h-4 w-4" />
-            {value ? countries.find((country) => country.value === value)?.label : "Search country..."}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full max-w-sm p-0">
-          <Command>
-            <CommandInput placeholder="Search country..." />
-            <CommandList>
-              <CommandEmpty>No country found.</CommandEmpty>
-              <CommandGroup>
-                {countries.map((country) => (
-                  <CommandItem
-                    key={country.value}
-                    value={country.value}
-                    onSelect={(currentValue) => {
-                      setValue(currentValue)
-                      onCountryChange(currentValue)
-                      setOpen(false)
-                    }}
-                  >
-                    <Check className={cn("mr-2 h-4 w-4", value === country.value ? "opacity-100" : "opacity-0")} />
-                    {country.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div className="w-full max-w-[280px]">
+      <Select defaultValue={defaultValue} onValueChange={onCountryChange}>
+        <SelectTrigger className="w-full">
+          <Search className="mr-2 h-4 w-4" />
+          <SelectValue placeholder="Select a country" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {countries.map((country) => (
+              <SelectItem
+                key={country.value}
+                value={country.value}
+                className="cursor-pointer"
+              >
+                {country.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   )
 }

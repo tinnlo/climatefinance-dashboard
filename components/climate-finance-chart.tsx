@@ -177,66 +177,70 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
         <CardDescription>Fiscal Cost (%) 2025-2035 - {COUNTRY_NAMES[country]}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData.finance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <XAxis
-                dataKey="name"
-                style={axisStyle}
-                tickLine={{ stroke: "rgb(156 163 175)" }}
-                axisLine={{ stroke: "rgb(156 163 175)" }}
-              />
-              <YAxis
-                domain={[0, 500]}
-                tickFormatter={(value) => `${value}`}
-                style={axisStyle}
-                tickLine={{ stroke: "rgb(156 163 175)" }}
-                axisLine={{ stroke: "rgb(156 163 175)" }}
-              />
-              <Tooltip
-                cursor={false}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-                formatter={(value: number) => [`$${value.toFixed(1)}bn`, "Value"]}
-              />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {chartData.finance.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={COLORS.finance[index % COLORS.finance.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="space-y-4 md:space-y-6">
+          <div className="h-[180px] md:h-[220px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData.finance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <XAxis
+                  dataKey="name"
+                  style={axisStyle}
+                  tickLine={{ stroke: "rgb(156 163 175)" }}
+                  axisLine={{ stroke: "rgb(156 163 175)" }}
+                />
+                <YAxis
+                  domain={[0, 500]}
+                  tickFormatter={(value) => `${value}`}
+                  style={axisStyle}
+                  tickLine={{ stroke: "rgb(156 163 175)" }}
+                  axisLine={{ stroke: "rgb(156 163 175)" }}
+                />
+                <Tooltip
+                  cursor={false}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  formatter={(value: number) => [`$${value.toFixed(1)}bn`, "Value"]}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {chartData.finance.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS.finance[index % COLORS.finance.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData.fiscal} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <XAxis
-                dataKey="name"
-                style={axisStyle}
-                tickLine={{ stroke: "rgb(156 163 175)" }}
-                axisLine={{ stroke: "rgb(156 163 175)" }}
-              />
-              <YAxis
-                domain={[0, 2.5]}
-                tickFormatter={(value) => `${value}%`}
-                style={axisStyle}
-                tickLine={{ stroke: "rgb(156 163 175)" }}
-                axisLine={{ stroke: "rgb(156 163 175)" }}
-              />
-              <Tooltip
-                cursor={false}
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                itemStyle={tooltipItemStyle}
-                formatter={(value: number) => [`${value.toFixed(1)}%`, "Value"]}
-              />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {chartData.fiscal.map((entry: any, index: number) => (
-                  <Cell key={`cell-${index}`} fill={COLORS.fiscal[index % COLORS.fiscal.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="h-[180px] md:h-[220px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData.fiscal} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <XAxis
+                  dataKey="name"
+                  style={axisStyle}
+                  tickLine={{ stroke: "rgb(156 163 175)" }}
+                  axisLine={{ stroke: "rgb(156 163 175)" }}
+                />
+                <YAxis
+                  domain={[0, 2.5]}
+                  tickFormatter={(value) => `${value}%`}
+                  style={axisStyle}
+                  tickLine={{ stroke: "rgb(156 163 175)" }}
+                  axisLine={{ stroke: "rgb(156 163 175)" }}
+                />
+                <Tooltip
+                  cursor={false}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  formatter={(value: number) => [`${value.toFixed(1)}%`, "Value"]}
+                />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {chartData.fiscal.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS.fiscal[index % COLORS.fiscal.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </CardContent>
     </Card>

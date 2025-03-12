@@ -160,44 +160,40 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0">
-        <div className="h-[500px] md:h-full flex flex-col">
-          <div className="flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                <XAxis
-                  dataKey="year"
-                  tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                  tickMargin={20}
-                />
-                <YAxis
-                  label={{
-                    value: "Cost (Trillion USD)",
-                    angle: -90,
-                    position: "insideLeft",
-                    fill: theme === "dark" ? "#ffffff" : "#000000",
-                    offset: 0,
-                  }}
-                  tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                  tickMargin={10}
-                />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  formatter={(value: number, name: string) => [`${value.toFixed(2)}T USD`, name]}
-                  cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }}
-                />
-                {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
-                  <Bar key={variable.id} dataKey={variable.id} stackId="a" fill={variable.color} name={variable.name} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+            <XAxis
+              dataKey="year"
+              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+              angle={-45}
+              textAnchor="end"
+              height={60}
+              tickMargin={20}
+            />
+            <YAxis
+              label={{
+                value: "Cost (Trillion USD)",
+                angle: -90,
+                position: "insideLeft",
+                fill: theme === "dark" ? "#ffffff" : "#000000",
+                offset: 0,
+              }}
+              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+              tickMargin={10}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+              formatter={(value: number, name: string) => [`${value.toFixed(2)}T USD`, name]}
+              cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }}
+            />
+            {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
+              <Bar key={variable.id} dataKey={variable.id} stackId="a" fill={variable.color} name={variable.name} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   )

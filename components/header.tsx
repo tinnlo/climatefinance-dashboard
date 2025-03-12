@@ -4,7 +4,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
-import { SearchCountry } from "@/components/search-country"
 import { useTheme } from "next-themes"
 
 export function Header({
@@ -21,7 +20,7 @@ export function Header({
     <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container py-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
-          <div className="flex flex-col space-y-4">
+          <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <div className="min-w-[220px] w-[240px] md:w-[300px]">
                 <Image
@@ -34,7 +33,6 @@ export function Header({
                 />
               </div>
             </Link>
-            {onCountryChange && <SearchCountry onCountryChange={onCountryChange} defaultValue={selectedCountry} />}
           </div>
           <nav className="flex items-center space-x-6 text-sm font-medium">
             <Link
@@ -44,14 +42,6 @@ export function Header({
               }`}
             >
               Dashboard
-            </Link>
-            <Link
-              href="/analytics"
-              className={`transition-colors hover:text-foreground/80 ${
-                pathname === "/analytics" ? "font-bold text-foreground" : "text-foreground/60"
-              }`}
-            >
-              Analytics
             </Link>
             <Link
               href="/contact"

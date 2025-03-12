@@ -11,14 +11,17 @@ export const COST_COLORS: { [key: string]: string } = {
 }
 
 export const COUNTRY_NAMES: { [key: string]: string } = {
-  emde: "EMDEs",
-  in: "India",
-  us: "USA",
+  eg: "Egypt",
   id: "Indonesia",
+  in: "India",
+  ir: "Iran",
+  ke: "Kenya",
+  mx: "Mexico",
+  ng: "Nigeria",
+  th: "Thailand",
+  tz: "Tanzania",
+  ug: "Uganda",
   vn: "Vietnam",
-  tr: "Turkey",
-  de: "Germany",
-  pl: "Poland",
-  kz: "Kazakhstan",
+  za: "South Africa"
 }
 

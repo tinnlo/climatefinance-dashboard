@@ -5,13 +5,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { convertToIso3 } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Info } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+const COUNTRY_PROFILE_DESCRIPTION = `The country profile infobox displays comprehensive information about each country's emissions and climate commitments using data from several authoritative sources:
+
+1. The emissions data comes from the Emissions Database for Global Atmospheric Research (EDGAR), which provides current greenhouse gas emissions and tracks year-over-year changes. 
+
+2. Climate target information is sourced from the Net Zero Tracker, showing each country's emission reduction goals and their implementation status. 
+
+3. The Nationally Determined Contributions (NDC) Tracker from ClimateWatch provides details about countries' formal commitments under the Paris Agreement. 
+
+4. Economic context is added through GDP data, showing each country's economic scale and its share of the global economy. 
+
+Together, these data sources give users a complete snapshot of each country's current emissions, climate ambitions, and economic context, helping them understand both the challenges and opportunities in addressing climate change.`
 
 interface CountryData {
   Country_ISO3: string
   Country: string
   Region: string
   Population: number
+  Population_Share: number
   GDP_2023: number
+  GDP_Share_2023: number
   Emission_2023: number
   Emissions_Share_2023: number
   Emissions_Change_2023: number
@@ -62,6 +86,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
         
         const countryData = allCountryData.find((c: CountryData) => c.Country_ISO3 === iso3Code)
         console.log('Found country data:', countryData)
+        console.log('GDP Share value:', countryData?.GDP_Share_2023, typeof countryData?.GDP_Share_2023)
         
         setData(countryData || null)
       } catch (error) {
@@ -109,13 +134,27 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-4xl font-semibold">{data.Country}</CardTitle>
-            <div className="flex gap-2 mt-2">
-              <Badge variant="outline">{data.Country_ISO3}</Badge>
-              <Badge variant="secondary">{data.Region}</Badge>
-            </div>
-          </div>
+          <CardTitle className="text-4xl font-semibold">{data.Country}</CardTitle>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Country Profile Information</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>About Country Profile Data</DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                {COUNTRY_PROFILE_DESCRIPTION}
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <Badge variant="outline">{data.Country_ISO3}</Badge>
+          <Badge variant="secondary">{data.Region}</Badge>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -127,11 +166,17 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
               <p className="text-xl font-medium">
                 {data.Population ? `${(data.Population / 1000000).toFixed(2)}M` : 'N/A'}
               </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {typeof data.Population_Share === 'number' ? `${data.Population_Share.toFixed(2)}% of global population` : 'N/A'}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">GDP (2023)</p>
               <p className="text-xl font-medium">
                 ${data.GDP_2023 ? `${(data.GDP_2023 / 1000000000).toFixed(2)}B` : 'N/A'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {typeof data.GDP_Share_2023 === 'number' ? `${data.GDP_Share_2023.toFixed(2)}% of global GDP` : 'N/A'}
               </p>
             </div>
           </div>
