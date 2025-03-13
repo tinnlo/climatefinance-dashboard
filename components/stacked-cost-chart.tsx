@@ -91,12 +91,12 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
 
   if (isLoading) {
     return (
-      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col", className)}>
+      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
         <CardHeader className="flex-none">
           <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
           <CardDescription>Loading data for {COUNTRY_NAMES[country]}...</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0 flex items-center justify-center">
+        <CardContent className="flex-1 flex items-center justify-center">
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span>Loading...</span>
@@ -108,12 +108,12 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
 
   if (error || !data) {
     return (
-      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col", className)}>
+      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
         <CardHeader className="flex-none">
           <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
           <CardDescription>Error loading data for {COUNTRY_NAMES[country]}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 min-h-0 flex items-center justify-center text-destructive">
+        <CardContent className="flex-1 flex items-center justify-center text-destructive">
           <p>{error || "Failed to load data. Please try again later."}</p>
         </CardContent>
       </Card>
@@ -121,7 +121,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   }
 
   return (
-    <Card className={cn("dark:bg-[#2F3A2F] flex flex-col", className)}>
+    <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
       <CardHeader className="flex-none">
         <div className="flex items-center justify-between">
           <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
@@ -159,41 +159,43 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
           ))}
         </div>
       </CardHeader>
-      <CardContent className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-            <XAxis
-              dataKey="year"
-              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-              angle={-45}
-              textAnchor="end"
-              height={60}
-              tickMargin={20}
-            />
-            <YAxis
-              label={{
-                value: "Cost (Trillion USD)",
-                angle: -90,
-                position: "insideLeft",
-                fill: theme === "dark" ? "#ffffff" : "#000000",
-                offset: 0,
-              }}
-              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-              tickMargin={10}
-            />
-            <Tooltip
-              contentStyle={tooltipStyle}
-              labelStyle={tooltipLabelStyle}
-              itemStyle={tooltipItemStyle}
-              formatter={(value: number, name: string) => [`${value.toFixed(2)}T USD`, name]}
-              cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }}
-            />
-            {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
-              <Bar key={variable.id} dataKey={variable.id} stackId="a" fill={variable.color} name={variable.name} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+      <CardContent className="flex-1">
+        <div className="w-full h-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+              <XAxis
+                dataKey="year"
+                tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                tickMargin={20}
+              />
+              <YAxis
+                label={{
+                  value: "Cost (Trillion USD)",
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: theme === "dark" ? "#ffffff" : "#000000",
+                  offset: 0,
+                }}
+                tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+                tickMargin={10}
+              />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
+                formatter={(value: number, name: string) => [`${value.toFixed(2)}T USD`, name]}
+                cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }}
+              />
+              {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
+                <Bar key={variable.id} dataKey={variable.id} stackId="a" fill={variable.color} name={variable.name} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   )
