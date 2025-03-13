@@ -113,9 +113,17 @@ export default function DashboardClientPage() {
         ),
         h(
           "div",
-          { className: "grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6" },
-          h(CountryInfo, { className: "h-full", country: selectedCountry }),
-          h(SystemCostBenefits, { className: "h-full", country: selectedCountry }),
+          { className: "grid grid-cols-1 lg:grid-cols-10 gap-4 mt-6 mb-6" },
+          h(
+            "div",
+            { className: "lg:col-span-6" },
+            h(CountryInfo, { className: "h-full", country: selectedCountry }),
+          ),
+          h(
+            "div",
+            { className: "lg:col-span-4" },
+            h(SystemCostBenefits, { className: "h-full", country: selectedCountry }),
+          ),
         ),
         h(
           "div",
