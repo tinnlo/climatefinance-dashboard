@@ -7,6 +7,7 @@ import { TimelineSlider } from "./timeline-slider"
 import { Button } from "@/components/ui/button"
 import { Home, Info } from "lucide-react"
 import { useTheme } from "next-themes"
+import { convertToIso3 } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,14 @@ import { Topology, GeometryObject } from 'topojson-specification'
 import { Card } from "@/components/ui/card"
 
 const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year."
+
+interface CountryData {
+  Country_ISO3: string
+  Country: string
+  Asset_Amount?: number
+  Firm_Amount?: number
+  Emissions_Coverage?: number
+}
 
 interface MapData {
   name: string
@@ -45,18 +54,41 @@ interface CompanyStats {
 
 interface PhaseOutMapProps {
   data: MapData[]
+  country?: string
 }
 
-export function PhaseOutMap({ data }: PhaseOutMapProps) {
+export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [currentYear, setCurrentYear] = useState(2025)
   const [mapInitialized, setMapInitialized] = useState(false)
+  const [countryData, setCountryData] = useState<CountryData | null>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 400 })
   const initialTransformRef = useRef<d3.ZoomTransform | null>(null)
   const zoomRef = useRef<any>(null)
   const { theme, systemTheme } = useTheme()
+
+  // Fetch country data
+  useEffect(() => {
+    const fetchCountryData = async () => {
+      try {
+        const iso3Code = convertToIso3(country)
+        const response = await fetch('/api/country-info')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const allCountryData = await response.json()
+        const countryInfo = allCountryData.find((c: CountryData) => c.Country_ISO3 === iso3Code)
+        setCountryData(countryInfo || null)
+      } catch (error) {
+        console.error('Error fetching country data:', error)
+      }
+    }
+
+    fetchCountryData()
+  }, [country])
 
   // Filter out points with invalid coordinates
   const validData = useMemo(() => 
@@ -98,9 +130,10 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     if (containerRef.current) {
       const resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
+          const containerHeight = entry.contentRect.height;
           setDimensions({
             width: entry.contentRect.width,
-            height: 400,
+            height: containerHeight, // Use the full container height
           })
         }
       })
@@ -108,7 +141,6 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       resizeObserver.observe(containerRef.current)
       return () => {
         resizeObserver.disconnect()
-        // Clean up D3 elements when component unmounts
         if (svgRef.current) {
           d3.select(svgRef.current).selectAll("*").remove()
         }
@@ -319,7 +351,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     const legendGroup = legendContainer.append("g").attr("class", "legend-group")
     
     // Calculate responsive legend position
-    const legendWidth = Math.min(200, dimensions.width * 0.4)
+    const legendWidth = Math.max(160, Math.min(200, dimensions.width * 0.4)) // Ensure minimum width of 160px
     const legendHeight = 60
     
     // Position legends much lower on the map
@@ -341,7 +373,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       .attr("x", fuelLegendX)
       .attr("y", fuelLegendY)
       .attr("width", legendWidth)
-      .attr("height", 40) // Further increased height for better spacing
+      .attr("height", 40)
       .attr("fill", colors.legendFill)
       .attr("stroke", colors.legendStroke)
       .attr("stroke-width", 1)
@@ -354,7 +386,7 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       .attr("x", fuelLegendX + 10)
       .attr("y", fuelLegendY + 15)
       .attr("fill", colors.text)
-      .attr("font-size", "12px") // Standardized font size
+      .attr("font-size", "12px")
       .attr("font-weight", "bold")
       .text("Fuel Types")
     
@@ -364,8 +396,8 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
       { type: "Oil", symbol: d3.symbolSquare },
     ]
     
-    // Calculate spacing based on available width
-    const itemWidth = legendWidth / fuelTypes.length
+    // Calculate spacing based on available width, ensuring minimum spacing
+    const itemWidth = Math.max(50, legendWidth / fuelTypes.length) // Ensure minimum item width
     
     // Position fuel symbols much lower to avoid overlap with title
     fuelTypes.forEach((fuel, i) => {
@@ -650,9 +682,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   }
 
   return (
-    <Card className="p-6 space-y-4">
+    <Card className="p-0 bg-background dark:bg-background border-0">
       {invalidDataCount > 0 && (
-        <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4">
+        <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4 mb-2">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -673,119 +705,122 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Map Container */}
-          <div 
-            ref={containerRef} 
-            className="relative w-full h-[500px] overflow-hidden rounded-lg border border-border" 
-          >
-            {/* Map controls */}
-            <div className="absolute top-4 right-4 z-10 flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetView}
-                className="bg-background/80 backdrop-blur-sm"
-              >
-                <Home className="h-4 w-4 mr-1" />
-                Reset View
-              </Button>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
-                    <Info className="h-4 w-4 mr-1" />
-                    Info
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Figure Notes</DialogTitle>
-                  </DialogHeader>
-                  <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                    {FIGURE_NOTES}
-                  </DialogDescription>
-                </DialogContent>
-              </Dialog>
-            </div>
-            
-            {/* SVG Map */}
-            <svg
-              ref={svgRef}
-              width={dimensions.width}
-              height={dimensions.height}
-              style={{ background: colors.background }}
-              className="overflow-visible"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-0 lg:h-[520px]">
+        <div className="lg:col-span-2 pr-0 lg:pr-4 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
+          <div className="h-full flex flex-col">
+            {/* Map Container */}
+            <div 
+              ref={containerRef} 
+              className="relative w-full flex-1 rounded-none lg:rounded-lg bg-[#2F3A2F] dark:bg-[#2F3A2F] overflow-hidden" 
             >
-              <rect
-                width={dimensions.width}
-                height={dimensions.height}
-                fill={colors.background}
-              />
-              <g className="map-container" />
-              <g className="legend-container" />
-            </svg>
-          </div>
+              {/* Map controls */}
+              <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetView}
+                  className="bg-background/80 backdrop-blur-sm"
+                >
+                  <Home className="h-4 w-4 mr-1" />
+                  Reset View
+                </Button>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
+                      <Info className="h-4 w-4 mr-1" />
+                      Info
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Figure Notes</DialogTitle>
+                    </DialogHeader>
+                    <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                      {FIGURE_NOTES}
+                    </DialogDescription>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              
+              {/* SVG Map */}
+              <svg
+                ref={svgRef}
+                width="100%"
+                height="100%"
+                style={{ background: colors.background }}
+                className="overflow-hidden"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <rect
+                  width="100%"
+                  height="100%"
+                  fill={colors.background}
+                />
+                <g className="map-container" />
+                <g className="legend-container" />
+              </svg>
+            </div>
 
-          {/* Timeline controls - Now under the map but in the same column */}
-          <div className="px-2">
-            <TimelineSlider
-              minYear={2025}
-              maxYear={2050}
-              currentYear={currentYear}
-              onChange={handleYearChange}
-            />
+            {/* Timeline controls */}
+            <div className="h-[40px]">
+              <TimelineSlider
+                minYear={2025}
+                maxYear={2050}
+                currentYear={currentYear}
+                onChange={handleYearChange}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Company Statistics Summary - Takes up 1/3 of the space on large screens */}
-        <div className="lg:col-span-1">
-          <Card className="p-6 h-[600px] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-6">Company Statistics</h3>
-            <div className="space-y-6">
+        {/* Company Statistics Summary */}
+        <div className="lg:col-span-1 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
+          <Card className="h-full bg-white dark:bg-black border border-gray-200 dark:border-gray-800 overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-4 p-4 pb-0">Company Statistics</h3>
+            <div className="space-y-6 p-4 pt-0">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Power Plants</p>
-                  <p className="text-2xl font-medium mt-1">{companyStats.totalPlants}</p>
+                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Asset_Amount || companyStats.totalPlants}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Companies</p>
-                  <p className="text-2xl font-medium mt-1">{companyStats.totalCompanies}</p>
+                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Firm_Amount || companyStats.totalCompanies}</p>
                 </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Emissions</p>
-                <p className="text-2xl font-medium mt-1">{companyStats.totalEmissions.toFixed(2)} MtCO2</p>
+                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Emissions_Coverage?.toFixed(2) || companyStats.totalEmissions.toFixed(2)} MtCO2</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-3">Fuel Type Distribution</p>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-background/50 p-3 rounded-lg">
+                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
                     <p className="text-xs text-muted-foreground">Coal</p>
-                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Coal}</p>
+                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Coal}</p>
                   </div>
-                  <div className="bg-background/50 p-3 rounded-lg">
+                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
                     <p className="text-xs text-muted-foreground">Gas</p>
-                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Gas}</p>
+                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Gas}</p>
                   </div>
-                  <div className="bg-background/50 p-3 rounded-lg">
+                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
                     <p className="text-xs text-muted-foreground">Oil</p>
-                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Oil}</p>
+                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Oil}</p>
                   </div>
                 </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
-                <p className="text-2xl font-medium mt-1">{companyStats.averagePhaseOutYear}</p>
+                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyStats.averagePhaseOutYear}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Current View Year</p>
-                <p className="text-2xl font-medium mt-1">{currentYear}</p>
+                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{currentYear}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Visible Plants</p>
-                <p className="text-2xl font-medium mt-1">
+                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">
                   {validData.filter(d => d.phase_out_year <= currentYear).length} of {companyStats.totalPlants}
                 </p>
               </div>

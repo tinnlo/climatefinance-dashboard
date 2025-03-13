@@ -17,6 +17,9 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["var(--font-space-grotesk)"],
+      },
       spacing: {
         22: "5.5rem", // This adds a new spacing option for mt-22
       },

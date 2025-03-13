@@ -6,7 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300"],
+  variable: '--font-space-grotesk',
 })
 
 export default function RootLayout({
@@ -15,9 +16,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
+    <html lang="en" suppressHydrationWarning className={cn("dark", spaceGrotesk.variable)}>
       <head />
-      <body className={cn("min-h-screen bg-background font-sans antialiased", spaceGrotesk.className)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           {children}
         </ThemeProvider>
