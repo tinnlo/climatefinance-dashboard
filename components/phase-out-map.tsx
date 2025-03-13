@@ -814,15 +814,17 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
                 <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
                 <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyStats.averagePhaseOutYear}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Current View Year</p>
-                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{currentYear}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Visible Plants</p>
-                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">
-                  {validData.filter(d => d.phase_out_year <= currentYear).length} of {companyStats.totalPlants}
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Current View Year</p>
+                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{currentYear}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Visible Plants</p>
+                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">
+                    {validData.filter(d => d.phase_out_year <= currentYear).length} of {companyStats.totalPlants}
+                  </p>
+                </div>
               </div>
             </div>
           </Card>

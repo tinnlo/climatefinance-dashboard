@@ -138,7 +138,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     <Card className={cn("dark:bg-[#2F3A2F]", className)}>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-4xl font-semibold">{data.Country}</CardTitle>
+          <CardTitle className="text-4xl font-semibold">{data.Country.toUpperCase()}</CardTitle>
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
