@@ -46,14 +46,6 @@ export function Header({
               Dashboard
             </Link>
             <Link
-              href="/analytics"
-              className={`transition-colors hover:text-foreground/80 ${
-                pathname === "/analytics" ? "font-bold text-foreground" : "text-foreground/60"
-              }`}
-            >
-              Analytics
-            </Link>
-            <Link
               href="/contact"
               className={`transition-colors hover:text-foreground/80 ${
                 pathname === "/contact" ? "font-bold text-foreground" : "text-foreground/60"
