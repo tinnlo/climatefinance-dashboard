@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Feature, FeatureCollection, Geometry } from 'geojson'
 import { Topology, GeometryObject } from 'topojson-specification'
+import { Card } from "@/components/ui/card"
 
 const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year."
 
@@ -28,6 +29,18 @@ interface MapData {
   phase_out_year: number
   emissions: number
   uniqueId: string
+}
+
+interface CompanyStats {
+  totalPlants: number
+  totalCompanies: number
+  totalEmissions: number
+  fuelTypeBreakdown: {
+    Coal: number
+    Gas: number
+    Oil: number
+  }
+  averagePhaseOutYear: number
 }
 
 interface PhaseOutMapProps {
@@ -595,6 +608,37 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
     }
   }
 
+  // Calculate company-level statistics
+  const companyStats: CompanyStats = useMemo(() => {
+    if (!validData.length) return {
+      totalPlants: 0,
+      totalCompanies: 0,
+      totalEmissions: 0,
+      fuelTypeBreakdown: { Coal: 0, Gas: 0, Oil: 0 },
+      averagePhaseOutYear: 0
+    }
+
+    const stats = validData.reduce((acc, plant) => {
+      acc.totalPlants++
+      acc.totalEmissions += plant.emissions
+      acc.fuelTypeBreakdown[plant.fuel_type as keyof typeof acc.fuelTypeBreakdown]++
+      acc.averagePhaseOutYear += plant.phase_out_year
+      return acc
+    }, {
+      totalPlants: 0,
+      totalCompanies: 2, // Hardcoded for now - replace with actual data when available
+      totalEmissions: 0,
+      fuelTypeBreakdown: { Coal: 0, Gas: 0, Oil: 0 },
+      averagePhaseOutYear: 0
+    })
+
+    stats.averagePhaseOutYear = stats.totalPlants > 0 
+      ? Math.round(stats.averagePhaseOutYear / stats.totalPlants) 
+      : 0
+
+    return stats
+  }, [validData])
+
   if (!data || data.length === 0) {
     return (
       <div className="flex justify-center items-center h-[400px]">
@@ -606,9 +650,9 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
   }
 
   return (
-    <div className="space-y-4 mt-6">
+    <Card className="p-6 space-y-4">
       {invalidDataCount > 0 && (
-        <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4 mb-4">
+        <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/50 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -628,68 +672,128 @@ export function PhaseOutMap({ data }: PhaseOutMapProps) {
           </div>
         </div>
       )}
-      <div 
-        ref={containerRef} 
-        className="relative w-full h-[400px] overflow-hidden rounded-lg border border-border" 
-      >
-        {/* Map controls */}
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetView}
-            className="bg-background/80 backdrop-blur-sm"
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          {/* Map Container */}
+          <div 
+            ref={containerRef} 
+            className="relative w-full h-[500px] overflow-hidden rounded-lg border border-border" 
           >
-            <Home className="h-4 w-4 mr-1" />
-            Reset View
-          </Button>
-          
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
-                <Info className="h-4 w-4 mr-1" />
-                Info
+            {/* Map controls */}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetView}
+                className="bg-background/80 backdrop-blur-sm"
+              >
+                <Home className="h-4 w-4 mr-1" />
+                Reset View
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Figure Notes</DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                {FIGURE_NOTES}
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
+              
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
+                    <Info className="h-4 w-4 mr-1" />
+                    Info
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Figure Notes</DialogTitle>
+                  </DialogHeader>
+                  <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                    {FIGURE_NOTES}
+                  </DialogDescription>
+                </DialogContent>
+              </Dialog>
+            </div>
+            
+            {/* SVG Map */}
+            <svg
+              ref={svgRef}
+              width={dimensions.width}
+              height={dimensions.height}
+              style={{ background: colors.background }}
+              className="overflow-visible"
+            >
+              <rect
+                width={dimensions.width}
+                height={dimensions.height}
+                fill={colors.background}
+              />
+              <g className="map-container" />
+              <g className="legend-container" />
+            </svg>
+          </div>
+
+          {/* Timeline controls - Now under the map but in the same column */}
+          <div className="px-2">
+            <TimelineSlider
+              minYear={2025}
+              maxYear={2050}
+              currentYear={currentYear}
+              onChange={handleYearChange}
+            />
+          </div>
         </div>
-        
-        {/* SVG Map */}
-        <svg
-          ref={svgRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          style={{ background: colors.background }}
-          className="overflow-visible"
-        >
-          <rect
-            width={dimensions.width}
-            height={dimensions.height}
-            fill={colors.background}
-          />
-          <g className="map-container" />
-          <g className="legend-container" />
-        </svg>
+
+        {/* Company Statistics Summary - Takes up 1/3 of the space on large screens */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 h-[600px] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-6">Company Statistics</h3>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Power Plants</p>
+                  <p className="text-2xl font-medium mt-1">{companyStats.totalPlants}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Companies</p>
+                  <p className="text-2xl font-medium mt-1">{companyStats.totalCompanies}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Emissions</p>
+                <p className="text-2xl font-medium mt-1">{companyStats.totalEmissions.toFixed(2)} MtCO2</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-3">Fuel Type Distribution</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-background/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Coal</p>
+                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Coal}</p>
+                  </div>
+                  <div className="bg-background/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Gas</p>
+                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Gas}</p>
+                  </div>
+                  <div className="bg-background/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Oil</p>
+                    <p className="text-xl font-medium mt-1">{companyStats.fuelTypeBreakdown.Oil}</p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
+                <p className="text-2xl font-medium mt-1">{companyStats.averagePhaseOutYear}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Current View Year</p>
+                <p className="text-2xl font-medium mt-1">{currentYear}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Visible Plants</p>
+                <p className="text-2xl font-medium mt-1">
+                  {validData.filter(d => d.phase_out_year <= currentYear).length} of {companyStats.totalPlants}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
-      
-      {/* Timeline controls */}
-      <div className="mt-4">
-        <TimelineSlider
-          minYear={2025}
-          maxYear={2050}
-          currentYear={currentYear}
-          onChange={handleYearChange}
-        />
-      </div>
-    </div>
+    </Card>
   )
 }
 

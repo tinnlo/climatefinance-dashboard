@@ -5,6 +5,7 @@ import { useTheme } from "next-themes"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts"
 import { convertToIso3, iso2ToIso3Map } from "@/lib/utils"
+import { Card } from "@/components/ui/card"
 
 // Update scenario values to match the data structure
 const scenarios = [
@@ -111,8 +112,14 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
     cumulativeBAU: item.cumulative_mtco2 * 1.2,
   }))
 
+  // Calculate summary statistics
+  const totalPlants = chartData.reduce((sum, item) => sum + item.n_plants, 0)
+  const totalEmissionsReduction = chartData.reduce((sum, item) => sum + item.amount_mtco2, 0)
+  const cumulativeEmissionsReduction = chartData[chartData.length - 1]?.cumulative_mtco2 || 0
+  const phaseOutPeriod = `${chartData[0]?.year || ''} - ${chartData[chartData.length - 1]?.year || ''}`
+
   return (
-    <div className="space-y-4">
+    <Card className="p-4 bg-[#2F3A2F] dark:bg-[#2F3A2F] border-0">
       <div className="flex justify-between items-center mb-4">
         <Select onValueChange={setSelectedScenario} defaultValue={selectedScenario}>
           <SelectTrigger className="w-full md:w-[300px]">
@@ -128,155 +135,189 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
         </Select>
       </div>
 
-      <div ref={chartRef} className="w-full h-[550px] md:h-[450px]">
-        <ResponsiveContainer width="100%" height="92%">
-          <ComposedChart 
-            data={chartData} 
-            margin={{ 
-              top: 20, 
-              right: 10,
-              left: 0,
-              bottom: 20 
-            }}
-          >
-            <XAxis
-              dataKey="year"
-              stroke={colors.text}
-              tickFormatter={(value) => (value % 5 === 0 ? value.toString() : "")}
-              fontSize={12}
-            />
-            <YAxis
-              yAxisId="left"
-              stroke={colors.text}
-              fontSize={12}
-              width={40}
-              label={{
-                value: "Annual Emission Reduction (MtCO2)",
-                angle: -90,
-                position: "insideLeft",
-                fill: colors.text,
-                fontSize: 12,
-                dx: -1,
-                dy: 90,
-                className: "hidden md:block"
-              }}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              stroke={colors.text}
-              fontSize={12}
-              width={40}
-              label={{
-                value: "Cumulative Avoided Emissions (GtCO2)",
-                angle: 90,
-                position: "insideRight",
-                fill: colors.text,
-                fontSize: 12,
-                dx: 4,
-                dy: 95,
-                className: "hidden md:block"
-              }}
-              tickFormatter={(value) => (value / 1000).toFixed(1)}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: currentTheme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)",
-                border: `1px solid ${currentTheme === "dark" ? "#374151" : "#e5e7eb"}`,
-                borderRadius: "6px",
-                padding: "12px",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                zIndex: 1000
-              }}
-              itemStyle={{ color: colors.text, opacity: 0.9 }}
-              labelStyle={{ color: colors.text, fontWeight: 500, marginBottom: "4px" }}
-              formatter={(value: any, name: string) => {
-                if (name === "Annual emissions reduction") {
-                  return [`${Number(value).toFixed(2)} MtCO2`, name]
-                }
-                return [`${(Number(value) / 1000).toFixed(2)} GtCO2`, name]
-              }}
-              labelFormatter={(label) => `Year: ${label}`}
-            />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart Container - Takes up 2/3 of the space on large screens */}
+        <div className="lg:col-span-2">
+          <div ref={chartRef} className="w-full h-[550px] md:h-[500px] bg-[#2F3A2F] dark:bg-[#2F3A2F] rounded-lg p-4">
+            <ResponsiveContainer width="100%" height="92%">
+              <ComposedChart 
+                data={chartData} 
+                margin={{ 
+                  top: 20, 
+                  right: 10,
+                  left: 0,
+                  bottom: 20 
+                }}
+              >
+                <XAxis
+                  dataKey="year"
+                  stroke={colors.text}
+                  tickFormatter={(value) => (value % 5 === 0 ? value.toString() : "")}
+                  fontSize={12}
+                />
+                <YAxis
+                  yAxisId="left"
+                  stroke={colors.text}
+                  fontSize={12}
+                  width={40}
+                  label={{
+                    value: "Annual Emission Reduction (MtCO2)",
+                    angle: -90,
+                    position: "insideLeft",
+                    fill: colors.text,
+                    fontSize: 12,
+                    dx: -1,
+                    dy: 90,
+                    className: "hidden md:block"
+                  }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke={colors.text}
+                  fontSize={12}
+                  width={40}
+                  label={{
+                    value: "Cumulative Avoided Emissions (GtCO2)",
+                    angle: 90,
+                    position: "insideRight",
+                    fill: colors.text,
+                    fontSize: 12,
+                    dx: 4,
+                    dy: 95,
+                    className: "hidden md:block"
+                  }}
+                  tickFormatter={(value) => (value / 1000).toFixed(1)}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: currentTheme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)",
+                    border: `1px solid ${currentTheme === "dark" ? "#374151" : "#e5e7eb"}`,
+                    borderRadius: "6px",
+                    padding: "12px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    zIndex: 1000
+                  }}
+                  itemStyle={{ color: colors.text, opacity: 0.9 }}
+                  labelStyle={{ color: colors.text, fontWeight: 500, marginBottom: "4px" }}
+                  formatter={(value: any, name: string) => {
+                    if (name === "Annual emissions reduction") {
+                      return [`${Number(value).toFixed(2)} MtCO2`, name]
+                    }
+                    return [`${(Number(value) / 1000).toFixed(2)} GtCO2`, name]
+                  }}
+                  labelFormatter={(label) => `Year: ${label}`}
+                />
 
-            {/* Stacked Bars */}
-            <Bar yAxisId="left" dataKey="Coal" stackId="a" fill={colors.Coal} name="Coal" />
-            <Bar yAxisId="left" dataKey="Gas" stackId="a" fill={colors.Gas} name="Gas" />
-            <Bar yAxisId="left" dataKey="Oil" stackId="a" fill={colors.Oil} name="Oil" />
+                {/* Stacked Bars */}
+                <Bar yAxisId="left" dataKey="Coal" stackId="a" fill={colors.Coal} name="Coal" />
+                <Bar yAxisId="left" dataKey="Gas" stackId="a" fill={colors.Gas} name="Gas" />
+                <Bar yAxisId="left" dataKey="Oil" stackId="a" fill={colors.Oil} name="Oil" />
 
-            {/* Lines */}
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="amount_mtco2"
-              stroke={colors.annualReduction}
-              strokeWidth={2}
-              dot={false}
-              name="Annual emissions reduction"
-              activeDot={{ r: 4 }}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="cumulative_mtco2"
-              stroke={colors.cumulativeFromCurrent}
-              strokeWidth={2}
-              dot={false}
-              name="Cumulative avoided emissions (current)"
-              activeDot={{ r: 4 }}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="cumulativeBAU"
-              stroke={colors.cumulativeFromBAU}
-              strokeWidth={2}
-              dot={false}
-              name="Cumulative avoided emissions (BAU)"
-              activeDot={{ r: 4 }}
-            />
+                {/* Lines */}
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="amount_mtco2"
+                  stroke={colors.annualReduction}
+                  strokeWidth={2}
+                  dot={false}
+                  name="Annual emissions reduction"
+                  activeDot={{ r: 4 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="cumulative_mtco2"
+                  stroke={colors.cumulativeFromCurrent}
+                  strokeWidth={2}
+                  dot={false}
+                  name="Cumulative avoided emissions (current)"
+                  activeDot={{ r: 4 }}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="cumulativeBAU"
+                  stroke={colors.cumulativeFromBAU}
+                  strokeWidth={2}
+                  dot={false}
+                  name="Cumulative avoided emissions (BAU)"
+                  activeDot={{ r: 4 }}
+                />
 
-            {/* Custom Legend Layout */}
-            <Legend
-              verticalAlign="bottom"
-              height={90}
-              content={({ payload }) => (
-                <div className="flex flex-col gap-2 text-xs md:text-sm w-full px-1 md:px-12 mt-4">
-                  <div className="flex flex-row items-center justify-start gap-2 md:gap-4">
-                    {payload?.slice(0, 3).map((entry: any, index: number) => (
-                      <div key={`item-${index}`} className="flex items-center gap-1">
-                        <div className="w-2.5 h-2.5 md:w-3 md:h-3" style={{ backgroundColor: entry.color }} />
-                        <span className="text-[10px] md:text-xs">{entry.value}</span>
+                {/* Custom Legend Layout */}
+                <Legend
+                  verticalAlign="bottom"
+                  height={90}
+                  content={({ payload }) => (
+                    <div className="flex flex-col gap-2 text-xs md:text-sm w-full px-1 md:px-12 mt-4">
+                      <div className="flex flex-row items-center justify-start gap-2 md:gap-4">
+                        {payload?.slice(0, 3).map((entry: any, index: number) => (
+                          <div key={`item-${index}`} className="flex items-center gap-1">
+                            <div className="w-2.5 h-2.5 md:w-3 md:h-3" style={{ backgroundColor: entry.color }} />
+                            <span className="text-[10px] md:text-xs">{entry.value}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2 mt-1">
-                    {payload?.slice(3).map((entry: any, index: number) => (
-                      <div key={`line-${index}`} className="flex items-center gap-1 md:gap-2">
-                        <div
-                          className="w-4 h-0.5 flex-shrink-0"
-                          style={{
-                            backgroundColor: entry.color,
-                            borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
-                            borderColor: entry.color,
-                          }}
-                        />
-                        <span className="text-[10px] md:text-xs" title={entry.value}>
-                          {entry.value}
-                        </span>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2 mt-1">
+                        {payload?.slice(3).map((entry: any, index: number) => (
+                          <div key={`line-${index}`} className="flex items-center gap-1 md:gap-2">
+                            <div
+                              className="w-4 h-0.5 flex-shrink-0"
+                              style={{
+                                backgroundColor: entry.color,
+                                borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
+                                borderColor: entry.color,
+                              }}
+                            />
+                            <span className="text-[10px] md:text-xs" title={entry.value}>
+                              {entry.value}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <div className="text-[10px] md:text-xs text-muted-foreground flex flex-col gap-0.5 mt-1">
-                    <div>(N) = Number of plants shut down in that year</div>
-                    <div>Start Rank → End Rank of plants in phase-out sequence</div>
-                  </div>
-                </div>
-              )}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+                      <div className="text-[10px] md:text-xs text-muted-foreground flex flex-col gap-0.5 mt-1">
+                        <div>(N) = Number of plants shut down in that year</div>
+                        <div>Start Rank → End Rank of plants in phase-out sequence</div>
+                      </div>
+                    </div>
+                  )}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Statistics Summary Container - Takes up 1/3 of the space on large screens */}
+        <div className="lg:col-span-1">
+          <Card className="p-6 h-full bg-[#2F3A2F] dark:bg-[#2F3A2F] border-[#4A5A4A]">
+            <h3 className="text-xl font-semibold mb-6">Phase-out Statistics</h3>
+            <div className="space-y-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Country</p>
+                <p className="text-2xl font-medium mt-1">{countryName}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Phase-out Period</p>
+                <p className="text-2xl font-medium mt-1">{phaseOutPeriod}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Plants Affected</p>
+                <p className="text-2xl font-medium mt-1">{totalPlants}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Emissions Reduction</p>
+                <p className="text-2xl font-medium mt-1">{totalEmissionsReduction.toFixed(2)} MtCO2</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Cumulative Emissions Reduction</p>
+                <p className="text-2xl font-medium mt-1">{(cumulativeEmissionsReduction / 1000).toFixed(2)} GtCO2</p>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
+    </Card>
   )
 }

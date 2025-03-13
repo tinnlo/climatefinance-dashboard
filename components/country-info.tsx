@@ -156,10 +156,16 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             </DialogContent>
           </Dialog>
         </div>
-        <div className="flex gap-2 mt-2">
-          <Badge variant="outline">{data.Country_ISO3}</Badge>
-          <Badge variant="secondary">{data.Region}</Badge>
-          {data.Sector && <Badge variant="secondary">{data.Sector}</Badge>}
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex gap-2">
+            <Badge variant="outline">{data.Country_ISO3}</Badge>
+            <Badge variant="secondary">{data.Region}</Badge>
+          </div>
+          {data.Sector && (
+            <div className="flex gap-2">
+              <Badge variant="secondary">{data.Sector}</Badge>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -186,14 +192,14 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Emissions (2023)</p>
-              <p className="text-xl font-medium flex items-center">
-                {data.Emission_2023.toFixed(2)} Mt CO2e/year
-                <span className="text-sm ml-2" style={{ color: data.Emissions_Change_2023 > 0 ? '#ef4444' : '#22c55e' }}>
-                  ({data.Emissions_Change_2023 > 0 ? '+' : ''}{data.Emissions_Change_2023.toFixed(1)}% from 2022)
-                </span>
+              <p className="text-xl font-medium">
+                {data.Emission_2023.toFixed(2)} MtCO₂e
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground">
                 {data.Emissions_Share_2023.toFixed(2)}% of global emissions
+              </p>
+              <p className="text-sm" style={{ color: data.Emissions_Change_2023 > 0 ? '#ef4444' : '#22c55e' }}>
+                ({data.Emissions_Change_2023 > 0 ? '+' : ''}{data.Emissions_Change_2023.toFixed(1)}% from 2022)
               </p>
             </div>
           </div>
@@ -252,7 +258,9 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                     <p className="text-sm text-muted-foreground">Emissions Coverage</p>
                     <p className="text-xl font-medium">
                       {data.Emissions_Coverage.toFixed(2)} MtCO₂e
-                      <span className="text-sm text-muted-foreground ml-2">(20-year time horizon)</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      (20-year time horizon)
                     </p>
                   </div>
                 )}
