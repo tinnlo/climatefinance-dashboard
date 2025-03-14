@@ -101,7 +101,7 @@ export default function DashboardClientPage() {
           h(
             "div",
             { className: "flex items-center justify-between" },
-            h("h2", { className: "text-3xl font-light tracking-tight" }, "Dashboard"),
+            h("h2", { className: "text-3xl font-light tracking-tight" }, "Dashboard (Beta)"),
             h(
               "div",
               { className: "text-sm text-muted-foreground" },
