@@ -6,6 +6,9 @@ import { usePathname } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import { SearchCountry } from "@/components/search-country"
 import { useTheme } from "next-themes"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
 
 export function Header({
   selectedCountry = "in",
@@ -16,6 +19,13 @@ export function Header({
 }) {
   const pathname = usePathname()
   const { theme } = useTheme()
+  const { user, logout, isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/login")
+  }
 
   return (
     <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -37,22 +47,53 @@ export function Header({
             {onCountryChange && <SearchCountry onCountryChange={onCountryChange} defaultValue={selectedCountry} />}
           </div>
           <nav className="flex items-center space-x-6 text-sm font-medium">
-            <Link
-              href="/dashboard"
-              className={`transition-colors hover:text-foreground/80 ${
-                pathname === "/dashboard" ? "font-bold text-foreground" : "text-foreground/60"
-              }`}
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/contact"
-              className={`transition-colors hover:text-foreground/80 ${
-                pathname === "/contact" ? "font-bold text-foreground" : "text-foreground/60"
-              }`}
-            >
-              Contact
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className={`transition-colors hover:text-foreground/80 ${
+                    pathname === "/dashboard" ? "font-bold text-foreground" : "text-foreground/60"
+                  }`}
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/contact"
+                  className={`transition-colors hover:text-foreground/80 ${
+                    pathname === "/contact" ? "font-bold text-foreground" : "text-foreground/60"
+                  }`}
+                >
+                  Contact
+                </Link>
+                {user?.role === "admin" && (
+                  <Link
+                    href="/admin/users"
+                    className={`transition-colors hover:text-foreground/80 ${
+                      pathname.startsWith("/admin") ? "font-bold text-foreground" : "text-foreground/60"
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-foreground/60 hover:text-foreground"
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className={`transition-colors hover:text-foreground/80 ${
+                  pathname === "/login" ? "font-bold text-foreground" : "text-foreground/60"
+                }`}
+              >
+                Login
+              </Link>
+            )}
             <ModeToggle />
           </nav>
         </div>

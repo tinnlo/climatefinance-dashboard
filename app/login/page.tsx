@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,15 +22,55 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const router = useRouter()
-  const { login, register, isLoading, user } = useAuth()
+  const searchParams = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
+  const { login, register, isLoading: authLoading, user, isAuthenticated, refreshSession } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Check if user is already authenticated and redirect if needed
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      console.log("[Login Debug - Already Authenticated]", {
+        user: user.email,
+        role: user.role,
+        returnTo,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // If already authenticated, redirect to the returnTo path or default dashboard
+      const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
+      const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
+      
+      console.log("[Login Debug - Auto Redirecting]", { redirectPath });
+      router.push(redirectPath)
+    } else {
+      // Try to refresh the session on page load
+      refreshSession();
+    }
+  }, [isAuthenticated, user, returnTo, router, refreshSession]);
+
+  useEffect(() => {
+    // Log the returnTo parameter for debugging
+    if (returnTo) {
+      console.log("[Login Debug - ReturnTo]", {
+        returnTo,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [returnTo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
+    
     setError("")
     setSuccess("")
+    setIsSubmitting(true)
+
     console.log("[Login Debug - Submit]", {
       isLogin,
       email,
+      returnTo,
       timestamp: new Date().toISOString(),
     });
 
@@ -41,13 +81,31 @@ export default function LoginPage() {
           success: result.success,
           message: result.message,
           redirectTo: result.redirectTo,
+          returnTo,
           timestamp: new Date().toISOString(),
         });
         
         if (result.success && result.redirectTo) {
           setSuccess("Login successful! Redirecting...")
-          // Immediate redirect without delay
-          window.location.replace(result.redirectTo);
+          // Use returnTo from URL if available, otherwise use the result.redirectTo
+          const path = result.redirectTo
+          console.log("[Login Debug - Redirecting]", {
+            path,
+            timestamp: new Date().toISOString(),
+          })
+          
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          try {
+            const redirectPath = `${path}${path.includes('?') ? '&' : '?'}auth_redirect=true`
+            console.log("[Login Debug - Adding auth_redirect]", { redirectPath });
+            router.push(redirectPath)
+          } catch (err) {
+            console.error("[Login Debug - Router Error]", err)
+            const baseUrl = window.location.origin
+            const fullPath = path.startsWith('/') ? path : `/${path}`
+            window.location.href = `${baseUrl}${fullPath}${fullPath.includes('?') ? '&' : '?'}auth_redirect=true`
+          }
         } else {
           console.log("[Login Debug - Failure]", { message: result.message });
           if (result.message.includes("pending approval") || result.message.includes("waiting for the institute")) {
@@ -91,6 +149,8 @@ export default function LoginPage() {
     } catch (err) {
       setError("An unexpected error occurred. Please try again.")
       console.error(err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -173,10 +233,10 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 className="w-full mt-6 relative bg-gradient-to-r from-black to-forest hover:from-black/90 hover:to-forest/90 text-white transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden group" 
-                disabled={isLoading}
+                disabled={authLoading}
               >
                 <span className="relative z-10">
-                  {isLoading ? (
+                  {authLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                       {isLogin ? "Logging in..." : "Registering..."}
