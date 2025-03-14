@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/lib/auth-context"
@@ -24,11 +24,11 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("")
 
   // Update form fields when user data is loaded
-  useState(() => {
+  useEffect(() => {
     if (user) {
       setName(user.name)
     }
-  })
+  }, [user])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
