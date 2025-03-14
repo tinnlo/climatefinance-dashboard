@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Download, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
   const { theme } = useTheme()
   const [selectedScenario, setSelectedScenario] = useState("baseline")
   const [selectedTimeHorizon, setSelectedTimeHorizon] = useState("2025")
+  const { isAuthenticated } = useAuth()
 
   const router = useRouter()
 
@@ -70,8 +72,14 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
   }, [country])
 
   const handleDownload = () => {
-    // Instead of downloading, redirect to the login page
-    router.push("/login")
+    // Check if user is authenticated
+    if (isAuthenticated) {
+      // Redirect to the download page with query parameters
+      router.push(`/downloads/system-cost-benefits?country=${country}&scenario=${selectedScenario}&timeHorizon=${selectedTimeHorizon}`);
+    } else {
+      // Redirect to login page with return URL
+      router.push(`/login?returnTo=/downloads/system-cost-benefits?country=${country}&scenario=${selectedScenario}&timeHorizon=${selectedTimeHorizon}`);
+    }
   }
 
   if (isLoading) {

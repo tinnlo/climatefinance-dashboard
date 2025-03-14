@@ -34,7 +34,7 @@ export async function middleware(req: NextRequest) {
   const returnToPath = req.nextUrl.pathname + req.nextUrl.search
   
   // Check auth condition but skip the immediate redirect after login
-  if (!session && !isAuthRedirect && (req.nextUrl.pathname.startsWith('/dashboard') || req.nextUrl.pathname.startsWith('/admin'))) {
+  if (!session && !isAuthRedirect && (req.nextUrl.pathname.startsWith('/admin') || req.nextUrl.pathname.startsWith('/downloads'))) {
     console.log('[Middleware Debug] Unauthorized access, redirecting to login');
     
     // Create a login URL with a return path
@@ -64,6 +64,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*']
+  matcher: ['/admin/:path*', '/downloads/:path*']
 }
 

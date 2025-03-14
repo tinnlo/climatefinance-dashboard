@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
 import { supabase, getCurrentUser } from "@/lib/supabase-client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
@@ -16,7 +16,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<{ success: boolean; message: string; redirectTo?: string }>
+  login: (email: string, password: string, isAuthCheck?: boolean) => Promise<{ success: boolean; message: string; redirectTo?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>
   logout: () => Promise<void>
   isAuthenticated: boolean
@@ -63,59 +63,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false
   }
 
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     try {
-      logAuthState('Refresh Session', 'Manually refreshing session...')
-      const { data: { session }, error } = await supabase.auth.getSession()
+      setIsLoading(true)
       
-      if (error) throw error
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession()
       
-      if (session?.user) {
-        const userData = await getCurrentUser()
-        if (userData) {
-          // Check if the user is verified
-          if (!userData.is_verified) {
-            logAuthState('Unverified User Session Refresh Attempt', { 
-              email: userData.email, 
-              id: userData.id 
-            });
-            
-            // Sign out unverified users
-            await supabase.auth.signOut();
-            setUser(null);
-            setIsAuthenticated(false);
-            setSessionActive(false);
-            return;
-          }
-          
-          const userState = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            role: userData.role,
-            created_at: userData.created_at,
-            isVerified: userData.is_verified,
-          }
-          setUser(userState)
+      if (session) {
+        // This is an auth check, not a user-initiated login
+        const result = await login(session.user.email, "", true)
+        
+        if (result.success) {
           setIsAuthenticated(true)
           setSessionActive(true)
-          logAuthState('Session Refreshed', { user: userState })
-          return
+        } else {
+          setIsAuthenticated(false)
+          setSessionActive(false)
         }
+      } else {
+        setIsAuthenticated(false)
+        setSessionActive(false)
       }
-      
-      // If we get here, there's no valid session
-      setUser(null)
-      setIsAuthenticated(false)
-      setSessionActive(false)
-      logAuthState('Session Refresh Failed', 'No valid session found')
     } catch (error) {
-      logAuthState('Session Refresh Error', error)
-      setUser(null)
+      console.error("Error refreshing session:", error)
       setIsAuthenticated(false)
       setSessionActive(false)
+    } finally {
+      setIsLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -250,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router, searchParams])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, isAuthCheck = false) => {
     setIsLoading(true)
     try {
       const isSpecificUser = email === 'tinnlo@proton.me';
@@ -359,7 +336,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(userData)
-      return { success: true, message: "Login successful" }
+      // Add a flag to indicate if this is a user-initiated login or an auth check
+      return { 
+        success: true, 
+        message: "Login successful",
+        isAuthCheck: isAuthCheck
+      }
     } catch (error) {
       console.error("Unexpected error during login:", error)
       return {

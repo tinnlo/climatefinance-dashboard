@@ -56,24 +56,24 @@ export function Header({
             {onCountryChange && <SearchCountry onCountryChange={onCountryChange} defaultValue={selectedCountry} />}
           </div>
           <nav className="flex items-center space-x-6 text-sm font-medium">
+            <Link
+              href="/dashboard"
+              className={`transition-colors hover:text-foreground/80 ${
+                pathname === "/dashboard" ? "font-bold text-foreground" : "text-foreground/60"
+              }`}
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/contact"
+              className={`transition-colors hover:text-foreground/80 ${
+                pathname === "/contact" ? "font-bold text-foreground" : "text-foreground/60"
+              }`}
+            >
+              Contact
+            </Link>
             {isAuthenticated ? (
               <>
-                <Link
-                  href="/dashboard"
-                  className={`transition-colors hover:text-foreground/80 ${
-                    pathname === "/dashboard" ? "font-bold text-foreground" : "text-foreground/60"
-                  }`}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/contact"
-                  className={`transition-colors hover:text-foreground/80 ${
-                    pathname === "/contact" ? "font-bold text-foreground" : "text-foreground/60"
-                  }`}
-                >
-                  Contact
-                </Link>
                 {user?.role === "admin" && (
                   <Link
                     href="/admin/users"

@@ -78,7 +78,7 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        const result = await login(email, password)
+        const result = await login(email, password, false)
         console.log("[Login Debug - Result]", {
           success: result.success,
           message: result.message,
