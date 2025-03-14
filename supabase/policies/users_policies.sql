@@ -38,10 +38,25 @@ select
   ) as is_admin;
 
 -- Allow insert access for admin users
-create policy "Allow insert access for admin users"
+drop policy if exists "Allow insert access for admin users" on users;
+
+-- Create a new insert policy that allows both:
+-- 1. Admin users to insert new users
+-- 2. New users to be created during registration
+create policy "Allow user registration and admin inserts"
 on public.users for insert
 to authenticated
-with check (auth.jwt() ->> 'role' = 'admin');
+with check (
+  -- Either the user is an admin
+  (exists (
+    select 1 
+    from users 
+    where id = auth.uid() 
+    and role = 'admin'
+  ))
+  -- Or the new row's ID matches the authenticated user's ID (for registration)
+  OR (id = auth.uid())
+);
 
 -- Allow delete access for admin users
 create policy "Allow delete access for admin users"

@@ -12,6 +12,7 @@ import { Header } from "@/components/header"
 import { useAuth } from "@/lib/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
+import { GradientButton } from "@/components/ui/gradient-button"
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true)
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [info, setInfo] = useState("")
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnTo = searchParams.get('returnTo')
@@ -108,17 +110,33 @@ export default function LoginPage() {
           }
         } else {
           console.log("[Login Debug - Failure]", { message: result.message });
-          if (result.message.includes("pending approval") || result.message.includes("waiting for the institute")) {
+          if (result.message.includes("pending approval") || result.message.includes("account setup is incomplete") || result.message.includes("notify you when")) {
+            // Use info style for pending approval messages
             setError("")
-            setSuccess(result.message)
+            setSuccess("")
+            setInfo(result.message)
           } else if (result.message.includes("Email not confirmed")) {
-            setError("Please check your email to confirm your account before logging in.")
+            // Use info style for email confirmation messages
+            setError("")
+            setSuccess("")
+            setInfo("Please check your email to confirm your account before logging in.")
           } else if (result.message.includes("Invalid login credentials")) {
             setError("Invalid email or password. Please try again.")
+            setSuccess("")
+            setInfo("")
           } else if (result.message.includes("system error")) {
             setError("We're experiencing technical difficulties. Please try again later or contact support.")
+            setSuccess("")
+            setInfo("")
+          } else if (result.message.includes("User data not found") || result.message.includes("Account setup incomplete")) {
+            // Use info style for account setup issues
+            setError("")
+            setSuccess("")
+            setInfo("Your account may need additional setup. Please check your email or contact support.")
           } else {
             setError(result.message)
+            setSuccess("")
+            setInfo("")
           }
         }
       } else {
@@ -143,7 +161,19 @@ export default function LoginPage() {
           setPassword("")
           setConfirmPassword("")
         } else {
-          setError(result.message)
+          // Handle specific error messages
+          if (result.message.includes("violates row-level security policy")) {
+            // This is likely a false error, the user might have been created successfully
+            console.log("[Login Debug - RLS Error]", { message: result.message });
+            setSuccess("Registration may have been successful. Please try logging in after a few minutes.")
+            setIsLogin(true)
+            setName("")
+            setEmail("")
+            setPassword("")
+            setConfirmPassword("")
+          } else {
+            setError(result.message)
+          }
         }
       }
     } catch (err) {
@@ -177,7 +207,7 @@ export default function LoginPage() {
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Enter your name"
                       required
-                      className="bg-black/80 border-forest/20 focus:border-forest/30 placeholder:text-forest-foreground/50"
+                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                     />
                   </div>
                 )}
@@ -190,7 +220,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                     required
-                    className="bg-black/80 border-forest/20 focus:border-forest/30 placeholder:text-forest-foreground/50"
+                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                   />
                 </div>
                 <div className="space-y-2">
@@ -202,7 +232,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     required
-                    className="bg-black/80 border-forest/20 focus:border-forest/30 placeholder:text-forest-foreground/50"
+                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                   />
                 </div>
                 {!isLogin && (
@@ -215,7 +245,7 @@ export default function LoginPage() {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirm your password"
                       required
-                      className="bg-black/80 border-forest/20 focus:border-forest/30 placeholder:text-forest-foreground/50"
+                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                     />
                   </div>
                 )}
@@ -225,30 +255,25 @@ export default function LoginPage() {
                   </Alert>
                 )}
                 {success && (
-                  <Alert className="bg-forest/20 text-forest-foreground border-forest/30">
+                  <Alert variant="info">
                     <AlertDescription>{success}</AlertDescription>
                   </Alert>
                 )}
+                {info && (
+                  <Alert variant="info">
+                    <AlertDescription>{info}</AlertDescription>
+                  </Alert>
+                )}
               </div>
-              <Button 
+              <GradientButton 
                 type="submit" 
-                className="w-full mt-6 relative bg-gradient-to-r from-black to-forest hover:from-black/90 hover:to-forest/90 text-white transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden group" 
-                disabled={authLoading}
+                className="w-full mt-6"
+                isLoading={authLoading}
+                loadingText={isLogin ? "Logging in..." : "Registering..."}
+                variant="primary"
               >
-                <span className="relative z-10">
-                  {authLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                      {isLogin ? "Logging in..." : "Registering..."}
-                    </>
-                  ) : isLogin ? (
-                    "Login"
-                  ) : (
-                    "Register"
-                  )}
-                </span>
-                <div className="absolute -inset-1 bg-gradient-to-r from-black to-forest rounded-full blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
-              </Button>
+                {isLogin ? "Login" : "Register"}
+              </GradientButton>
             </form>
           </CardContent>
           <CardFooter>

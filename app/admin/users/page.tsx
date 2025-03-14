@@ -208,16 +208,32 @@ export default function UsersPage() {
     if (!selectedUser) return
 
     try {
-      const { error } = await supabase.from("users").delete().eq("id", selectedUser.id)
+      setError("") // Clear any previous errors
+      setSuccess("") // Clear any previous success messages
+      
+      console.log(`Attempting to delete user: ${selectedUser.name} (ID: ${selectedUser.id})`)
+      
+      // Call our API endpoint to delete the user
+      const response = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error("Delete user API error:", data);
+        throw new Error(data.error || 'Failed to delete user');
+      }
 
-      if (error) throw error
-
+      console.log("Delete user API response:", data);
+      
+      // Update UI
       setUsers(users.filter((u) => u.id !== selectedUser.id))
-      setSuccess("User deleted successfully")
+      setSuccess(data.message || "User deleted successfully")
       setIsDeleteDialogOpen(false)
     } catch (error) {
       console.error("Error deleting user:", error)
-      setError("Failed to delete user")
+      setError(error instanceof Error ? error.message : "Failed to delete user")
     }
   }
 
