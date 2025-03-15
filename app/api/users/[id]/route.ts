@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from '@supabase/ssr'
 
 // In a real app, you would use a database
 // For demo purposes, we're using the same in-memory store
@@ -8,39 +9,90 @@ import { createClient } from "@supabase/supabase-js"
 const users: any[] = []
 
 // Initialize Supabase client with service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+// Check if the required environment variables are set
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+}
+
+const supabaseAdmin = supabaseUrl && supabaseServiceKey ? createClient(
+  supabaseUrl,
+  supabaseServiceKey,
   {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   }
-)
+) : null
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const cookieStore = cookies()
-    const userId = cookieStore.get("userId")?.value
+    // Check if supabaseAdmin is initialized
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase admin client not initialized. Missing environment variables." },
+        { status: 500 }
+      )
+    }
 
-    if (!userId) {
+    // Create a Supabase client using cookies for the current user's session
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll() {
+            // This is a read-only operation, so we don't need to set cookies
+          },
+        },
+      }
+    )
+
+    // Get the current user's session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    const currentUser = users.find((u) => u.id === userId)
-    if (!currentUser || (currentUser.role !== "admin" && currentUser.id !== params.id)) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
-    }
+    // Get the current user's data to check their role
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", session.user.id)
+      .single()
 
-    const user = users.find((u) => u.id === params.id)
-    if (!user) {
+    if (currentUserError || !currentUser) {
+      console.error("Error getting current user:", currentUserError)
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user
-    return NextResponse.json({ user: userWithoutPassword })
+    // Check if the user is authorized to view this user
+    // Only admins can view other users' data
+    if (currentUser.role !== "admin" && currentUser.id !== params.id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
+    }
+
+    // Get the requested user's data
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("id", params.id)
+      .single()
+
+    if (userError || !user) {
+      console.error("Error getting user:", userError)
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ user })
   } catch (error) {
     console.error("Get user error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
@@ -49,36 +101,92 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const cookieStore = cookies()
-    const userId = cookieStore.get("userId")?.value
+    // Check if supabaseAdmin is initialized
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase admin client not initialized. Missing environment variables." },
+        { status: 500 }
+      )
+    }
 
-    if (!userId) {
+    // Create a Supabase client using cookies for the current user's session
+    const cookieStore = cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll() {
+            // This is a read-only operation, so we don't need to set cookies
+          },
+        },
+      }
+    )
+
+    // Get the current user's session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    const currentUser = users.find((u) => u.id === userId)
-    if (!currentUser || currentUser.role !== "admin") {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
-    }
+    // Get the current user's data to check their role
+    const { data: currentUser, error: currentUserError } = await supabase
+      .from("users")
+      .select("id, role")
+      .eq("id", session.user.id)
+      .single()
 
-    const userIndex = users.findIndex((u) => u.id === params.id)
-    if (userIndex === -1) {
+    if (currentUserError || !currentUser) {
+      console.error("Error getting current user:", currentUserError)
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    const { name, email, role } = await request.json()
-
-    // Update user
-    users[userIndex] = {
-      ...users[userIndex],
-      name: name || users[userIndex].name,
-      email: email || users[userIndex].email,
-      role: role || users[userIndex].role,
+    // Only admins can update user data
+    if (currentUser.role !== "admin") {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
-    // Return updated user without password
-    const { password: _, ...userWithoutPassword } = users[userIndex]
-    return NextResponse.json({ user: userWithoutPassword })
+    // Check if the user exists
+    const { data: existingUser, error: existingUserError } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("id", params.id)
+      .single()
+
+    if (existingUserError || !existingUser) {
+      console.error("Error checking if user exists:", existingUserError)
+      return NextResponse.json({ message: "User not found" }, { status: 404 })
+    }
+
+    // Get the updated user data from the request
+    const { name, email, role, is_verified } = await request.json()
+
+    // Update the user
+    const { data: updatedUser, error: updateError } = await supabaseAdmin
+      .from("users")
+      .update({
+        name: name,
+        email: email,
+        role: role,
+        is_verified: is_verified
+      })
+      .eq("id", params.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error("Error updating user:", updateError)
+      return NextResponse.json(
+        { error: `Failed to update user: ${updateError.message}` },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ user: updatedUser })
   } catch (error) {
     console.error("Update user error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
@@ -89,6 +197,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const userId = params.id
     console.log(`Attempting to delete user with ID: ${userId}`)
+
+    // Check if supabaseAdmin is initialized
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase admin client not initialized. Missing environment variables." },
+        { status: 500 }
+      )
+    }
 
     // Try the most direct approach first - using a custom RPC function
     try {
@@ -197,4 +313,3 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     )
   }
 }
-

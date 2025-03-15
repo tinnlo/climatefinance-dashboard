@@ -1,19 +1,44 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
+export async function middleware(request: NextRequest) {
   console.log('[Middleware Debug] Request:', {
-    pathname: req.nextUrl.pathname,
-    cookies: req.cookies.getAll().map(c => c.name),
+    pathname: request.nextUrl.pathname,
+    cookies: request.cookies.getAll().map(c => c.name),
     timestamp: new Date().toISOString()
   });
 
-  // Create a response object that we can modify
-  const res = NextResponse.next()
-  
-  // Create a Supabase client specifically for the middleware
-  const supabase = createMiddlewareClient({ req, res })
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            })
+          })
+        },
+      },
+    }
+  )
 
   // Get the session - this will also refresh the session if needed
   const {
@@ -23,22 +48,22 @@ export async function middleware(req: NextRequest) {
   console.log('[Middleware Debug] Session check:', {
     hasSession: !!session,
     sessionUser: session?.user?.email,
-    pathname: req.nextUrl.pathname,
+    pathname: request.nextUrl.pathname,
     timestamp: new Date().toISOString()
   });
 
   // Allow initial redirects from login by checking for the auth_redirect param
-  const isAuthRedirect = req.nextUrl.searchParams.has('auth_redirect')
+  const isAuthRedirect = request.nextUrl.searchParams.has('auth_redirect')
   
   // Store the original URL to redirect back after login
-  const returnToPath = req.nextUrl.pathname + req.nextUrl.search
+  const returnToPath = request.nextUrl.pathname + request.nextUrl.search
   
   // Check auth condition but skip the immediate redirect after login
-  if (!session && !isAuthRedirect && (req.nextUrl.pathname.startsWith('/admin') || req.nextUrl.pathname.startsWith('/downloads'))) {
+  if (!session && !isAuthRedirect && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/downloads'))) {
     console.log('[Middleware Debug] Unauthorized access, redirecting to login');
     
     // Create a login URL with a return path
-    const redirectUrl = new URL('/login', req.url)
+    const redirectUrl = new URL('/login', request.url)
     
     // Add the return path as a query parameter
     redirectUrl.searchParams.set('returnTo', returnToPath)
@@ -46,7 +71,7 @@ export async function middleware(req: NextRequest) {
     const redirectResponse = NextResponse.redirect(redirectUrl)
     
     // Copy any cookies that were set by the supabase client
-    res.cookies.getAll().forEach(cookie => {
+    response.cookies.getAll().forEach(cookie => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
     })
     
@@ -54,16 +79,25 @@ export async function middleware(req: NextRequest) {
   }
 
   console.log('[Middleware Debug] Access granted:', {
-    pathname: req.nextUrl.pathname,
+    pathname: request.nextUrl.pathname,
     isAuthRedirect,
     timestamp: new Date().toISOString()
   });
 
   // Return the response with any cookies set by Supabase auth
-  return res
+  return response
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/downloads/:path*']
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
 

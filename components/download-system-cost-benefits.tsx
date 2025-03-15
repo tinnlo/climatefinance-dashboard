@@ -6,15 +6,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Download, ChevronRight, ArrowLeft } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+import { Loader2 } from "lucide-react"
 
 export function DownloadSystemCostBenefits() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
   const [selectedCountry, setSelectedCountry] = useState(searchParams.get("country") || "in")
   const [selectedScenario, setSelectedScenario] = useState(searchParams.get("scenario") || "baseline")
   const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams.get("timeHorizon") || "2025")
   const [isDownloading, setIsDownloading] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isLoading) {
+      setAuthChecked(true)
+      
+      // If not authenticated, redirect to login with returnTo parameter
+      if (!isAuthenticated) {
+        const currentPath = window.location.pathname + window.location.search
+        router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`)
+      }
+    }
+  }, [isAuthenticated, isLoading, router])
 
   // Scenarios for the dropdown (same as in system-cost-benefits.tsx)
   const scenarios = [
@@ -57,6 +75,21 @@ ${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},Hea
     } finally {
       setIsDownloading(false);
     }
+  }
+
+  // Show loading state while checking authentication
+  if (isLoading || !authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    )
+  }
+
+  // Only render the download UI if authenticated
+  if (!isAuthenticated) {
+    return null; // Return null as we're redirecting in the useEffect
   }
 
   return (
