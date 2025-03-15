@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session) {
         // This is an auth check, not a user-initiated login
-        const result = await login(session.user.email, "", true)
+        const result = await login(session.user.email ?? "", "", true)
         
         if (result.success) {
           setIsAuthenticated(true)
