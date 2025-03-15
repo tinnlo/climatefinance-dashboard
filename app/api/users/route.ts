@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getCurrentUser } from "@/lib/jwt"
 
 // In a real app, you would use a database
 // For demo purposes, we're using the same in-memory store
@@ -23,21 +23,20 @@ const users = [
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies()
-    const userId = cookieStore.get("userId")?.value
+    // Get user from JWT token
+    const payload = await getCurrentUser()
 
-    if (!userId) {
+    if (!payload) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    const currentUser = users.find((u) => u.id === userId)
-    if (!currentUser || currentUser.role !== "admin") {
+    // In a real application, you'd check roles in your database
+    if (payload.role !== "admin") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
-    // Return all users without passwords
-    const usersWithoutPasswords = users.map(({ password, ...user }) => user)
-    return NextResponse.json({ users: usersWithoutPasswords })
+    // Return all users (no need to remove passwords as our user objects don't have them)
+    return NextResponse.json({ users })
   } catch (error) {
     console.error("Get users error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })

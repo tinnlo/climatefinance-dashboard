@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getCurrentUser } from "@/lib/jwt"
 
 // In a real app, you would use a database
 // For demo purposes, we're using the same in-memory store
@@ -8,14 +8,18 @@ const users: any[] = []
 
 export async function GET() {
   try {
-    const cookieStore = cookies()
-    const userId = cookieStore.get("userId")?.value
+    // Get user from JWT token
+    const payload = await getCurrentUser()
 
-    if (!userId) {
+    if (!payload) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
+    // In a real application, you'd fetch the user data from your database
+    // using the ID from the JWT payload
+    const userId = payload.id
     const user = users.find((u) => u.id === userId)
+
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }

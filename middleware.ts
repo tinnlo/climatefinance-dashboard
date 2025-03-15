@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getTokenFromRequest, verifyToken } from './lib/jwt'
 
 export async function middleware(request: NextRequest) {
   console.log('[Middleware Debug] Request:', {
@@ -13,6 +14,11 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
     },
   })
+
+  // Check for JWT token in Authorization header or cookies
+  const token = getTokenFromRequest(request)
+  const payload = token ? await verifyToken(token) : null
+  const isAuthenticated = !!payload
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,12 +47,15 @@ export async function middleware(request: NextRequest) {
   )
 
   // Get the session - this will also refresh the session if needed
+  // We still keep Supabase's session management as a fallback/alternative auth method
+  // and for Supabase's other functionality
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  console.log('[Middleware Debug] Session check:', {
-    hasSession: !!session,
+  console.log('[Middleware Debug] Auth check:', {
+    hasJwtAuth: isAuthenticated,
+    hasSupabaseSession: !!session,
     sessionUser: session?.user?.email,
     pathname: request.nextUrl.pathname,
     timestamp: new Date().toISOString()
@@ -59,7 +68,8 @@ export async function middleware(request: NextRequest) {
   const returnToPath = request.nextUrl.pathname + request.nextUrl.search
   
   // Check auth condition but skip the immediate redirect after login
-  if (!session && !isAuthRedirect && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/downloads'))) {
+  // Now we check both JWT and Supabase auth - either one is sufficient
+  if (!isAuthenticated && !session && !isAuthRedirect && (request.nextUrl.pathname.startsWith('/admin') || request.nextUrl.pathname.startsWith('/downloads'))) {
     console.log('[Middleware Debug] Unauthorized access, redirecting to login');
     
     // Create a login URL with a return path

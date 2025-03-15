@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
+import { generateTokens, setTokenCookies } from "@/lib/jwt"
 
 // In a real app, you would use a database
 // For demo purposes, we're using the same in-memory store
@@ -34,30 +34,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
 
-    // Create session
-    const sessionId = uuidv4()
-    const cookieStore = cookies()
-
-    // Set session cookie
-    cookieStore.set("session", sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    })
-
-    // Store session (in a real app, this would be in a database)
-    // For demo, we're just using the user ID as the session
-    cookieStore.set("userId", user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    })
-
-    // Return user without password
+    // Remove sensitive data from user object before creating token
     const { password: _, ...userWithoutPassword } = user
-    return NextResponse.json({ message: "Login successful", user: userWithoutPassword })
+    
+    // Generate access and refresh tokens
+    const { accessToken, refreshToken } = await generateTokens({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    })
+    
+    // Prepare response
+    const response = NextResponse.json({
+      message: "Login successful",
+      user: userWithoutPassword,
+      token: accessToken, // For backward compatibility
+      refreshToken, // Include refresh token in response for API clients
+    })
+    
+    // Set tokens in cookies and headers
+    setTokenCookies(response, accessToken, refreshToken)
+    
+    return response
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
