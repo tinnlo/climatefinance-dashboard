@@ -5,6 +5,18 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useTheme } from "next-themes"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { Settings, LogOut, User } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function Header({
   selectedCountry = "in",
@@ -15,6 +27,13 @@ export function Header({
 }) {
   const pathname = usePathname()
   const { theme } = useTheme()
+  const { user, logout, isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/login")
+  }
 
   return (
     <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -51,6 +70,55 @@ export function Header({
             >
               Contact
             </Link>
+            {isAuthenticated ? (
+              <>
+                {user?.role === "admin" && (
+                  <Link
+                    href="/admin/users"
+                    className={`transition-colors hover:text-foreground/80 ${
+                      pathname.startsWith("/admin") ? "font-bold text-foreground" : "text-foreground/60"
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-foreground/60 hover:text-foreground">
+                      <Settings className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{user?.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex w-full cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        Account Management
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className={`transition-colors hover:text-foreground/80 ${
+                  pathname === "/login" ? "font-bold text-foreground" : "text-foreground/60"
+                }`}
+              >
+                Login
+              </Link>
+            )}
             <ModeToggle />
           </nav>
         </div>
