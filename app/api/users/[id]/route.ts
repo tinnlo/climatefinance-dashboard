@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
-import { createServerClient } from '@supabase/ssr'
 
 // In a real app, you would use a database
 // For demo purposes, we're using the same in-memory store
@@ -30,69 +29,26 @@ const supabaseAdmin = supabaseUrl && supabaseServiceKey ? createClient(
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if supabaseAdmin is initialized
-    if (!supabaseAdmin) {
-      return NextResponse.json(
-        { error: "Supabase admin client not initialized. Missing environment variables." },
-        { status: 500 }
-      )
-    }
-
-    // Create a Supabase client using cookies for the current user's session
     const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll() {
-            // This is a read-only operation, so we don't need to set cookies
-          },
-        },
-      }
-    )
+    const userId = cookieStore.get("userId")?.value
 
-    // Get the current user's session
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session) {
+    if (!userId) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    // Get the current user's data to check their role
-    const { data: currentUser, error: currentUserError } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", session.user.id)
-      .single()
-
-    if (currentUserError || !currentUser) {
-      console.error("Error getting current user:", currentUserError)
-      return NextResponse.json({ message: "User not found" }, { status: 404 })
-    }
-
-    // Check if the user is authorized to view this user
-    // Only admins can view other users' data
-    if (currentUser.role !== "admin" && currentUser.id !== params.id) {
+    const currentUser = users.find((u) => u.id === userId)
+    if (!currentUser || (currentUser.role !== "admin" && currentUser.id !== params.id)) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
-    // Get the requested user's data
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("id", params.id)
-      .single()
-
-    if (userError || !user) {
-      console.error("Error getting user:", userError)
+    const user = users.find((u) => u.id === params.id)
+    if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user })
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = user
+    return NextResponse.json({ user: userWithoutPassword })
   } catch (error) {
     console.error("Get user error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
@@ -101,92 +57,36 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    // Check if supabaseAdmin is initialized
-    if (!supabaseAdmin) {
-      return NextResponse.json(
-        { error: "Supabase admin client not initialized. Missing environment variables." },
-        { status: 500 }
-      )
-    }
-
-    // Create a Supabase client using cookies for the current user's session
     const cookieStore = cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll() {
-            // This is a read-only operation, so we don't need to set cookies
-          },
-        },
-      }
-    )
+    const userId = cookieStore.get("userId")?.value
 
-    // Get the current user's session
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session) {
+    if (!userId) {
       return NextResponse.json({ message: "Not authenticated" }, { status: 401 })
     }
 
-    // Get the current user's data to check their role
-    const { data: currentUser, error: currentUserError } = await supabase
-      .from("users")
-      .select("id, role")
-      .eq("id", session.user.id)
-      .single()
-
-    if (currentUserError || !currentUser) {
-      console.error("Error getting current user:", currentUserError)
-      return NextResponse.json({ message: "User not found" }, { status: 404 })
-    }
-
-    // Only admins can update user data
-    if (currentUser.role !== "admin") {
+    const currentUser = users.find((u) => u.id === userId)
+    if (!currentUser || currentUser.role !== "admin") {
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
-    // Check if the user exists
-    const { data: existingUser, error: existingUserError } = await supabaseAdmin
-      .from("users")
-      .select("id")
-      .eq("id", params.id)
-      .single()
-
-    if (existingUserError || !existingUser) {
-      console.error("Error checking if user exists:", existingUserError)
+    const userIndex = users.findIndex((u) => u.id === params.id)
+    if (userIndex === -1) {
       return NextResponse.json({ message: "User not found" }, { status: 404 })
     }
 
-    // Get the updated user data from the request
-    const { name, email, role, is_verified } = await request.json()
+    const { name, email, role } = await request.json()
 
-    // Update the user
-    const { data: updatedUser, error: updateError } = await supabaseAdmin
-      .from("users")
-      .update({
-        name: name,
-        email: email,
-        role: role,
-        is_verified: is_verified
-      })
-      .eq("id", params.id)
-      .select()
-      .single()
-
-    if (updateError) {
-      console.error("Error updating user:", updateError)
-      return NextResponse.json(
-        { error: `Failed to update user: ${updateError.message}` },
-        { status: 500 }
-      )
+    // Update user
+    users[userIndex] = {
+      ...users[userIndex],
+      name: name || users[userIndex].name,
+      email: email || users[userIndex].email,
+      role: role || users[userIndex].role,
     }
 
-    return NextResponse.json({ user: updatedUser })
+    // Return updated user without password
+    const { password: _, ...userWithoutPassword } = users[userIndex]
+    return NextResponse.json({ user: userWithoutPassword })
   } catch (error) {
     console.error("Update user error:", error)
     return NextResponse.json({ message: "Internal server error" }, { status: 500 })
@@ -313,3 +213,4 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     )
   }
 }
+
