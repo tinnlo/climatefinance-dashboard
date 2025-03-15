@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,7 +13,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
 
-export default function LoginPage() {
+// Create a client component that uses useSearchParams
+function LoginForm(): React.ReactNode {
   const [isLogin, setIsLogin] = useState(true)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -29,37 +29,22 @@ export default function LoginPage() {
   const { login, register, isLoading: authLoading, user, isAuthenticated, refreshSession } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Check if user is already authenticated and redirect if needed
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
       console.log("[Login Debug - Already Authenticated]", {
         user: user.email,
-        role: user.role,
-        returnTo,
+        redirectTo: returnTo || "/",
         timestamp: new Date().toISOString(),
       });
       
-      // If already authenticated, redirect to the returnTo path or default dashboard
-      const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
-      const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
-      
-      console.log("[Login Debug - Auto Redirecting]", { redirectPath });
-      router.push(redirectPath)
-    } else {
-      // Try to refresh the session on page load
-      refreshSession();
+      if (returnTo) {
+        router.push(returnTo)
+      } else {
+        router.push("/")
+      }
     }
-  }, [isAuthenticated, user, returnTo, router, refreshSession]);
-
-  useEffect(() => {
-    // Log the returnTo parameter for debugging
-    if (returnTo) {
-      console.log("[Login Debug - ReturnTo]", {
-        returnTo,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }, [returnTo]);
+  }, [isAuthenticated, user, router, returnTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,150 +125,170 @@ export default function LoginPage() {
           }
         }
       } else {
-        if (!name) {
-          setError("Name is required")
-          return
-        }
+        // Registration logic
         if (password !== confirmPassword) {
           setError("Passwords do not match")
+          setIsSubmitting(false)
           return
         }
-        if (password.length < 8) {
-          setError("Password must be at least 8 characters long")
-          return
-        }
+
         const result = await register(name, email, password)
         if (result.success) {
-          setSuccess("Registration successful! Please wait for admin approval before logging in.")
+          setSuccess(result.message)
+          // Switch to login mode after successful registration
           setIsLogin(true)
           setName("")
           setEmail("")
           setPassword("")
           setConfirmPassword("")
         } else {
-          // Handle specific error messages
-          if (result.message.includes("violates row-level security policy")) {
-            // This is likely a false error, the user might have been created successfully
-            console.log("[Login Debug - RLS Error]", { message: result.message });
-            setSuccess("Registration may have been successful. Please try logging in after a few minutes.")
-            setIsLogin(true)
-            setName("")
-            setEmail("")
-            setPassword("")
-            setConfirmPassword("")
-          } else {
-            setError(result.message)
-          }
+          setError(result.message)
         }
       }
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.")
-      console.error(err)
+    } catch (error: any) {
+      console.error("[Login Debug - Error]", error)
+      setError(error.message || "An unexpected error occurred")
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background/95 to-forest/30">
+    <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-8">
+      <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>{isLogin ? "Login" : "Register"}</CardTitle>
+            <CardTitle className="text-2xl font-light">
+              {isLogin ? "Sign In" : "Create an Account"}
+            </CardTitle>
             <CardDescription>
-              {isLogin ? "Enter your credentials to access your account" : "Create an account to download data"}
+              {isLogin
+                ? "Enter your credentials to access your account"
+                : "Fill in the form below to create your account"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your name"
-                      required
-                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                    />
-                  </div>
-                )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="name">Name</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    id="name"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     required
-                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                  />
-                </div>
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm your password"
-                      required
-                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                    />
-                  </div>
-                )}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {success && (
-                  <Alert variant="info">
-                    <AlertDescription>{success}</AlertDescription>
-                  </Alert>
-                )}
-                {info && (
-                  <Alert variant="info">
-                    <AlertDescription>{info}</AlertDescription>
-                  </Alert>
-                )}
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
-              <GradientButton 
-                type="submit" 
-                className="w-full mt-6"
-                isLoading={authLoading}
-                loadingText={isLogin ? "Logging in..." : "Registering..."}
-                variant="primary"
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {success && (
+                <Alert className="bg-green-500/10 text-green-500 border-green-500/20">
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
+              {info && (
+                <Alert className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                  <AlertDescription>{info}</AlertDescription>
+                </Alert>
+              )}
+              <GradientButton
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting || authLoading}
               >
-                {isLogin ? "Login" : "Register"}
+                {isSubmitting || authLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isLogin ? "Signing in..." : "Creating account..."}
+                  </>
+                ) : (
+                  <>{isLogin ? "Sign In" : "Create Account"}</>
+                )}
               </GradientButton>
             </form>
           </CardContent>
-          <CardFooter>
-            <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="w-full text-muted-foreground hover:text-muted-foreground/90">
-              {isLogin ? "Need an account? Register" : "Already have an account? Login"}
-            </Button>
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="text-center w-full">
+              <Button
+                variant="link"
+                className="text-sm"
+                onClick={() => {
+                  setIsLogin(!isLogin)
+                  setError("")
+                  setSuccess("")
+                  setInfo("")
+                }}
+              >
+                {isLogin
+                  ? "Don't have an account? Sign up"
+                  : "Already have an account? Sign in"}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </main>
     </div>
+  )
+}
+
+// Main page component with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
 

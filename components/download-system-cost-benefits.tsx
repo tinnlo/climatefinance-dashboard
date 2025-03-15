@@ -1,17 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, ChevronRight, ArrowLeft } from "lucide-react"
+import { Download, ChevronRight, ArrowLeft, Loader2 } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
-import { Loader2 } from "lucide-react"
 
-export function DownloadSystemCostBenefits() {
+// Inner component that uses useSearchParams
+function DownloadSystemCostBenefitsContent(): React.ReactNode {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { isAuthenticated, isLoading } = useAuth()
@@ -47,184 +47,167 @@ export function DownloadSystemCostBenefits() {
     { value: "2035", label: "Until 2035" },
   ]
 
+  // Handle download button click
   const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      // For testing, we'll create a sample CSV file
-      const csvContent = `Country,Scenario,TimeHorizon,Category,Value,GDPPercentage
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},TotalCost,3.5,2.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},CapitalInvestment,1.8,1.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},OperatingCosts,1.2,0.7
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},MaintenanceCosts,0.5,0.3
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},TotalBenefit,8.2,4.9
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},AvoidedClimateImpacts,5.1,3.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},HealthBenefits,3.1,1.8`;
-
-      // Create a blob and download it
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `system_cost_benefits_${selectedCountry}_${selectedScenario}_${selectedTimeHorizon}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // In a real app, you would call an API to generate and download the file
+      // For demo purposes, we'll just simulate a delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      
+      // Redirect to the download URL
+      window.location.href = `/api/download/system-cost-benefits?country=${selectedCountry}&scenario=${selectedScenario}&timeHorizon=${selectedTimeHorizon}`
     } catch (error) {
-      console.error("Error downloading file:", error);
-      // Handle error here
+      console.error("Download error:", error)
     } finally {
-      setIsDownloading(false);
+      setIsDownloading(false)
     }
   }
 
-  // Show loading state while checking authentication
+  // Handle country change
+  const handleCountryChange = (country: string) => {
+    setSelectedCountry(country)
+    // Update URL with new country
+    const params = new URLSearchParams(window.location.search)
+    params.set("country", country)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.pushState({}, "", newUrl)
+  }
+
+  // Handle scenario change
+  const handleScenarioChange = (scenario: string) => {
+    setSelectedScenario(scenario)
+    // Update URL with new scenario
+    const params = new URLSearchParams(window.location.search)
+    params.set("scenario", scenario)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.pushState({}, "", newUrl)
+  }
+
+  // Handle time horizon change
+  const handleTimeHorizonChange = (timeHorizon: string) => {
+    setSelectedTimeHorizon(timeHorizon)
+    // Update URL with new time horizon
+    const params = new URLSearchParams(window.location.search)
+    params.set("timeHorizon", timeHorizon)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.pushState({}, "", newUrl)
+  }
+
   if (isLoading || !authChecked) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
-      </div>
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardContent className="flex items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
     )
   }
 
-  // Only render the download UI if authenticated
-  if (!isAuthenticated) {
-    return null; // Return null as we're redirecting in the useEffect
-  }
-
   return (
-    <div className="container max-w-4xl mx-auto py-8">
-      {/* Breadcrumb navigation */}
-      <div className="flex items-center mb-6">
-        <Link 
-          href="/dashboard" 
-          className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Link>
-      </div>
-      
-      <h1 className="text-3xl font-bold mb-8">Download System Cost and Benefits Data</h1>
-      
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Select Data Parameters</CardTitle>
-          <CardDescription>Choose the country, scenario, and time horizon for the data you want to download</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Country</label>
-              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
-                    <SelectItem key={code} value={code}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Scenario</label>
-              <Select value={selectedScenario} onValueChange={setSelectedScenario}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select scenario" />
-                </SelectTrigger>
-                <SelectContent>
-                  {scenarios.map((scenario) => (
-                    <SelectItem key={scenario.value} value={scenario.value}>
-                      {scenario.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Time Horizon</label>
-              <Select value={selectedTimeHorizon} onValueChange={setSelectedTimeHorizon}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time horizon" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeHorizons.map((horizon) => (
-                    <SelectItem key={horizon.value} value={horizon.value}>
-                      {horizon.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Download System Cost-Benefits Data</CardTitle>
+            <CardDescription>
+              Select parameters and download the data for your analysis
+            </CardDescription>
           </div>
-          
-          <div className="flex justify-center mt-8">
-            <Button 
-              onClick={handleDownload} 
-              className="w-full md:w-auto"
-              disabled={isDownloading}
-            >
-              {isDownloading ? (
-                <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent mr-2" />
-                  Downloading...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Data (CSV)
-                </>
-              )}
-            </Button>
+          <Link href="/system-cost-benefits" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <h3 className="text-sm font-medium mb-2">Country</h3>
+            <Select value={selectedCountry} onValueChange={handleCountryChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(COUNTRY_NAMES).map(([code, name]) => (
+                  <SelectItem key={code} value={code}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
-      
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Available Data Files</CardTitle>
-          <CardDescription>Sample files available for download</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">System Cost Benefits - {COUNTRY_NAMES[selectedCountry]} (Baseline)</h3>
-                <p className="text-sm text-muted-foreground">CSV, 24KB</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
+          <div>
+            <h3 className="text-sm font-medium mb-2">Scenario</h3>
+            <Select value={selectedScenario} onValueChange={handleScenarioChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select scenario" />
+              </SelectTrigger>
+              <SelectContent>
+                {scenarios.map((scenario) => (
+                  <SelectItem key={scenario.value} value={scenario.value}>
+                    {scenario.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium mb-2">Time Horizon</h3>
+            <Select value={selectedTimeHorizon} onValueChange={handleTimeHorizonChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select time horizon" />
+              </SelectTrigger>
+              <SelectContent>
+                {timeHorizons.map((horizon) => (
+                  <SelectItem key={horizon.value} value={horizon.value}>
+                    {horizon.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex justify-center mt-6">
+          <Button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="w-full max-w-md"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Preparing Download...
+              </>
+            ) : (
+              <>
                 <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">System Cost Benefits - Full Dataset</h3>
-                <p className="text-sm text-muted-foreground">Excel, 156KB</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Return to Dashboard button at the bottom center */}
-      <div className="flex justify-center mt-8">
-        <Link href="/dashboard">
-          <Button variant="outline" className="w-auto">
-            Return to Dashboard
+                Download Data
+              </>
+            )}
           </Button>
-        </Link>
-      </div>
-    </div>
+        </div>
+        <div className="text-center text-sm text-muted-foreground mt-4">
+          <p>
+            Data is provided in CSV format and includes all cost-benefit metrics for the selected parameters.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Wrapper component with Suspense boundary
+export function DownloadSystemCostBenefits(): React.ReactNode {
+  return (
+    <Suspense fallback={
+      <Card className="w-full max-w-4xl mx-auto">
+        <CardContent className="flex items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    }>
+      <DownloadSystemCostBenefitsContent />
+    </Suspense>
   )
 } 
