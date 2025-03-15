@@ -293,7 +293,7 @@ export default function UsersPage() {
           )}
 
           {success && (
-            <Alert className="mb-4">
+            <Alert variant="info" className="mb-4">
               <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
