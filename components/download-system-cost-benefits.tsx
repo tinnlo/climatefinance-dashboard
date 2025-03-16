@@ -6,18 +6,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Download, ChevronRight, ArrowLeft } from "lucide-react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Loader2 } from "lucide-react"
+import { useSearchParamsContext } from "@/app/components/SearchParamsProvider"
 
 export function DownloadSystemCostBenefits() {
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParamsContext()
   const router = useRouter()
   const { isAuthenticated, isLoading } = useAuth()
-  const [selectedCountry, setSelectedCountry] = useState(searchParams.get("country") || "in")
-  const [selectedScenario, setSelectedScenario] = useState(searchParams.get("scenario") || "baseline")
-  const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams.get("timeHorizon") || "2025")
+  const [selectedCountry, setSelectedCountry] = useState(searchParams?.get("country") || "in")
+  const [selectedScenario, setSelectedScenario] = useState(searchParams?.get("scenario") || "baseline")
+  const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams?.get("timeHorizon") || "2025")
   const [isDownloading, setIsDownloading] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
 

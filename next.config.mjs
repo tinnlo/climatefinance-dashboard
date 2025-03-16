@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove the static export output
-  // output: 'export',
+  // Use server-side rendering
   distDir: '.next',
   images: {
     unoptimized: true,
@@ -26,10 +25,11 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   // Increase timeout for page generation
   staticPageGenerationTimeout: 180,
-  env: {
-    // Remove the static export flag
-    // NEXT_PUBLIC_STATIC_EXPORT: 'true',
-  },
+  // Configure the app to work with both Pages Router and App Router
+  // This enables a hybrid approach
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js', 'md', 'mdx'],
+  // Configure output to use server-side rendering
+  output: 'standalone',
 }
 
 // Merge with user config if available

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, createContext, useContext, useEffect, useState } from 'react';
+import { ReactNode, createContext, useContext, useEffect, useState, Suspense } from 'react';
 import { useSearchParams as useNextSearchParams } from 'next/navigation';
 
 // Create a context to hold the search params
@@ -16,29 +16,34 @@ interface SearchParamsProviderProps {
   fallback?: ReactNode;
 }
 
-/**
- * A component that safely provides search params on the client side
- * This prevents the "useSearchParams() should be wrapped in a suspense boundary" error
- * during static site generation
- */
-export function SearchParamsProvider({ children, fallback = null }: SearchParamsProviderProps) {
-  const [hasMounted, setHasMounted] = useState(false);
+// Inner component that uses the search params
+function SearchParamsContent({ children }: { children: ReactNode }) {
   const searchParams = useNextSearchParams();
   const [params, setParams] = useState<URLSearchParams | null>(null);
 
   useEffect(() => {
-    setHasMounted(true);
     // Only access searchParams on the client
     setParams(searchParams);
   }, [searchParams]);
-
-  if (!hasMounted) {
-    return <>{fallback}</>;
-  }
 
   return (
     <SearchParamsContext.Provider value={params}>
       {children}
     </SearchParamsContext.Provider>
+  );
+}
+
+/**
+ * A component that safely provides search params on the client side
+ * This prevents the "useSearchParams() should be wrapped in a suspense boundary" error
+ * during static site generation
+ */
+export function SearchParamsProvider({ children, fallback = <div>Loading...</div> }: SearchParamsProviderProps) {
+  return (
+    <Suspense fallback={fallback}>
+      <SearchParamsContent>
+        {children}
+      </SearchParamsContent>
+    </Suspense>
   );
 } 

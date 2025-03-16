@@ -1,8 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback, Suspense } from "react"
 import { getSupabaseClient, getCurrentUser } from "@/lib/supabase-client"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import { useSearchParamsContext } from "@/app/components/SearchParamsProvider"
 
 export interface User {
   id: string
@@ -28,13 +29,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Create a session storage key to track login state
 const SESSION_STORAGE_KEY = 'auth_session_active'
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+// Inner component that uses search params
+function AuthProviderContent({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParamsContext()
   const supabase = getSupabaseClient()
 
   const logAuthState = (action: string, data: any) => {
@@ -211,10 +213,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             logAuthState('Auth State Updated', { user: userState })
             
             // Handle redirect after login if returnTo parameter exists
-            const returnTo = searchParams.get('returnTo')
-            if (event === 'SIGNED_IN' && returnTo) {
-              logAuthState('Redirect After Login', { returnTo })
-              router.push(returnTo)
+            const currentSearchParams = searchParams
+            if (event === 'SIGNED_IN' && currentSearchParams) {
+              const returnTo = currentSearchParams.get('returnTo')
+              if (returnTo) {
+                logAuthState('Redirect After Login', { returnTo })
+                router.push(returnTo)
+              }
             }
           }
         } catch (error) {
@@ -305,7 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Determine where to redirect based on user role
       const redirectTo = userState.role === "admin" ? "/admin/users" : "/dashboard"
-      const returnTo = searchParams.get('returnTo')
+      const returnTo = searchParams?.get('returnTo') || null
       
       return { 
         success: true, 
@@ -446,6 +451,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
+  )
+}
+
+// Wrapper component that provides the AuthContext
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div>Loading authentication...</div>}>
+      <AuthProviderContent>
+        {children}
+      </AuthProviderContent>
+    </Suspense>
   )
 }
 

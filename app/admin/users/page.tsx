@@ -21,7 +21,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ProtectedRoute } from "@/components/protected-route"
 import { getSupabaseClient } from "@/lib/supabase-client"
 import { deleteUser } from "@/lib/user-management"
-import { getUsers, updateUser } from "@/lib/user-management"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchParamsProvider } from "../../components/SearchParamsProvider"
@@ -56,15 +55,24 @@ function AdminUsersContent() {
 
   const fetchUsers = async () => {
     setIsLoading(true)
+    setError(null)
+    
     try {
-      const { users, error } = await getUsers()
+      // Direct Supabase query to fetch users
+      const { data, error } = await getSupabaseClient()
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
       if (error) {
-        setError(error)
-        toast.error("Failed to load users")
-      } else {
-        setUsers(users as User[])
-        setError(null)
+        console.error('Error fetching users:', error);
+        setError(error.message);
+        toast.error("Failed to load users");
+        return;
       }
+      
+      console.log('Fetched users:', data);
+      setUsers(data as User[] || []);
     } catch (err) {
       console.error("Error fetching users:", err)
       setError("An unexpected error occurred")
@@ -95,13 +103,18 @@ function AdminUsersContent() {
     }
 
     try {
-      const { success, error } = await deleteUser(userId)
+      const { error } = await getSupabaseClient()
+        .from('users')
+        .delete()
+        .eq('id', userId);
+        
       if (error) {
-        toast.error(`Failed to delete user: ${error}`)
-      } else {
-        toast.success("User deleted successfully")
-        setUsers(users.filter((u) => u.id !== userId))
+        toast.error(`Failed to delete user: ${error.message}`)
+        return;
       }
+      
+      toast.success("User deleted successfully")
+      setUsers(users.filter((u) => u.id !== userId))
     } catch (err) {
       console.error("Error deleting user:", err)
       toast.error("Failed to delete user")
@@ -221,13 +234,20 @@ function AdminUsersContent() {
     try {
       // Cast the newRole to the correct type
       const roleValue = newRole as 'user' | 'admin';
-      const { user, error } = await updateUser(userId, { role: roleValue });
+      
+      const { data, error } = await getSupabaseClient()
+        .from('users')
+        .update({ role: roleValue })
+        .eq('id', userId)
+        .select();
+        
       if (error) {
-        toast.error(`Failed to update user role: ${error}`);
-      } else {
-        toast.success("User role updated successfully");
-        setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+        toast.error(`Failed to update user role: ${error.message}`);
+        return;
       }
+      
+      toast.success("User role updated successfully");
+      setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
     } catch (err) {
       console.error("Error updating user role:", err);
       toast.error("Failed to update user role");
@@ -249,24 +269,27 @@ function AdminUsersContent() {
 
       if (error) throw error
 
-      if (data.user) {
-        setUsers([
-          ...users,
+      // Create a user record in the users table
+      const { error: insertError } = await getSupabaseClient()
+        .from("users")
+        .insert([
           {
-            id: data.user.id,
+            id: data.user?.id,
             name: formData.name,
             email: formData.email,
             role: formData.role,
-            created_at: new Date().toISOString(),
             is_verified: false,
           },
         ])
-        setSuccess("User added successfully")
-        setIsAddDialogOpen(false)
-      }
-    } catch (error) {
+
+      if (insertError) throw insertError
+
+      toast.success("User added successfully. They will need to verify their email.")
+      setIsAddDialogOpen(false)
+      fetchUsers() // Refresh the user list
+    } catch (error: any) {
       console.error("Error adding user:", error)
-      setError("Failed to add user")
+      setError(error.message || "Failed to add user")
     }
   }
 
