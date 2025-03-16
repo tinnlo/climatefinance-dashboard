@@ -1,7 +1,7 @@
 # Netlify configuration for Next.js
 [build]
-  command = "npm run build"
-  publish = ".next/standalone"
+  command = "npm run netlify-build"
+  publish = ".next"
 
 # Handle Next.js server-side rendering
 [[plugins]]

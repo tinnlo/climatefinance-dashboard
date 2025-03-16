@@ -28,8 +28,6 @@ const nextConfig = {
   // Configure the app to work with both Pages Router and App Router
   // This enables a hybrid approach
   pageExtensions: ['tsx', 'ts', 'jsx', 'js', 'md', 'mdx'],
-  // Configure output to use server-side rendering
-  output: 'standalone',
 }
 
 // Merge with user config if available
