@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from "react"
-import { supabase, getCurrentUser } from "@/lib/supabase-client"
+import { getSupabaseClient, getCurrentUser } from "@/lib/supabase-client"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
 export interface User {
@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const supabase = getSupabaseClient()
 
   const logAuthState = (action: string, data: any) => {
     console.log(`[Auth Debug - ${action}]`, {
@@ -44,21 +45,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  // Helper to store session state in sessionStorage
+  // Helper to store session state in localStorage (changed from sessionStorage for persistence)
   const setSessionActive = (active: boolean) => {
     if (typeof window !== 'undefined') {
       if (active) {
-        sessionStorage.setItem(SESSION_STORAGE_KEY, 'true')
+        localStorage.setItem(SESSION_STORAGE_KEY, 'true')
       } else {
-        sessionStorage.removeItem(SESSION_STORAGE_KEY)
+        localStorage.removeItem(SESSION_STORAGE_KEY)
       }
     }
   }
 
-  // Helper to check if session is active in sessionStorage
+  // Helper to check if session is active in localStorage
   const isSessionActive = (): boolean => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(SESSION_STORAGE_KEY) === 'true'
+      return localStorage.getItem(SESSION_STORAGE_KEY) === 'true'
     }
     return false
   }
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session) {
         // This is an auth check, not a user-initiated login
-        const result = await login(session.user.email, "", true)
+        const result = await login(session.user.email ?? "", "", true)
         
         if (result.success) {
           setIsAuthenticated(true)
@@ -95,13 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
     let mounted = true
 
     const initializeAuth = async () => {
       try {
         logAuthState('Initialize', 'Starting auth initialization...')
         
-        // Check if we have an active session in sessionStorage
+        // Check if we have an active session in localStorage
         const sessionActive = isSessionActive()
         logAuthState('Session Storage Check', { sessionActive })
         
@@ -128,13 +131,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return;
             }
             
-            const userState = {
-              id: userData.id,
-              name: userData.name,
-              email: userData.email,
-              role: userData.role,
-              created_at: userData.created_at,
-              isVerified: userData.is_verified,
+            const userState: User = {
+              id: String(userData.id),
+              name: String(userData.name),
+              email: String(userData.email),
+              role: userData.role as "user" | "admin",
+              created_at: userData.created_at ? String(userData.created_at) : undefined,
+              isVerified: Boolean(userData.is_verified),
             }
             setUser(userState)
             setIsAuthenticated(true)
@@ -142,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             logAuthState('User State Updated', { user: userState })
           }
         } else if (sessionActive && mounted) {
-          // If sessionStorage says we're active but we don't have a session,
+          // If localStorage says we're active but we don't have a session,
           // try to refresh the session
           logAuthState('Session Mismatch', { sessionActive, hasSession: !!session })
           await refreshSession()
@@ -194,13 +197,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return;
             }
             
-            const userState = {
-              id: userData.id,
-              name: userData.name,
-              email: userData.email,
-              role: userData.role,
-              created_at: userData.created_at,
-              isVerified: userData.is_verified,
+            const userState: User = {
+              id: String(userData.id),
+              name: String(userData.name),
+              email: String(userData.email),
+              role: userData.role as "user" | "admin",
+              created_at: userData.created_at ? String(userData.created_at) : undefined,
+              isVerified: Boolean(userData.is_verified),
             }
             setUser(userState)
             setIsAuthenticated(true)
@@ -225,9 +228,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [router, searchParams])
+  }, [router, searchParams, refreshSession])
 
   const login = async (email: string, password: string, isAuthCheck = false) => {
+    if (typeof window === 'undefined') {
+      return { success: false, message: "Cannot login in server environment" }
+    }
+    
     setIsLoading(true)
     try {
       const isSpecificUser = email === 'tinnlo@proton.me';
@@ -251,102 +258,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: "Login failed. Please try again." }
       }
 
-      console.log("User authenticated successfully:", {
-        id: data.user.id,
-        email: data.user.email
-      })
+      // Get the user data from our database
+      const userData = await getCurrentUser()
 
-      // Get user data from the users table
-      let userData = await getCurrentUser()
-      
-      // Special handling for the specific user
-      if (!userData && isSpecificUser) {
-        console.log("Special user authenticated but not found in users table. Attempting to create user record.");
-        
-        // Get the authenticated user
-        const { data: authUser } = await supabase.auth.getUser();
-        
-        if (authUser?.user) {
-          console.log("Auth user found:", {
-            id: authUser.user.id,
-            email: authUser.user.email
-          });
-          
-          // Try to create the user in the users table
-          const { data: newUser, error: createError } = await supabase
-            .from("users")
-            .insert([
-              {
-                id: authUser.user.id,
-                name: authUser.user.user_metadata?.name || email.split('@')[0] || "User",
-                email: authUser.user.email,
-                role: "user",
-                is_verified: false,
-              },
-            ])
-            .select();
-          
-          if (createError) {
-            console.error("Error creating user record:", createError);
-          } else if (newUser && newUser.length > 0) {
-            console.log("Successfully created user record:", newUser[0]);
-            userData = newUser[0];
-          }
-        }
-      }
-
-      // If we still don't have user data, handle the error gracefully
       if (!userData) {
-        console.error("User authenticated but not found in users table:", {
-          id: data.user.id,
-          email: data.user.email
-        });
+        console.error("User data not found after login")
         
-        // Sign out the user since we couldn't find their data
-        await supabase.auth.signOut();
-        
-        if (isSpecificUser) {
-          return { 
-            success: false, 
-            message: "Your account has been created and is pending approval. Please try again later or contact support." 
-          };
+        // Special case for auth check - don't show error
+        if (isAuthCheck) {
+          return { success: false, message: "Account setup incomplete" }
         }
         
-        return { 
-          success: false, 
-          message: "Account setup incomplete. Please check your email or contact support." 
-        };
+        return { success: false, message: "User data not found. Please contact support." }
       }
 
       // Check if the user is verified
-      if (userData.is_verified === false) {
-        console.log("User is not verified:", {
-          id: userData.id,
-          email: userData.email,
-          is_verified: userData.is_verified
-        });
+      if (!userData.is_verified) {
+        console.error("Unverified user attempted login:", userData.email)
         
-        // Sign out the user since they're not verified
-        await supabase.auth.signOut();
+        // Sign out unverified users
+        await supabase.auth.signOut()
         
-        return {
-          success: false,
-          message: "Your account is pending approval. Please try again later.",
+        return { 
+          success: false, 
+          message: "Your account is pending approval. We'll notify you when your account is ready." 
         }
       }
 
-      setUser(userData)
-      // Add a flag to indicate if this is a user-initiated login or an auth check
+      const userState: User = {
+        id: String(userData.id),
+        name: String(userData.name),
+        email: String(userData.email),
+        role: userData.role as "user" | "admin",
+        created_at: userData.created_at ? String(userData.created_at) : undefined,
+        isVerified: Boolean(userData.is_verified),
+      }
+
+      setUser(userState)
+      setIsAuthenticated(true)
+      setSessionActive(true)
+
+      // If this is just an auth check, don't redirect
+      if (isAuthCheck) {
+        return { success: true, message: "Authentication successful" }
+      }
+
+      // Determine where to redirect based on user role
+      const redirectTo = userState.role === "admin" ? "/admin/users" : "/dashboard"
+      const returnTo = searchParams.get('returnTo')
+      
       return { 
         success: true, 
-        message: "Login successful",
-        isAuthCheck: isAuthCheck
+        message: "Login successful", 
+        redirectTo: returnTo || redirectTo 
       }
-    } catch (error) {
-      console.error("Unexpected error during login:", error)
-      return {
-        success: false,
-        message: "An unexpected error occurred. Please try again.",
+    } catch (error: any) {
+      console.error("Unexpected login error:", error)
+      return { 
+        success: false, 
+        message: "An unexpected error occurred. Please try again." 
       }
     } finally {
       setIsLoading(false)
@@ -354,87 +324,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const register = async (name: string, email: string, password: string) => {
+    if (typeof window === 'undefined') {
+      return { success: false, message: "Cannot register in server environment" }
+    }
+    
+    setIsLoading(true)
     try {
-      logAuthState('Registration Start', { name, email });
+      // First, check if a user with this email already exists
+      const { data: existingUsers, error: existingError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
       
-      // Store the name in the user metadata during signup
+      if (existingError) {
+        console.error("Error checking existing user:", existingError)
+      } else if (existingUsers && existingUsers.length > 0) {
+        return { 
+          success: false, 
+          message: "An account with this email already exists. Please log in instead." 
+        }
+      }
+      
+      // Register the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name: name, // Store the name in the user metadata
+            name,
           },
         },
-      });
+      })
 
-      if (error) throw error;
-
-      if (data.user) {
-        logAuthState('Auth Signup Success', { userId: data.user.id });
-        
-        // Insert the user profile with detailed error logging
-        const { error: profileError } = await supabase.from("users").insert([
-          {
-            id: data.user.id,
-            name,
-            email,
-            role: "user",
-            is_verified: false,
-          },
-        ]);
-
-        if (profileError) {
-          logAuthState('Profile Creation Error', { 
-            error: profileError,
-            errorMessage: profileError.message,
-            errorDetails: profileError.details,
-            errorHint: profileError.hint,
-            userId: data.user.id 
-          });
-          
-          // Check if the error is about RLS violations
-          if (profileError.message.includes("violates row-level security policy")) {
-            // Verify if the user was actually created despite the error
-            const { data: verifyData, error: verifyError } = await supabase
-              .from("users")
-              .select("id")
-              .eq("id", data.user.id)
-              .single();
-            
-            if (!verifyError && verifyData) {
-              // User exists despite the RLS error, so registration was actually successful
-              logAuthState('User Exists Despite RLS Error', { userId: data.user.id });
-              return { success: true, message: "Registration successful. Please wait for admin approval." };
-            }
-          }
-          
-          // We can't delete the auth user from the client side
-          // Just log the error and throw
-          throw new Error(`Failed to create user profile: ${profileError.message}`);
-        }
-        
-        logAuthState('Registration Complete', { userId: data.user.id });
+      if (error) {
+        console.error("Registration error:", error)
+        return { success: false, message: error.message }
       }
 
-      return { success: true, message: "Registration successful. Please wait for admin approval." };
+      if (!data?.user) {
+        console.error("No user returned from signUp")
+        return { success: false, message: "Registration failed. Please try again." }
+      }
+
+      // Create a record in our users table
+      const { error: insertError } = await supabase.from("users").insert([
+        {
+          id: data.user.id,
+          name,
+          email,
+          role: "user", // Default role
+          is_verified: false, // Requires admin approval
+        },
+      ])
+
+      if (insertError) {
+        console.error("Error inserting user record:", insertError)
+        
+        // If this is a duplicate key error, the user might already exist
+        if (insertError.message.includes("duplicate key")) {
+          return { 
+            success: true, 
+            message: "Your account has been created. Please wait for admin approval before logging in." 
+          }
+        }
+        
+        return { success: false, message: insertError.message }
+      }
+
+      // Sign out the user since they need admin approval
+      await supabase.auth.signOut()
+
+      return { 
+        success: true, 
+        message: "Your account has been created. Please wait for admin approval before logging in." 
+      }
     } catch (error: any) {
-      logAuthState('Registration Error', error);
-      return { success: false, message: error.message };
+      console.error("Unexpected registration error:", error)
+      return { 
+        success: false, 
+        message: "An unexpected error occurred. Please try again." 
+      }
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   const logout = async () => {
+    if (typeof window === 'undefined') return
+    
     try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setIsAuthenticated(false);
-      setSessionActive(false);
-      router.push('/login');
+      setIsLoading(true)
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      
+      // Clear our state
+      setUser(null)
+      setIsAuthenticated(false)
+      setSessionActive(false)
+      
+      // Redirect to login page
+      router.push("/login")
     } catch (error) {
-      logAuthState('Logout Error', error);
+      console.error("Error during logout:", error)
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <AuthContext.Provider
@@ -450,14 +446,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error("useAuth must be used within an AuthProvider")
   }
-  return context;
+  return context
 }
 

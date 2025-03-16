@@ -1,7 +1,8 @@
 import { Header } from "@/components/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SearchParamsProvider } from "../components/SearchParamsProvider"
 
-export default function ContactPage() {
+function ContactContent() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background/95 to-forest/30">
       <Header />
@@ -47,6 +48,14 @@ export default function ContactPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function ContactPage() {
+  return (
+    <SearchParamsProvider>
+      <ContactContent />
+    </SearchParamsProvider>
   )
 }
 

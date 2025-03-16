@@ -17,8 +17,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import ClientOnly from "../app/components/ClientOnly"
 
-export function Header({
+// The actual header content component
+function HeaderContent({
   selectedCountry = "in",
   onCountryChange,
 }: {
@@ -124,6 +126,30 @@ export function Header({
         </div>
       </div>
     </header>
+  )
+}
+
+// Export a wrapped version of the header that uses ClientOnly
+export function Header(props: {
+  selectedCountry?: string
+  onCountryChange?: (country: string) => void
+}) {
+  return (
+    <ClientOnly fallback={
+      <header className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-0">
+            <div className="flex items-center">
+              <div className="min-w-[220px] w-[240px] md:w-[300px]">
+                <div className="w-full h-[75px]" /> {/* Placeholder for logo */}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+    }>
+      <HeaderContent {...props} />
+    </ClientOnly>
   )
 }
 

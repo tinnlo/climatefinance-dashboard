@@ -1,0 +1,6 @@
+# Netlify redirects file
+# This ensures client-side routing works correctly
+/*    /index.html   200
+
+# Handle 404 errors
+/*    /404.html     404

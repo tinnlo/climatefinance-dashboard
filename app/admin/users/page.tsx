@@ -19,22 +19,29 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ProtectedRoute } from "@/components/protected-route"
-import { supabase } from "@/lib/supabase-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
+import { deleteUser } from "@/lib/user-management"
+import { getUsers, updateUser } from "@/lib/user-management"
+import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchParamsProvider } from "../../components/SearchParamsProvider"
 
+// Define the User interface to match what comes from Supabase
 interface User {
   id: string
-  name: string
+  name?: string
   email: string
-  role: "user" | "admin"
-  created_at: string
-  is_verified: boolean
+  role?: string
+  created_at?: string
+  is_verified?: boolean
+  [key: string]: any // Allow for additional properties
 }
 
-export default function UsersPage() {
+function AdminUsersContent() {
   const { user } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState("")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -47,52 +54,58 @@ export default function UsersPage() {
     password: "",
   })
 
-  useEffect(() => {
-    fetchUsers()
-  }, [user])
-
   const fetchUsers = async () => {
+    setIsLoading(true)
     try {
-      setIsLoading(true)
-      setError("")
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, name, email, role, created_at, is_verified")
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      // Filter out admin users
-      const nonAdminUsers = data
-        .filter((user) => user.role !== "admin")
-        .map((user) => ({
-          ...user,
-          isVerified: user.is_verified,
-        }))
-
-      setUsers(nonAdminUsers)
-    } catch (error) {
-      console.error("Error fetching users:", error)
-      setError("Failed to load users. Please try again later.")
+      const { users, error } = await getUsers()
+      if (error) {
+        setError(error)
+        toast.error("Failed to load users")
+      } else {
+        setUsers(users as User[])
+        setError(null)
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      setError("An unexpected error occurred")
+      toast.error("Failed to load users")
     } finally {
       setIsLoading(false)
     }
   }
 
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
   const handleEditUser = (user: User) => {
     setSelectedUser(user)
     setFormData({
-      name: user.name,
+      name: user.name || "",
       email: user.email,
-      role: user.role,
+      role: (user.role as "user" | "admin") || "user",
       password: "",
     })
     setIsEditDialogOpen(true)
   }
 
-  const handleDeleteUser = (user: User) => {
-    setSelectedUser(user)
-    setIsDeleteDialogOpen(true)
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) {
+      return
+    }
+
+    try {
+      const { success, error } = await deleteUser(userId)
+      if (error) {
+        toast.error(`Failed to delete user: ${error}`)
+      } else {
+        toast.success("User deleted successfully")
+        setUsers(users.filter((u) => u.id !== userId))
+      }
+    } catch (err) {
+      console.error("Error deleting user:", err)
+      toast.error("Failed to delete user")
+    }
   }
 
   const handleAddUser = () => {
@@ -113,7 +126,7 @@ export default function UsersPage() {
       console.log(`Attempting to verify user: ${user.name} (ID: ${user.id})`)
 
       // First, check if the user exists and get their current verification status
-      const { data: userData, error: fetchError } = await supabase
+      const { data: userData, error: fetchError } = await getSupabaseClient()
         .from("users")
         .select("is_verified")
         .eq("id", user.id)
@@ -138,7 +151,7 @@ export default function UsersPage() {
       }
 
       // If not verified, update the user's verification status
-      const { data: updateData, error: updateError } = await supabase
+      const { data: updateData, error: updateError } = await getSupabaseClient()
         .from("users")
         .update({ is_verified: true })
         .eq("id", user.id)
@@ -171,7 +184,7 @@ export default function UsersPage() {
     if (!selectedUser) return
 
     try {
-      const { data, error: updateError } = await supabase
+      const { data, error: updateError } = await getSupabaseClient()
         .from("users")
         .update({
           name: formData.name,
@@ -204,42 +217,26 @@ export default function UsersPage() {
     }
   }
 
-  const submitDeleteUser = async () => {
-    if (!selectedUser) return
-
+  const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      setError("") // Clear any previous errors
-      setSuccess("") // Clear any previous success messages
-      
-      console.log(`Attempting to delete user: ${selectedUser.name} (ID: ${selectedUser.id})`)
-      
-      // Call our API endpoint to delete the user
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
-        method: 'DELETE',
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        console.error("Delete user API error:", data);
-        throw new Error(data.error || 'Failed to delete user');
+      // Cast the newRole to the correct type
+      const roleValue = newRole as 'user' | 'admin';
+      const { user, error } = await updateUser(userId, { role: roleValue });
+      if (error) {
+        toast.error(`Failed to update user role: ${error}`);
+      } else {
+        toast.success("User role updated successfully");
+        setUsers(users.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
       }
-
-      console.log("Delete user API response:", data);
-      
-      // Update UI
-      setUsers(users.filter((u) => u.id !== selectedUser.id))
-      setSuccess(data.message || "User deleted successfully")
-      setIsDeleteDialogOpen(false)
-    } catch (error) {
-      console.error("Error deleting user:", error)
-      setError(error instanceof Error ? error.message : "Failed to delete user")
+    } catch (err) {
+      console.error("Error updating user role:", err);
+      toast.error("Failed to update user role");
     }
-  }
+  };
 
   const submitAddUser = async () => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await getSupabaseClient().auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -274,58 +271,75 @@ export default function UsersPage() {
   }
 
   return (
-    <ProtectedRoute adminOnly>
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background/95 to-forest/30">
-        <Header />
-        <main className="flex-1 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-light tracking-tight">User Management</h1>
-            <Button onClick={handleAddUser}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </div>
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background/95 to-forest/30">
+      <Header />
+      <main className="flex-1 p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-light tracking-tight">User Management</h1>
+          <Button onClick={handleAddUser}>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </div>
 
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          {success && (
-            <Alert variant="info" className="mb-4">
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
+        {success && (
+          <Alert variant="info" className="mb-4">
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-              <CardDescription>Manage user accounts and permissions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-4 animate-spin" />
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>Manage user accounts and permissions</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-4 animate-spin" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Created At</TableHead>
-                      <TableHead>Verified</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableCell colSpan={4} className="text-center py-5">
+                        No users found
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
+                  ) : (
+                    users.map((user) => (
                       <TableRow key={user.id}>
-                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.name || 'N/A'}</TableCell>
                         <TableCell>{user.email}</TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>{user.is_verified ? "Yes" : "No"}</TableCell>
+                        <TableCell>
+                          <Select
+                            defaultValue={user.role || 'user'}
+                            onValueChange={(value: 'user' | 'admin') => handleRoleChange(user.id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
                         <TableCell className="text-right">
                           {!user.is_verified && (
                             <Button variant="ghost" size="icon" onClick={() => handleVerifyUser(user)}>
@@ -335,118 +349,108 @@ export default function UsersPage() {
                           <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user)}>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Edit User Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit User</DialogTitle>
-                <DialogDescription>Update user information</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">Name</Label>
-                  <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
+        {/* Edit User Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update user information</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={submitEditUser}>Save Changes</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete User Dialog */}
-          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete User</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete this user? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={submitDeleteUser}>
-                  Delete
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Add User Dialog */}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add User</DialogTitle>
-                <DialogDescription>Create a new user account</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="add-name">Name</Label>
-                  <Input
-                    id="add-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="add-email">Email</Label>
-                  <Input
-                    id="add-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="add-password">Password</Label>
-                  <Input
-                    id="add-password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={submitAddUser}>Add User</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </main>
-      </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitEditUser}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add User Dialog */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add User</DialogTitle>
+              <DialogDescription>Create a new user account</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-name">Name</Label>
+                <Input
+                  id="add-name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-email">Email</Label>
+                <Input
+                  id="add-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-password">Password</Label>
+                <Input
+                  id="add-password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitAddUser}>Add User</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </main>
+    </div>
+  )
+}
+
+export default function AdminUsersPage() {
+  return (
+    <ProtectedRoute adminOnly>
+      <SearchParamsProvider>
+        <AdminUsersContent />
+      </SearchParamsProvider>
     </ProtectedRoute>
   )
 }

@@ -1,3 +1,5 @@
+"use client"
+
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -7,50 +9,77 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables")
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-})
+// Create a singleton instance for client-side usage
+let supabaseInstance: ReturnType<typeof createClient> | null = null
 
-// Helper function to get the current session
-export const getCurrentSession = async () => {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
-  if (error) {
-    console.error("Error getting session:", error)
-    return null
-  }
-  return session
+export const getSupabaseClient = () => {
+  if (supabaseInstance) return supabaseInstance
+  
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'supabase.auth.token',
+      storage: typeof window !== 'undefined' ? localStorage : undefined,
+    },
+  })
+  
+  return supabaseInstance
 }
 
-// Helper function to get the current user with role
-export const getCurrentUser = async () => {
-  const session = await getCurrentSession()
+// For backward compatibility
+export const supabase = typeof window !== 'undefined' ? getSupabaseClient() : null
+
+// Helper function to get the current session (client-side only)
+export const getCurrentSession = async () => {
+  if (typeof window === 'undefined') return null
   
-  if (!session?.user?.id) {
-    console.log("No session or user ID found in getCurrentUser")
+  const client = getSupabaseClient()
+  try {
+    const {
+      data: { session },
+      error,
+    } = await client.auth.getSession()
+    
+    if (error) {
+      console.error("Error getting session:", error)
+      return null
+    }
+    
+    return session
+  } catch (error) {
+    console.error("Unexpected error in getCurrentSession:", error)
     return null
   }
-  
-  const isSpecificUser = session.user.id === 'f02e6944-5016-45f1-ba11-31e4363ba60d' || 
-                         session.user.email === 'tinnlo@proton.me';
-  
-  if (isSpecificUser) {
-    console.log("Special user detected in getCurrentUser:", {
-      id: session.user.id,
-      email: session.user.email
-    });
-  }
-  
-  console.log(`Fetching user data for ID: ${session.user.id}`)
+}
+
+// Helper function to get the current user with role (client-side only)
+export const getCurrentUser = async () => {
+  if (typeof window === 'undefined') return null
   
   try {
+    const session = await getCurrentSession()
+    
+    if (!session?.user?.id) {
+      console.log("No session or user ID found in getCurrentUser")
+      return null
+    }
+    
+    const isSpecificUser = session.user.id === 'f02e6944-5016-45f1-ba11-31e4363ba60d' || 
+                          session.user.email === 'tinnlo@proton.me';
+    
+    if (isSpecificUser) {
+      console.log("Special user detected in getCurrentUser:", {
+        id: session.user.id,
+        email: session.user.email
+      });
+    }
+    
+    console.log(`Fetching user data for ID: ${session.user.id}`)
+    
+    const client = getSupabaseClient()
     // First try to get the user by ID
-    const { data, error } = await supabase.from("users").select("*").eq("id", session.user.id).single()
+    const { data, error } = await client.from("users").select("*").eq("id", session.user.id).single()
 
     if (error) {
       console.error(`Error getting user by ID ${session.user.id}:`, error)
@@ -60,7 +89,7 @@ export const getCurrentUser = async () => {
         console.log("Special user not found by ID, trying to create");
         
         // Try to create the user
-        const { data: newUser, error: createError } = await supabase
+        const { data: newUser, error: createError } = await client
           .from("users")
           .insert([
             {
@@ -84,7 +113,7 @@ export const getCurrentUser = async () => {
       // If the error is "No rows found", let's try to get the user by email as a fallback
       if (error.message.includes("No rows found") && session.user.email) {
         console.log(`Trying to get user by email: ${session.user.email}`)
-        const { data: userByEmail, error: emailError } = await supabase
+        const { data: userByEmail, error: emailError } = await client
           .from("users")
           .select("*")
           .eq("email", session.user.email)
@@ -109,10 +138,13 @@ export const getCurrentUser = async () => {
       // If the user exists but is_verified is null, set it to false
       if (data && data.is_verified === null) {
         console.log("User has null is_verified, updating to false")
-        const { error: updateError } = await supabase
+        
+        // Fix the type issue by explicitly typing the data.id
+        const userId = String(data.id)
+        const { error: updateError } = await client
           .from("users")
           .update({ is_verified: false })
-          .eq("id", data.id)
+          .eq("id", userId)
         
         if (updateError) {
           console.error("Error updating is_verified:", updateError)
@@ -123,17 +155,20 @@ export const getCurrentUser = async () => {
     }
 
     return data
-  } catch (err) {
-    console.error("Unexpected error in getCurrentUser:", err)
+  } catch (error) {
+    console.error("Unexpected error in getCurrentUser:", error)
     return null
   }
 }
 
 // Helper function to get a user by ID (for admin purposes)
 export const getUserById = async (userId: string) => {
+  if (typeof window === 'undefined') return null
+  
   try {
+    const client = getSupabaseClient()
     console.log(`Fetching user data for ID: ${userId}`)
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+    const { data, error } = await client.from("users").select("*").eq("id", userId).single()
     
     if (error) {
       console.error(`Error getting user by ID ${userId}:`, error)
@@ -141,8 +176,8 @@ export const getUserById = async (userId: string) => {
     }
     
     return data
-  } catch (err) {
-    console.error("Unexpected error in getUserById:", err)
+  } catch (error) {
+    console.error("Unexpected error in getUserById:", error)
     return null
   }
 }

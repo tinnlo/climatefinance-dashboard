@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +13,9 @@ import { useAuth } from "@/lib/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
+import { SearchParamsProvider, useSearchParamsContext } from "../components/SearchParamsProvider"
 
-export default function LoginPage() {
+function LoginContent() {
   const [isLogin, setIsLogin] = useState(true)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -24,8 +25,8 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("")
   const [info, setInfo] = useState("")
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const returnTo = searchParams.get('returnTo')
+  const searchParams = useSearchParamsContext()
+  const returnTo = searchParams?.get('returnTo')
   const { login, register, isLoading: authLoading, user, isAuthenticated, refreshSession } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -185,105 +186,116 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-background/95 to-forest/30">
+    <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-8">
+      <main className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>{isLogin ? "Login" : "Register"}</CardTitle>
+            <CardTitle>{isLogin ? "Login" : "Create an account"}</CardTitle>
             <CardDescription>
-              {isLogin ? "Enter your credentials to access your account" : "Create an account to download data"}
+              {isLogin
+                ? "Enter your email and password to login to your account"
+                : "Enter your details to create a new account"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter your name"
-                      required
-                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                    />
-                  </div>
-                )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="name">Name</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    id="name"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     required
-                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                  />
-                </div>
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm your password"
-                      required
-                      className="bg-white dark:bg-black/80 border-forest/20 focus:border-forest/50 placeholder:text-forest-foreground/50 [&:-webkit-autofill]:bg-forest-50/20 [&:-webkit-autofill]:!text-forest-foreground [&:-webkit-autofill_-webkit-text-fill-color]:text-forest-foreground"
-                    />
-                  </div>
-                )}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {success && (
-                  <Alert variant="info">
-                    <AlertDescription>{success}</AlertDescription>
-                  </Alert>
-                )}
-                {info && (
-                  <Alert variant="info">
-                    <AlertDescription>{info}</AlertDescription>
-                  </Alert>
-                )}
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
-              <GradientButton 
-                type="submit" 
-                className="w-full mt-6"
-                isLoading={authLoading}
-                loadingText={isLogin ? "Logging in..." : "Registering..."}
-                variant="primary"
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {success && (
+                <Alert>
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
+              {info && (
+                <Alert>
+                  <AlertDescription>{info}</AlertDescription>
+                </Alert>
+              )}
+              <GradientButton
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting || authLoading}
               >
-                {isLogin ? "Login" : "Register"}
+                {(isSubmitting || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isLogin ? "Login" : "Create account"}
               </GradientButton>
             </form>
           </CardContent>
           <CardFooter>
-            <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="w-full text-muted-foreground hover:text-muted-foreground/90">
-              {isLogin ? "Need an account? Register" : "Already have an account? Login"}
+            <Button
+              variant="link"
+              className="w-full"
+              onClick={() => {
+                setIsLogin(!isLogin)
+                setError("")
+                setSuccess("")
+              }}
+            >
+              {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
             </Button>
           </CardFooter>
         </Card>
       </main>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <SearchParamsProvider>
+      <LoginContent />
+    </SearchParamsProvider>
   )
 }
 

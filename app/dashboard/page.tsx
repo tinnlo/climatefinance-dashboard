@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import DashboardClientPage from "./DashboardClientPage"
+import { SearchParamsProvider } from "../components/SearchParamsProvider"
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -8,7 +9,9 @@ export const metadata: Metadata = {
 
 export default function DashboardPage() {
   return (
-    <DashboardClientPage />
+    <SearchParamsProvider>
+      <DashboardClientPage />
+    </SearchParamsProvider>
   )
 }
 

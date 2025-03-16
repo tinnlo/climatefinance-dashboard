@@ -1,10 +1,9 @@
 "use client"
 
-import type React from "react"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { Loader2 } from "lucide-react"
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
+import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,75 +11,40 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated, refreshSession } = useAuth()
+  const { user, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [refreshAttempts, setRefreshAttempts] = useState(0)
-
+  
   useEffect(() => {
-    console.log('[ProtectedRoute Debug] State:', {
-      isLoading,
-      isAuthenticated,
-      user,
-      adminOnly,
-      refreshAttempts,
-      path: typeof window !== 'undefined' ? window.location.pathname : 'server-side',
-      timestamp: new Date().toISOString(),
-    });
-
-    // Only try to refresh a limited number of times to prevent infinite loops
-    const MAX_REFRESH_ATTEMPTS = 2;
-
-    // Try to refresh the session if not authenticated and not loading
-    if (!isLoading && !isAuthenticated && refreshAttempts < MAX_REFRESH_ATTEMPTS) {
-      console.log('[ProtectedRoute Debug] Attempting to refresh session');
-      setIsRefreshing(true);
-      refreshSession().finally(() => {
-        setIsRefreshing(false);
-        setRefreshAttempts(prev => prev + 1);
-      });
-      return;
+    // If not loading and not authenticated, redirect to login
+    if (!isLoading && !isAuthenticated) {
+      const currentPath = window.location.pathname
+      const searchParams = new URLSearchParams()
+      searchParams.set('returnTo', currentPath)
+      router.push(`/login?${searchParams.toString()}`)
     }
-
-    // Let the middleware handle redirects for unauthenticated users
-    // Only handle role-based access control here
-    if (!isLoading && isAuthenticated && adminOnly && user?.role !== "admin") {
-      console.log('[ProtectedRoute Debug] Not admin, redirecting to dashboard');
-      router.push('/dashboard');
-      return;
+    
+    // If admin-only route and user is not admin, redirect to dashboard
+    if (!isLoading && isAuthenticated && adminOnly && user?.role !== 'admin') {
+      router.push('/dashboard')
     }
-  }, [isLoading, isAuthenticated, user, adminOnly, router, refreshSession, refreshAttempts]);
-
-  // Show loading state when initially loading or actively refreshing the session
-  if (isLoading || isRefreshing) {
-    console.log('[ProtectedRoute Debug] Showing loading state');
+  }, [isLoading, isAuthenticated, user, router, adminOnly])
+  
+  // Show loading state
+  if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-forest" />
+        <span className="ml-2 text-lg">Loading...</span>
       </div>
     )
   }
-
-  // Let the middleware handle redirects for unauthenticated users
-  // Only handle role-based access control here
-  if (isAuthenticated && adminOnly && user?.role !== "admin") {
-    console.log('[ProtectedRoute Debug] Access denied - not admin', {
-      isAuthenticated,
-      userRole: user?.role,
-      adminOnly,
-    });
-    return null;
+  
+  // If not authenticated or (admin-only and not admin), don't render children
+  if (!isAuthenticated || (adminOnly && user?.role !== 'admin')) {
+    return null
   }
-
-  // If we've tried refreshing multiple times and still not authenticated,
-  // let the middleware handle the redirect
-  if (!isAuthenticated && refreshAttempts >= 2) {
-    console.log('[ProtectedRoute Debug] Not authenticated after refresh attempts');
-    return null;
-  }
-
-  console.log('[ProtectedRoute Debug] Rendering protected content');
-  return <>{children}</>;
+  
+  // Render children if authenticated and has proper permissions
+  return <>{children}</>
 }
 
