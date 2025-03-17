@@ -8,8 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
-import { Info } from "lucide-react"
+import { Info, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,8 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   const [error, setError] = useState<string | null>(null)
   const [visibleVariables, setVisibleVariables] = useState<string[]>(COST_VARIABLES.map((v) => v.id))
   const { theme } = useTheme()
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,11 +93,40 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     color: theme === "dark" ? "white" : "black",
   }
 
+  const handleDownload = () => {
+    // Check if user is authenticated
+    if (isAuthenticated) {
+      // Redirect to the download page with query parameters
+      router.push(`/downloads/stacked-cost?country=${country}`);
+    } else {
+      // Redirect to login page with return URL
+      router.push(`/login?returnTo=/downloads/stacked-cost?country=${country}`);
+    }
+  }
+
   if (isLoading) {
     return (
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
-        <CardHeader className="flex-none">
-          <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+        <CardHeader className="flex-none pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">Figure Notes</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Figure Notes</DialogTitle>
+                </DialogHeader>
+                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                  {FIGURE_NOTES}
+                </DialogDescription>
+              </DialogContent>
+            </Dialog>
+          </div>
           <CardDescription>Loading data for {COUNTRY_NAMES[country]}...</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center">
@@ -109,8 +142,26 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   if (error || !data) {
     return (
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
-        <CardHeader className="flex-none">
-          <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+        <CardHeader className="flex-none pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">Figure Notes</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Figure Notes</DialogTitle>
+                </DialogHeader>
+                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                  {FIGURE_NOTES}
+                </DialogDescription>
+              </DialogContent>
+            </Dialog>
+          </div>
           <CardDescription>Error loading data for {COUNTRY_NAMES[country]}</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center text-destructive">
@@ -122,28 +173,34 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
 
   return (
     <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
-      <CardHeader className="flex-none">
+      <CardHeader className="flex-none pb-2">
         <div className="flex items-center justify-between">
           <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info className="h-4 w-4" />
-                <span className="sr-only">Figure Notes</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Figure Notes</DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                {FIGURE_NOTES}
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleDownload} size="sm" className="h-8">
+              <Download className="mr-2 h-4 w-4" />
+              Download Data
+            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Info className="h-4 w-4" />
+                  <span className="sr-only">Figure Notes</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Figure Notes</DialogTitle>
+                </DialogHeader>
+                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                  {FIGURE_NOTES}
+                </DialogDescription>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
         <CardDescription>Cost components from 2025 to 2050 - {COUNTRY_NAMES[country]}</CardDescription>
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mt-2">
           {COST_VARIABLES.map((variable) => (
             <div key={variable.id} className="flex items-center space-x-2">
               <Checkbox
@@ -159,10 +216,10 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
           ))}
         </div>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 pt-0">
         <div className="w-full h-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
+            <BarChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
               <XAxis
                 dataKey="year"

@@ -31,13 +31,7 @@ export function SearchCountry({
           <div className="flex-1 max-w-[60%] space-y-4">
             <div className="space-y-4 text-sm leading-6 text-muted-foreground font-light">
               <p>
-                The interactive tool by the Forward Global Institute is designed to help governments, finance ministries, central banks and policy makers to plan and finance their net-zero transitions and support resilient economic growth. The dashboard provides crucial country-level data on investment costs, financing needs, and potential benefits—ranging from investment needs in low-carbon technologies, infrastructure and grid expansion to fossil fuel decommissioning and labor reskilling.
-              </p>
-              <p>
-                This dashboard fills a vital information gap that has long hindered decisive climate action. Our Climate Finance Analytics, rooted in rigorous research at partner universities, provide unprecedented detail to national transition planning and empowers stakeholders to shape effective policies, mobilize capital, and guide spending to achieve net-zero targets.
-              </p>
-              <p>
-                By placing transparent, rigorous analyses at their fingertips, this platform drives a smoother, faster path to net zero, supporting global efforts to limit emissions and mitigate climate change.
+              The interactive tool by the Forward Global Institute is designed to help governments, finance ministries, central banks and policy makers to plan and finance their net-zero transitions and support resilient economic growth. The dashboard provides crucial country-level data on investment costs, financing needs, and potential benefits—ranging from investment needs in low-carbon technologies, infrastructure and grid expansion to fossil fuel decommissioning and labor reskilling.
               </p>
             </div>
           </div>

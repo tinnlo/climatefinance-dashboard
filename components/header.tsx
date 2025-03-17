@@ -78,7 +78,7 @@ function HeaderContent({
                   <Link
                     href="/admin/users"
                     className={`transition-colors hover:text-foreground/80 ${
-                      pathname.startsWith("/admin") ? "font-bold text-foreground" : "text-foreground/60"
+                      pathname?.startsWith("/admin") ? "font-bold text-foreground" : "text-foreground/60"
                     }`}
                   >
                     Admin

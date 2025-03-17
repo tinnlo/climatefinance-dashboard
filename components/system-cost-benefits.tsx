@@ -277,9 +277,14 @@ export function SystemCostBenefits({ className, country = "in" }: { className?: 
         </div>
 
         <div className="flex justify-center mt-2 md:mt-4">
-          <Button variant="outline" onClick={handleDownload} className="bg-black/20 py-4 text-sm w-full md:w-auto mx-4 md:mx-0">
+          <Button 
+            variant="outline" 
+            onClick={handleDownload} 
+            size="sm"
+            className="h-8 text-sm"
+          >
             <Download className="mr-2 h-4 w-4" />
-            Download Yearly Data
+            Download Data
           </Button>
         </div>
       </CardContent>
