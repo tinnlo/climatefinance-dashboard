@@ -1,11 +1,14 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from "recharts"
 import { convertToIso3, iso2ToIso3Map } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { ExternalLink } from "lucide-react"
 
 // Update scenario values to match the data structure
 const scenarios = [
@@ -13,6 +16,13 @@ const scenarios = [
   { value: "emission_factor", label: "By Power Plant Emission Intensity" },
   { value: "benefits_cost_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
 ]
+
+// Mapping for scenario names to file name parts
+const scenarioToFileNameMap: { [key: string]: string } = {
+  "maturity": "maturity",
+  "emission_factor": "emission_intensity",
+  "benefits_cost_maturity": "benefits_costs"
+}
 
 // Country names mapping
 const COUNTRY_NAMES: { [key: string]: string } = {
@@ -52,14 +62,158 @@ interface ChartData {
   }
 }
 
-export function PhaseOutChart({ country = "in", data }: { country?: string; data: ChartData | null }) {
-  const [selectedScenario, setSelectedScenario] = useState("maturity")
+interface AssetData {
+  uniqueforwardassetid: string
+  asset_name: string
+  subsector: string
+  amount_mtco2: number
+  year: number
+  Country_ISO3: string
+  Status: string
+  Start_Year: number
+  Retired_Year: number | null
+  Capacity: number
+  Capacity_Unit: string
+  Emissions: number
+  Emissions_Unit: string
+}
+
+export function PhaseOutChart({ 
+  country = "ug", 
+  data, 
+  initialScenario = "maturity" 
+}: { 
+  country?: string; 
+  data: ChartData | null;
+  initialScenario?: string;
+}) {
+  const [selectedScenario, setSelectedScenario] = useState(initialScenario)
+  const [assetData, setAssetData] = useState<AssetData[]>([])
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false)
+  const [sortField, setSortField] = useState<string>("amount_mtco2")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [searchTerm, setSearchTerm] = useState<string>("")
   const { theme, systemTheme } = useTheme()
   const chartRef = useRef<HTMLDivElement>(null)
+
+  // Update selectedScenario when initialScenario prop changes
+  useEffect(() => {
+    setSelectedScenario(initialScenario)
+  }, [initialScenario])
 
   const currentTheme = theme === "system" ? systemTheme : theme
   const countryCode = convertToIso3(country)
   const countryName = COUNTRY_NAMES[country.toLowerCase()] || countryCode
+
+  // Fetch asset data when country or scenario changes
+  useEffect(() => {
+    const fetchAssetData = async () => {
+      setIsLoadingAssets(true);
+      try {
+        console.log(`Fetching asset data for ${countryCode} with scenario ${selectedScenario}`);
+        // Use the updated API route
+        const response = await fetch(`/api/asset-data?country=${countryCode}&scenario=${scenarioToFileNameMap[selectedScenario]}`);
+        
+        if (!response.ok) {
+          console.error(`HTTP error fetching asset data! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Log detailed information about the received data
+        console.log(`Received asset data:`, {
+          dataLength: data?.length || 0,
+          isArray: Array.isArray(data),
+          isEmpty: Array.isArray(data) && data.length === 0,
+          sampleData: Array.isArray(data) && data.length > 0 ? {
+            id: data[0].uniqueforwardassetid,
+            name: data[0].asset_name,
+            subsector: data[0].subsector
+          } : null,
+          rawData: data // Log the raw data for inspection
+        });
+        
+        // The simple API should always return an array
+        if (Array.isArray(data)) {
+          // Clean up any remaining NaN values
+          const cleanData = data.map(asset => {
+            const cleanAsset = { ...asset };
+            // Replace any NaN values with null
+            Object.keys(cleanAsset).forEach(key => {
+              if (cleanAsset[key] !== null && typeof cleanAsset[key] === 'number' && isNaN(cleanAsset[key])) {
+                cleanAsset[key] = null;
+              }
+            });
+            return cleanAsset;
+          });
+          
+          setAssetData(cleanData);
+        } else {
+          console.warn('Asset data is not an array:', data);
+          setAssetData([]);
+        }
+      } catch (error) {
+        console.error("Error fetching asset data:", error);
+        setAssetData([]);
+      } finally {
+        setIsLoadingAssets(false);
+      }
+    };
+
+    if (countryCode) {
+      fetchAssetData();
+    }
+  }, [countryCode, selectedScenario]);
+
+  // Handle sorting
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+    } else {
+      // Set new field and default to descending
+      setSortField(field)
+      setSortDirection("desc")
+    }
+  }
+
+  // Sort the asset data
+  const sortedAssetData = [...assetData].sort((a, b) => {
+    let aValue = a[sortField as keyof AssetData]
+    let bValue = b[sortField as keyof AssetData]
+    
+    // Handle null/undefined values
+    if (aValue === null || aValue === undefined) aValue = sortDirection === "asc" ? Number.MAX_VALUE : Number.MIN_VALUE
+    if (bValue === null || bValue === undefined) bValue = sortDirection === "asc" ? Number.MAX_VALUE : Number.MIN_VALUE
+    
+    // Handle string comparison
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === "asc" 
+        ? aValue.localeCompare(bValue) 
+        : bValue.localeCompare(aValue)
+    }
+    
+    // Handle number comparison
+    return sortDirection === "asc" 
+      ? (aValue as number) - (bValue as number) 
+      : (bValue as number) - (aValue as number)
+  })
+
+  // Filter assets based on search term
+  const filteredAssetData = sortedAssetData.filter(asset => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (asset.asset_name?.toLowerCase().includes(term) || false) ||
+      (asset.subsector?.toLowerCase().includes(term) || false) ||
+      (asset.Status?.toLowerCase().includes(term) || false) ||
+      (asset.Country_ISO3?.toLowerCase().includes(term) || false) ||
+      (String(asset.Capacity || '').includes(term)) ||
+      (String(asset.Start_Year || '').includes(term)) ||
+      (String(asset.amount_mtco2 || '').includes(term))
+    );
+  });
 
   // Enhanced debug logging
   console.log('Phase-out Chart Debug:', {
@@ -73,6 +227,8 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
     scenarioDataExists: data?.scenarios?.[selectedScenario] ? true : false,
     scenarioDataLength: data?.scenarios?.[selectedScenario]?.length || 0,
     firstDataPoint: data?.scenarios?.[selectedScenario]?.[0] || null,
+    assetDataLength: assetData.length,
+    assetDataSample: assetData.length > 0 ? assetData[0] : null,
     rawData: data
   })
 
@@ -115,6 +271,27 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
   const totalEmissionsReduction = chartData.reduce((sum, item) => sum + item.amount_mtco2, 0)
   const cumulativeEmissionsReduction = chartData[chartData.length - 1]?.cumulative_mtco2 || 0
   const phaseOutPeriod = `${chartData[0]?.year || ''} - ${chartData[chartData.length - 1]?.year || ''}`
+
+  // Group assets by subsector
+  const assetsBySubsector = assetData.reduce((acc, asset) => {
+    const subsector = asset.subsector || 'Unknown';
+    if (!acc[subsector]) {
+      acc[subsector] = [];
+    }
+    acc[subsector].push(asset);
+    return acc;
+  }, {} as Record<string, AssetData[]>);
+
+  // Calculate asset statistics
+  const totalAssets = assetData.length;
+  const totalCapacity = assetData.reduce((sum, asset) => sum + (asset.Capacity || 0), 0);
+  const totalAssetEmissions = assetData.reduce((sum, asset) => sum + (asset.amount_mtco2 || 0), 0);
+  const subsectorCounts = Object.entries(assetsBySubsector).map(([subsector, assets]) => ({
+    subsector,
+    count: assets.length,
+    capacity: assets.reduce((sum, asset) => sum + (asset.Capacity || 0), 0),
+    emissions: assets.reduce((sum, asset) => sum + (asset.amount_mtco2 || 0), 0)
+  })).sort((a, b) => b.count - a.count);
 
   return (
     <Card className="p-2 sm:p-4 bg-[#2F3A2F] dark:bg-[#2F3A2F] border-0">
@@ -282,28 +459,154 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
         {/* Statistics Summary Container - Takes up 1/3 of the space on large screens */}
         <div className="lg:col-span-1">
           <Card className="p-3 sm:p-4 lg:p-5 bg-[#2F3A2F] dark:bg-[#2F3A2F] border-[#4A5A4A]">
-            <h3 className="text-xl font-semibold mb-3">Phase-out Statistics</h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Country</p>
-                <p className="text-2xl font-medium mt-1">{countryName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Phase-out Period</p>
-                <p className="text-2xl font-medium mt-1">{phaseOutPeriod}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Plants Affected</p>
-                <p className="text-2xl font-medium mt-1">{Math.round(totalPlants)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Emissions Reduction</p>
-                <p className="text-2xl font-medium mt-1">{totalEmissionsReduction.toFixed(2)} MtCO2</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Cumulative Emissions Reduction</p>
-                <p className="text-2xl font-medium mt-1">{(cumulativeEmissionsReduction / 1000).toFixed(2)} GtCO2</p>
-              </div>
+            <h3 className="text-xl font-semibold mb-3">Phase-Out Summary</h3>
+            
+            {/* Phase-Out Summary */}
+            <div className="space-y-4">
+              {isLoadingAssets ? (
+                <div className="flex flex-col items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-2"></div>
+                  <p className="text-sm text-muted-foreground">Loading asset data...</p>
+                </div>
+              ) : assetData.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#3A4A3A] p-3 rounded-md">
+                      <p className="text-xs text-muted-foreground">Available Assets</p>
+                      <p className="text-lg font-medium">{totalAssets}</p>
+                    </div>
+                    <div className="bg-[#3A4A3A] p-3 rounded-md">
+                      <p className="text-xs text-muted-foreground">Cumulative</p>
+                      <p className="text-lg font-medium">{(cumulativeEmissionsReduction / 1000).toFixed(2)} GtCO2</p>
+                    </div>
+                    <div className="bg-[#3A4A3A] p-3 rounded-md">
+                      <p className="text-xs text-muted-foreground">Reduction</p>
+                      <p className="text-lg font-medium">{totalEmissionsReduction.toFixed(1)} MtCO2</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-[#3A4A3A] p-3 rounded-md">
+                      <p className="text-xs text-muted-foreground">Total Capacity</p>
+                      <p className="text-lg font-medium">{totalCapacity.toFixed(0)} MW</p>
+                    </div>
+                    <div className="bg-[#3A4A3A] p-3 rounded-md">
+                      <p className="text-xs text-muted-foreground">Total Emissions</p>
+                      <p className="text-lg font-medium">{totalAssetEmissions.toFixed(1)} Mt</p>
+                    </div>
+                  </div>
+                  
+                  {/* Subsector Breakdown Preview - Moved above the button */}
+                  <div className="mt-6">
+                    <h4 className="text-sm font-semibold mb-2">Subsector Breakdown</h4>
+                    <div className="flex justify-between items-center">
+                      {subsectorCounts.slice(0, 3).map((item) => (
+                        <div key={item.subsector} className="flex items-center text-xs mr-2">
+                          <div 
+                            className="w-2 h-2 rounded-full mr-1.5" 
+                            style={{ 
+                              backgroundColor: 
+                                item.subsector === 'Coal' ? colors.Coal : 
+                                item.subsector === 'Gas' ? colors.Gas : 
+                                item.subsector === 'Oil' ? colors.Oil : '#888888'
+                            }}
+                          />
+                          <span>{item.subsector}</span>
+                          <span className="font-medium ml-1">{item.count}</span>
+                        </div>
+                      ))}
+                      {subsectorCounts.length > 3 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{subsectorCounts.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* View Asset Details Button - Moved to the bottom */}
+                  <div className="mt-8">
+                    {/* View Asset Details Button */}
+                    <Link 
+                      href={`/asset-details?country=${countryCode}&scenario=${selectedScenario}`}
+                      passHref
+                    >
+                      <Button 
+                        variant="outline" 
+                        className="w-full h-9 text-sm"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        View Asset Details
+                      </Button>
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-4 text-center">
+                  <p className="text-sm text-muted-foreground mb-2">No asset data available for this scenario.</p>
+                  <button 
+                    onClick={async () => {
+                      setIsLoadingAssets(true);
+                      try {
+                        console.log(`Retrying asset data fetch for ${countryCode} with scenario ${selectedScenario}`);
+                        const response = await fetch(`/api/asset-data?country=${countryCode}&scenario=${scenarioToFileNameMap[selectedScenario]}`, {
+                          method: 'GET',
+                          cache: 'no-store',
+                          headers: {
+                            'Accept': 'application/json'
+                          }
+                        });
+                        
+                        if (!response.ok) {
+                          throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        
+                        // Log detailed information about the retry response
+                        console.log(`Retry received asset data:`, {
+                          dataLength: data?.length || 0,
+                          isArray: Array.isArray(data),
+                          isEmpty: Array.isArray(data) && data.length === 0,
+                          sampleData: Array.isArray(data) && data.length > 0 ? {
+                            id: data[0].uniqueforwardassetid,
+                            name: data[0].asset_name,
+                            subsector: data[0].subsector
+                          } : null,
+                          rawData: data // Log the raw data for inspection
+                        });
+                        
+                        // The API should return the assets array directly
+                        if (Array.isArray(data)) {
+                          // Clean up any remaining NaN values
+                          const cleanData = data.map(asset => {
+                            const cleanAsset = { ...asset };
+                            // Replace any NaN values with null
+                            Object.keys(cleanAsset).forEach(key => {
+                              if (cleanAsset[key] !== null && typeof cleanAsset[key] === 'number' && isNaN(cleanAsset[key])) {
+                                cleanAsset[key] = null;
+                              }
+                            });
+                            return cleanAsset;
+                          });
+                          
+                          setAssetData(cleanData);
+                        } else {
+                          console.warn('Retry asset data is not an array:', data);
+                          setAssetData([]);
+                        }
+                      } catch (error) {
+                        console.error("Error in retry fetch:", error);
+                        setAssetData([]);
+                      } finally {
+                        setIsLoadingAssets(false);
+                      }
+                    }}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
         </div>
