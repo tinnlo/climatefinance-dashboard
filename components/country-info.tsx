@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { convertToIso3 } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Info } from "lucide-react"
+import { Info, ChevronDown } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 
 const COUNTRY_PROFILE_DESCRIPTION = `The country profile infobox displays comprehensive information about each country's emissions and climate commitments using data from several authoritative sources:
 
@@ -51,16 +60,24 @@ interface CountryData {
   NDC_2025_status?: string
   NDC_2025_statement?: string
   NDC_2025_source?: string
-  Sector?: string
+  Sectors?: string[]
   Asset_Amount?: number
   Firm_Amount?: number
   Emissions_Coverage?: number
+  SectorData?: {
+    [key: string]: {
+      Asset_Amount?: number
+      Firm_Amount?: number
+      Emissions_Coverage?: number
+    }
+  }
 }
 
 export function CountryInfo({ country = "in", className }: { country?: string; className?: string }) {
   const [data, setData] = useState<CountryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedSector, setSelectedSector] = useState<string>("all")
 
   useEffect(() => {
     const fetchCountryData = async () => {
@@ -88,9 +105,64 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           searchingFor: iso3Code
         })
         
-        const countryData = allCountryData.find((c: CountryData) => c.Country_ISO3 === iso3Code)
+        let countryData = allCountryData.find((c: CountryData) => c.Country_ISO3 === iso3Code)
         console.log('Found country data:', countryData)
         console.log('GDP Share value:', countryData?.GDP_Share_2023, typeof countryData?.GDP_Share_2023)
+        
+        // Transform the data to handle sectors properly
+        if (countryData) {
+          // If we have a single Sector field but no Sectors array
+          if (countryData.Sector && !countryData.Sectors) {
+            // Create a Sectors array with just the one sector
+            countryData = {
+              ...countryData,
+              Sectors: [countryData.Sector],
+              SectorData: {
+                "all": {
+                  Asset_Amount: countryData.Asset_Amount,
+                  Firm_Amount: countryData.Firm_Amount,
+                  Emissions_Coverage: countryData.Emissions_Coverage
+                },
+                [countryData.Sector]: {
+                  Asset_Amount: countryData.Asset_Amount,
+                  Firm_Amount: countryData.Firm_Amount,
+                  Emissions_Coverage: countryData.Emissions_Coverage
+                }
+              }
+            }
+          }
+          // If we already have a Sectors array but no SectorData
+          else if (countryData.Sectors && !countryData.SectorData) {
+            const sectorData: {
+              [key: string]: {
+                Asset_Amount?: number;
+                Firm_Amount?: number;
+                Emissions_Coverage?: number;
+              }
+            } = {
+              "all": {
+                Asset_Amount: countryData.Asset_Amount,
+                Firm_Amount: countryData.Firm_Amount,
+                Emissions_Coverage: countryData.Emissions_Coverage
+              }
+            }
+            
+            // Add data for each sector (using the same data for now)
+            // In a real implementation, this would come from the API
+            countryData.Sectors.forEach((sector: string) => {
+              sectorData[sector] = {
+                Asset_Amount: countryData.Asset_Amount,
+                Firm_Amount: countryData.Firm_Amount,
+                Emissions_Coverage: countryData.Emissions_Coverage
+              }
+            })
+            
+            countryData = {
+              ...countryData,
+              SectorData: sectorData
+            }
+          }
+        }
         
         setData(countryData || null)
       } catch (error) {
@@ -103,6 +175,20 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
 
     fetchCountryData()
   }, [country])
+
+  const getCoverageData = () => {
+    if (!data || !data.SectorData) {
+      return {
+        Asset_Amount: data?.Asset_Amount,
+        Firm_Amount: data?.Firm_Amount,
+        Emissions_Coverage: data?.Emissions_Coverage
+      }
+    }
+
+    return data.SectorData[selectedSector] || data.SectorData["all"]
+  }
+
+  const coverageData = getCoverageData()
 
   if (loading) {
     return (
@@ -161,10 +247,26 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             <Badge variant="outline">{data.Country_ISO3}</Badge>
             <Badge variant="secondary">{data.Region}</Badge>
           </div>
-          {data.Sector && (
-            <div className="flex gap-2">
-              <Badge variant="secondary">{data.Sector}</Badge>
-            </div>
+          {data.Sectors && data.Sectors.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1">
+                  Sector: {selectedSector === "all" ? "All Sectors" : selectedSector}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuRadioGroup value={selectedSector} onValueChange={setSelectedSector}>
+                  <DropdownMenuRadioItem value="all">All Sectors</DropdownMenuRadioItem>
+                  <DropdownMenuSeparator />
+                  {data.Sectors.map((sector) => (
+                    <DropdownMenuRadioItem key={sector} value={sector}>
+                      {sector}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
@@ -231,33 +333,38 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           )}
 
           {/* Coverage Information Section */}
-          {(data.Asset_Amount || data.Firm_Amount || data.Emissions_Coverage) && (
+          {(coverageData?.Asset_Amount || coverageData?.Firm_Amount || coverageData?.Emissions_Coverage) && (
             <div className="space-y-4 border-t pt-4">
-              <p className="text-lg font-medium">Coverage Information</p>
+              <div className="flex items-center justify-between">
+                <p className="text-lg font-medium">Coverage Information</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedSector === "all" ? "All Sectors" : `Sector: ${selectedSector}`}
+                </p>
+              </div>
 
               {/* Asset, Firm, and Emissions Coverage in one row */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.Asset_Amount !== undefined && (
+                {coverageData?.Asset_Amount !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Asset Coverage</p>
                     <p className="text-xl font-medium">
-                      {data.Asset_Amount.toLocaleString()} assets
+                      {coverageData.Asset_Amount.toLocaleString()} assets
                     </p>
                   </div>
                 )}
-                {data.Firm_Amount !== undefined && (
+                {coverageData?.Firm_Amount !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Company Coverage</p>
                     <p className="text-xl font-medium">
-                      {data.Firm_Amount.toLocaleString()} companies
+                      {coverageData.Firm_Amount.toLocaleString()} companies
                     </p>
                   </div>
                 )}
-                {data.Emissions_Coverage !== undefined && (
+                {coverageData?.Emissions_Coverage !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Emissions Coverage</p>
                     <p className="text-xl font-medium">
-                      {data.Emissions_Coverage.toFixed(2)} MtCO₂e
+                      {coverageData.Emissions_Coverage.toFixed(2)} MtCO₂e
                     </p>
                     <p className="text-sm text-muted-foreground">
                       (20-year time horizon)

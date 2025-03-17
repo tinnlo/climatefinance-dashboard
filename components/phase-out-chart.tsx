@@ -84,8 +84,7 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
 
     // Line colors
     annualReduction: "#e63946", // Bright red
-    cumulativeFromCurrent: "#457b9d", // Blue
-    cumulativeFromBAU: currentTheme === "dark" ? "#a8dadc" : "#1d3557", // Light blue in dark mode, dark blue in light mode
+    cumulativeEmissions: currentTheme === "dark" ? "#a8dadc" : "#1d3557", // Using the color previously used for cumulativeFromBAU
 
     text: currentTheme === "dark" ? "#ffffff" : "#000000",
     background: currentTheme === "dark" ? "#333333" : "#ffffff",
@@ -109,7 +108,6 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
     Coal: item.plants_by_subsector.Coal,
     Gas: item.plants_by_subsector.Gas,
     Oil: item.plants_by_subsector.Oil,
-    cumulativeBAU: item.cumulative_mtco2 * 1.2,
   }))
 
   // Calculate summary statistics
@@ -230,20 +228,10 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
                     yAxisId="right"
                     type="monotone"
                     dataKey="cumulative_mtco2"
-                    stroke={colors.cumulativeFromCurrent}
+                    stroke={colors.cumulativeEmissions}
                     strokeWidth={2}
                     dot={false}
-                    name="Cumulative avoided emissions (current)"
-                    activeDot={{ r: 4 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="cumulativeBAU"
-                    stroke={colors.cumulativeFromBAU}
-                    strokeWidth={2}
-                    dot={false}
-                    name="Cumulative avoided emissions (BAU)"
+                    name="Cumulative avoided emissions"
                     activeDot={{ r: 4 }}
                   />
 
@@ -261,14 +249,14 @@ export function PhaseOutChart({ country = "in", data }: { country?: string; data
                             </div>
                           ))}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-1 md:gap-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
                           {payload?.slice(3).map((entry: any, index: number) => (
                             <div key={`line-${index}`} className="flex items-center gap-1 md:gap-2">
                               <div
                                 className="w-4 h-0.5 flex-shrink-0"
                                 style={{
                                   backgroundColor: entry.color,
-                                  borderBottom: index === 1 ? "2px dashed" : index === 2 ? "2px dotted" : "none",
+                                  borderBottom: index === 1 ? "2px dashed" : "none",
                                   borderColor: entry.color,
                                 }}
                               />
