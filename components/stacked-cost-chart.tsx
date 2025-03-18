@@ -416,6 +416,17 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                 allowDataOverflow={false}
                 allowDecimals={true}
                 minTickGap={5}
+                tickFormatter={(value) => {
+                  // Format numbers to be more concise
+                  if (value === 0) return "0";
+                  if (value < 0.001) return value.toExponential(1);
+                  if (value < 0.01) return value.toFixed(3);
+                  if (value < 0.1) return value.toFixed(2);
+                  if (value < 1) return value.toFixed(2);
+                  if (value < 10) return value.toFixed(1);
+                  return Math.round(value).toString();
+                }}
+                width={60} // Increase width to accommodate labels
               />
               <YAxis
                 yAxisId="right"
@@ -429,12 +440,13 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                 }}
                 tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
                 tickMargin={10}
-                tickFormatter={(value) => `${value.toFixed(1)}%`}
+                tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
                 dataKey="gdpPercentage"
                 domain={[0, 'dataMax']}
                 allowDataOverflow={false}
                 allowDecimals={true}
                 minTickGap={5}
+                width={60} // Increase width to accommodate labels
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
               {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (

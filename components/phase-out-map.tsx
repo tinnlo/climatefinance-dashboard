@@ -19,6 +19,7 @@ import {
 import { Feature, FeatureCollection, Geometry, GeoJsonProperties } from 'geojson'
 import { Topology, GeometryObject } from 'topojson-specification'
 import { Card } from "@/components/ui/card"
+import Link from "next/link"
 
 const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year. The map includes state/province boundaries and major cities for better geographical context."
 
@@ -28,6 +29,16 @@ interface CountryData {
   Asset_Amount?: number
   Firm_Amount?: number
   Emissions_Coverage?: number
+}
+
+interface CompanyData {
+  Company_Name: string
+  Country_ISO3: string
+  Status: string
+  Capacity_Unit: string
+  Emissions_Unit: string
+  Capacity: number
+  Emissions: number
 }
 
 interface MapData {
@@ -215,6 +226,8 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
   const [currentYear, setCurrentYear] = useState(2025)
   const [mapInitialized, setMapInitialized] = useState(false)
   const [countryData, setCountryData] = useState<CountryData | null>(null)
+  const [companyData, setCompanyData] = useState<CompanyData[]>([])
+  const [isLoadingCompanyData, setIsLoadingCompanyData] = useState(false)
   const [dimensions, setDimensions] = useState({ width: 0, height: 400 })
   const initialTransformRef = useRef<d3.ZoomTransform | null>(null)
   const zoomRef = useRef<any>(null)
@@ -239,6 +252,38 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
     }
 
     fetchCountryData()
+  }, [country])
+
+  // Fetch company data
+  useEffect(() => {
+    const fetchCompanyData = async () => {
+      try {
+        setIsLoadingCompanyData(true)
+        const iso3Code = convertToIso3(country)
+        const response = await fetch(`/api/company-data?country=${iso3Code}`)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        
+        if (Array.isArray(data)) {
+          setCompanyData(data)
+          console.log(`Loaded ${data.length} companies for ${iso3Code}`)
+        } else {
+          console.error('Company data is not an array:', data)
+          setCompanyData([])
+        }
+      } catch (error) {
+        console.error('Error fetching company data:', error)
+        setCompanyData([])
+      } finally {
+        setIsLoadingCompanyData(false)
+      }
+    }
+
+    fetchCompanyData()
   }, [country])
 
   // Filter out points with invalid coordinates
@@ -325,26 +370,29 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
   )
 
   const projection = useMemo(() => {
-    if (dimensions.width === 0 || !validData || validData.length === 0) return null;
-    
-    // Reset the projection when data changes
-    const bounds = d3.geoBounds({
-      type: "FeatureCollection",
-      features: validData.map((d) => ({
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [d.longitude, d.latitude],
-        },
-        properties: {},
-      })),
-    })
+    if (!validData || !validData.length) return null
 
-    // Add padding to the bounds
-    const padding = 0.5 // degrees
+    const padding = 0.2 // Padding as a percentage of the data bounds
+    
+    // Calculate bounds from the data
+    const bounds = [
+      [
+        d3.min(validData, (d) => d.longitude) || 0,
+        d3.min(validData, (d) => d.latitude) || 0,
+      ],
+      [
+        d3.max(validData, (d) => d.longitude) || 0,
+        d3.max(validData, (d) => d.latitude) || 0,
+      ],
+    ]
+    
+    // Apply padding to bounds
+    const longitudeRange = bounds[1][0] - bounds[0][0]
+    const latitudeRange = bounds[1][1] - bounds[0][1]
+    
     const adjustedBounds = [
-      [bounds[0][0] - padding, bounds[0][1] - padding],
-      [bounds[1][0] + padding, bounds[1][1] + padding]
+      [bounds[0][0] - longitudeRange * padding, bounds[0][1] - latitudeRange * padding],
+      [bounds[1][0] + longitudeRange * padding, bounds[1][1] + latitudeRange * padding]
     ]
 
     return d3.geoMercator().fitExtent(
@@ -372,7 +420,7 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
             properties: {},
           },
         ],
-      },
+      }
     )
   }, [validData, dimensions, margin])
 
@@ -1014,6 +1062,14 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       averagePhaseOutYear: 0
     }
 
+    // Get company count from actual company data
+    const uniqueCompaniesCount = companyData.length > 0 ? 
+      new Set(companyData.map(company => company.Company_Name)).size : 0;
+
+    // Calculate total company emissions if available
+    const totalCompanyEmissions = companyData.length > 0 ?
+      companyData.reduce((sum, company) => sum + (company.Emissions || 0), 0) : 0;
+
     const stats = validData.reduce((acc, plant) => {
       acc.totalPlants++
       acc.totalEmissions += plant.emissions
@@ -1022,7 +1078,7 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       return acc
     }, {
       totalPlants: 0,
-      totalCompanies: 2, // Hardcoded for now - replace with actual data when available
+      totalCompanies: uniqueCompaniesCount || 0, // Use actual company count
       totalEmissions: 0,
       fuelTypeBreakdown: { Coal: 0, Gas: 0, Oil: 0 },
       averagePhaseOutYear: 0
@@ -1033,7 +1089,7 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       : 0
 
     return stats
-  }, [validData])
+  }, [validData, companyData])
 
   if (!data || data.length === 0) {
     return (
@@ -1140,57 +1196,128 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
 
         {/* Company Statistics Summary */}
         <div className="lg:col-span-1 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
-          <Card className="h-full bg-white dark:bg-black border border-gray-200 dark:border-gray-800 overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4 p-4 pb-0">Company Statistics</h3>
-            <div className="space-y-6 p-4 pt-0">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Power Plants</p>
-                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Asset_Amount || companyStats.totalPlants}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Companies</p>
-                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Firm_Amount || companyStats.totalCompanies}</p>
-                </div>
+          <Card className="h-full bg-white dark:bg-black border border-[#E5E5E5] dark:border-[#4A4A4A] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-2 p-4 pb-0">Company Statistics</h3>
+            
+            {isLoadingCompanyData ? (
+              <div className="flex justify-center items-center h-20 mt-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Loading company data...</span>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Emissions</p>
-                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{countryData?.Emissions_Coverage?.toFixed(2) || companyStats.totalEmissions.toFixed(2)} MtCO2</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-3">Fuel Type Distribution</p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                    <p className="text-xs text-muted-foreground">Coal</p>
-                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Coal}</p>
+            ) : (
+              <div className="space-y-6 p-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Power Plants</p>
+                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{validData.length}</p>
                   </div>
-                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                    <p className="text-xs text-muted-foreground">Gas</p>
-                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Gas}</p>
-                  </div>
-                  <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                    <p className="text-xs text-muted-foreground">Oil</p>
-                    <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Oil}</p>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Companies</p>
+                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyData.length > 0 ? new Set(companyData.map(company => company.Company_Name)).size : 0}</p>
                   </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
-                <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyStats.averagePhaseOutYear}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Current View Year</p>
-                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{currentYear}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Emissions</p>
+                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyData.length > 0 ? companyData.reduce((sum, company) => sum + (company.Emissions || 0), 0).toFixed(2) : (countryData?.Emissions_Coverage?.toFixed(2) || "0.00")} MtCO2</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
+                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyStats.averagePhaseOutYear}</p>
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Visible Plants</p>
-                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">
-                    {validData.filter(d => d.phase_out_year <= currentYear).length} of {companyStats.totalPlants}
-                  </p>
+                  <p className="text-sm text-muted-foreground mb-3">Fuel Type Distribution</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
+                      <p className="text-xs text-muted-foreground">Coal</p>
+                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Coal}</p>
+                    </div>
+                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
+                      <p className="text-xs text-muted-foreground">Gas</p>
+                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Gas}</p>
+                    </div>
+                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
+                      <p className="text-xs text-muted-foreground">Oil</p>
+                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Oil}</p>
+                    </div>
+                  </div>
                 </div>
+                
+                {/* Company Status Distribution - Moved before Top Companies */}
+                {companyData.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-3">Company Status</p>
+                    {(() => {
+                      // Calculate status distribution
+                      const statusCounts = companyData.reduce((acc, company) => {
+                        const status = company.Status || "unknown";
+                        acc[status] = (acc[status] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>);
+                      
+                      // Get total for percentage calculation
+                      const total = Object.values(statusCounts).reduce((a, b) => a + b, 0);
+                      
+                      return (
+                        <div className="space-y-2">
+                          {Object.entries(statusCounts).map(([status, count]) => (
+                            <div key={status}>
+                              <div className="flex justify-between text-xs">
+                                <span className="capitalize">{status}</span>
+                                <span>{count} ({((count / total) * 100).toFixed(1)}%)</span>
+                              </div>
+                              <div className="w-full bg-[#E5E5E5] dark:bg-[#4A4A4A] h-2 rounded-full mt-1">
+                                <div
+                                  className="h-full rounded-full bg-[#2F3A2F]"
+                                  style={{ width: `${(count / total) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                
+                {/* Top Companies Section */}
+                {companyData.length > 0 && (
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-sm text-muted-foreground">Top Companies by Emissions</p>
+                      <Link 
+                        href={`/company-details?country=${convertToIso3(country)}`}
+                        passHref
+                      >
+                        <Button variant="outline" size="sm" className="h-7 text-xs">
+                          View All Companies
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 border border-[#E5E5E5] dark:border-[#4A4A4A] rounded-md p-2">
+                      {[...companyData]
+                        .sort((a, b) => (b.Emissions || 0) - (a.Emissions || 0))
+                        .slice(0, 10)
+                        .map((company, index) => (
+                          <div key={`${company.Company_Name}-${index}`} className="flex justify-between items-center py-1 border-b border-[#E5E5E5] dark:border-[#4A4A4A] last:border-0">
+                            <div className="flex items-center">
+                              <span className="text-xs font-medium mr-2">{index + 1}.</span>
+                              <div>
+                                <p className="text-xs font-medium truncate max-w-[140px]" title={company.Company_Name}>
+                                  {company.Company_Name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">{company.Status} - {company.Capacity?.toFixed(0)} {company.Capacity_Unit}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-medium">{company.Emissions?.toFixed(3) || 0} Mt</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </Card>
         </div>
       </div>

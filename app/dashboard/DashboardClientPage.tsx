@@ -181,7 +181,7 @@ export default function DashboardClientPage() {
                       h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
                     )
                   : mapData
-                    ? h(PhaseOutMap, { data: mapData })
+                    ? h(PhaseOutMap, { data: mapData, country: selectedCountry })
                     : h(
                         "div",
                         { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
