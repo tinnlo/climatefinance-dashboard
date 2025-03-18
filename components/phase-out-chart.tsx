@@ -472,7 +472,7 @@ export function PhaseOutChart({
                 <>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-[#3A4A3A] p-3 rounded-md">
-                      <p className="text-xs text-muted-foreground">Available Assets</p>
+                      <p className="text-xs text-muted-foreground">Assets Amt</p>
                       <p className="text-lg font-medium">{totalAssets}</p>
                     </div>
                     <div className="bg-[#3A4A3A] p-3 rounded-md">
@@ -498,7 +498,7 @@ export function PhaseOutChart({
                   
                   {/* Subsector Breakdown Preview - Moved above the button */}
                   <div className="mt-6">
-                    <h4 className="text-sm font-semibold mb-2">Subsector Breakdown</h4>
+                    <h4 className="text-sm font-semibold mb-2">Assets Subsector Breakdown</h4>
                     <div className="flex justify-between items-center">
                       {subsectorCounts.slice(0, 3).map((item) => (
                         <div key={item.subsector} className="flex items-center text-xs mr-2">

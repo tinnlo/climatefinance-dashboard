@@ -16,9 +16,9 @@ export function DownloadSystemCostBenefits() {
   const searchParams = useSearchParamsContext()
   const router = useRouter()
   const { isAuthenticated, isLoading } = useAuth()
-  const [selectedCountry, setSelectedCountry] = useState(searchParams?.get("country") || "in")
-  const [selectedScenario, setSelectedScenario] = useState(searchParams?.get("scenario") || "baseline")
-  const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams?.get("timeHorizon") || "2025")
+  const [selectedCountry, setSelectedCountry] = useState(searchParams?.get("country") || "IND")
+  const [selectedSCC, setSelectedSCC] = useState(searchParams?.get("scc") || "80")
+  const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams?.get("timeHorizon") || "2035")
   const [isDownloading, setIsDownloading] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
 
@@ -35,38 +35,47 @@ export function DownloadSystemCostBenefits() {
     }
   }, [isAuthenticated, isLoading, router])
 
-  // Scenarios for the dropdown (same as in system-cost-benefits.tsx)
-  const scenarios = [
-    { value: "baseline", label: "Baseline" },
-    { value: "optimistic", label: "Optimistic" },
-    { value: "conservative", label: "Conservative" },
+  // SCC options for the dropdown
+  const sccOptions = [
+    { value: "80", label: "SCC 80 USD" },
+    { value: "190", label: "SCC 190 USD" },
+    { value: "1056", label: "SCC 1056 USD" },
   ]
 
-  // Time horizons for the dropdown (same as in system-cost-benefits.tsx)
+  // Time horizons for the dropdown
   const timeHorizons = [
-    { value: "2025", label: "Until 2025" },
     { value: "2035", label: "Until 2035" },
+    { value: "2050", label: "Until 2050" },
   ]
 
   const handleDownload = async () => {
     setIsDownloading(true)
     try {
-      // For testing, we'll create a sample CSV file
-      const csvContent = `Country,Scenario,TimeHorizon,Category,Value,GDPPercentage
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},TotalCost,3.5,2.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},CapitalInvestment,1.8,1.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},OperatingCosts,1.2,0.7
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},MaintenanceCosts,0.5,0.3
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},TotalBenefit,8.2,4.9
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},AvoidedClimateImpacts,5.1,3.1
-${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},HealthBenefits,3.1,1.8`;
+      // Fetch the data from our API
+      const response = await fetch(`/api/system-cost-benefits?country=${selectedCountry}&scc=${selectedSCC}&timeHorizon=${selectedTimeHorizon}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      
+      // Create CSV content from the fetched data
+      const csvContent = `Country,SCC,TimeHorizon,Category,Value
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Private Funding,${data.costs[0].value.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Public Funding,${data.costs[1].value.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},International Climate Finance Needs,${data.costs[2].value.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Total Cost,${data.totalCost.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Benefits from Air Pollution,${data.airPollutionBenefit.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Benefits to the Country,${data.countryBenefit.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Benefits to the Rest of the World,${data.worldBenefit.toFixed(4)}
+${COUNTRY_NAMES[selectedCountry]},${selectedSCC},${selectedTimeHorizon},Total Benefit,${data.totalBenefit.toFixed(4)}`;
 
       // Create a blob and download it
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `system_cost_benefits_${selectedCountry}_${selectedScenario}_${selectedTimeHorizon}.csv`);
+      link.setAttribute("download", `system_cost_benefits_${selectedCountry}_scc${selectedSCC}_${selectedTimeHorizon}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -111,7 +120,7 @@ ${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},Hea
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Select Data Parameters</CardTitle>
-          <CardDescription>Choose the country, scenario, and time horizon for the data you want to download</CardDescription>
+          <CardDescription>Choose the country, social cost of carbon, and time horizon for the data you want to download</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -132,15 +141,15 @@ ${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},Hea
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Scenario</label>
-              <Select value={selectedScenario} onValueChange={setSelectedScenario}>
+              <label className="text-sm font-medium">Social Cost of Carbon</label>
+              <Select value={selectedSCC} onValueChange={setSelectedSCC}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select scenario" />
+                  <SelectValue placeholder="Select SCC" />
                 </SelectTrigger>
                 <SelectContent>
-                  {scenarios.map((scenario) => (
-                    <SelectItem key={scenario.value} value={scenario.value}>
-                      {scenario.label}
+                  {sccOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -188,31 +197,29 @@ ${COUNTRY_NAMES[selectedCountry]},${selectedScenario},${selectedTimeHorizon},Hea
       
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Available Data Files</CardTitle>
-          <CardDescription>Sample files available for download</CardDescription>
+          <CardTitle>Data Content Description</CardTitle>
+          <CardDescription>What's included in the downloaded file</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">System Cost Benefits - {COUNTRY_NAMES[selectedCountry]} (Baseline)</h3>
-                <p className="text-sm text-muted-foreground">CSV, 24KB</p>
+            <div className="border rounded-lg divide-y">
+              <div className="p-4">
+                <h3 className="font-medium mb-2">System Costs</h3>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                  <li>Private Funding</li>
+                  <li>Public Funding</li>
+                  <li>International Climate Finance Needs</li>
+                </ul>
               </div>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <h3 className="font-medium">System Cost Benefits - Full Dataset</h3>
-                <p className="text-sm text-muted-foreground">Excel, 156KB</p>
+              
+              <div className="p-4">
+                <h3 className="font-medium mb-2">System Benefits</h3>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                  <li>Benefits from Air Pollution</li>
+                  <li>Benefits to the Country (based on selected SCC)</li>
+                  <li>Benefits to the Rest of the World (based on selected SCC)</li>
+                </ul>
               </div>
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </Button>
             </div>
           </div>
         </CardContent>
