@@ -202,7 +202,7 @@ export default function AssetDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#1A2A1A]">
-      <div className="container max-w-6xl mx-auto py-8 px-4">
+      <div className="container max-w-4xl mx-auto py-8 px-4">
         <div className="mb-6">
           <Link href="/dashboard" className="inline-flex items-center text-white hover:text-blue-300">
             <ArrowLeft className="mr-2 h-4 w-4" />
