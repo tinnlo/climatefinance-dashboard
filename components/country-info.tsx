@@ -359,8 +359,10 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                     <p className="text-xl font-medium">
                       {(coverageData.Capacity_operating + coverageData.Capacity_planned).toLocaleString()} MW
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      ({coverageData.Capacity_operating.toLocaleString()} MW operating, {coverageData.Capacity_planned.toLocaleString()} MW planned)
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {coverageData.Capacity_operating.toLocaleString()} MW operating
+                      {"\n"}
+                      {coverageData.Capacity_planned.toLocaleString()} MW planned
                     </p>
                   </div>
                 )}
@@ -370,8 +372,10 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                     <p className="text-xl font-medium">
                       {(coverageData.Emissions_operating + coverageData.Emissions_planned).toFixed(2)} MtCO₂e
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      ({coverageData.Emissions_operating.toFixed(2)} MtCO₂e operating, {coverageData.Emissions_planned.toFixed(2)} MtCO₂e planned)
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {coverageData.Emissions_operating.toFixed(2)} MtCO₂e operating
+                      {"\n"}
+                      {coverageData.Emissions_planned.toFixed(2)} MtCO₂e planned
                     </p>
                   </div>
                 )}
