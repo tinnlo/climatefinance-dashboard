@@ -1,146 +1,407 @@
 "use client"
 
-import { motion } from "framer-motion"
+import React, { useEffect, useRef } from 'react';
 
+////////////////////////////////////////////////////////////////////////////////
+// CONFIG SECTION (EASY-TO-EDIT VARIABLES)
+////////////////////////////////////////////////////////////////////////////////
+
+// Zoom factor for the visual pattern.
+const ZOOM_FACTOR = 0.3;
+
+// Base wave amplitude in domain warping.
+const BASE_WAVE_AMPLITUDE = 0.2;
+
+// Additional factor for random amplitude variations.
+const RANDOM_WAVE_FACTOR = 0.15;
+
+// Frequency multiplier for wave domain warp.
+const WAVE_FREQUENCY = 4.0;
+
+// Time speed factor (overall speed of animation).
+const TIME_FACTOR = 0.25;
+
+// Swirl strength near the center.
+const BASE_SWIRL_STRENGTH = 1.2;
+
+// Finer swirl timing factor.
+const SWIRL_TIME_MULT = 5.0;
+
+// Additional swirl effect modulated by noise.
+const NOISE_SWIRL_FACTOR = 0.2;
+
+// Number of fractal noise octaves in fbm (must be integer).
+const FBM_OCTAVES = 10;
+
+// 20-step palette of blues and greens (modified for climate finance theme)
+const seaColors = [
+  [0.00, 0.02, 0.05],
+  [0.00, 0.04, 0.08],
+  [0.00, 0.06, 0.12],
+  [0.00, 0.08, 0.18],
+  [0.00, 0.10, 0.24],
+  [0.00, 0.14, 0.32],
+  [0.00, 0.20, 0.40],
+  [0.00, 0.24, 0.48],
+  [0.00, 0.30, 0.55],
+  [0.05, 0.35, 0.60],
+  [0.08, 0.40, 0.65],
+  [0.10, 0.45, 0.70],
+  [0.15, 0.50, 0.75],
+  [0.20, 0.58, 0.80],
+  [0.25, 0.65, 0.85],
+  [0.30, 0.72, 0.90],
+  [0.40, 0.78, 0.92],
+  [0.50, 0.85, 0.95],
+  [0.70, 0.90, 0.97],
+  [0.85, 0.95, 1.00],
+];
+
+////////////////////////////////////////////////////////////////////////////////
+// DYNAMIC FRAGMENT SHADER BUILDER
+////////////////////////////////////////////////////////////////////////////////
+
+function buildFragmentShader(): string {
+  // Force integer for the for-loop.
+  const fbmOctavesInt = Math.floor(FBM_OCTAVES);
+
+  // Convert seaColors array to GLSL array of vec3.
+  const colorArraySrc = seaColors
+    .map((c) => `vec3(${c[0]}, ${c[1]}, ${c[2]})`)
+    .join(",\n  ");
+
+  return `#version 300 es
+
+precision highp float;
+out vec4 outColor;
+
+uniform vec2 uResolution;
+uniform float uTime;
+
+#define NUM_COLORS 20
+
+// 20-step palette of blues.
+vec3 seaColors[NUM_COLORS] = vec3[](
+  ${colorArraySrc}
+);
+
+// ----------------------------------------------------------
+// Perlin-like noise
+// ----------------------------------------------------------
+vec3 permute(vec3 x) {
+  return mod(((x * 34.0) + 1.0) * x, 289.0);
+}
+
+float noise2D(vec2 v) {
+  const vec4 C = vec4(
+    0.211324865405187,
+    0.366025403784439,
+    -0.577350269189626,
+    0.024390243902439
+  );
+
+  vec2 i = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+
+  i = mod(i, 289.0);
+  vec3 p = permute(
+    permute(i.y + vec3(0.0, i1.y, 1.0)) +
+    i.x + vec3(0.0, i1.x, 1.0)
+  );
+
+  vec3 m = max(
+    0.5 - vec3(
+      dot(x0, x0),
+      dot(x12.xy, x12.xy),
+      dot(x12.zw, x12.zw)
+    ),
+    0.0
+  );
+  m = m * m;
+  m = m * m;
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+
+  m *= 1.792843 - 0.853734 * (a0 * a0 + h * h);
+
+  vec3 g;
+  g.x  = a0.x  * x0.x + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+
+  return 130.0 * dot(m, g);
+}
+
+// ----------------------------------------------------------
+// Fractional Brownian Motion
+// ----------------------------------------------------------
+float fbm(vec2 st) {
+  float value = 0.0;
+  float amplitude = 0.5;
+  float freq = 1.0;
+  for (int i = 0; i < ${fbmOctavesInt}; i++) {
+    value += amplitude * noise2D(st * freq);
+    freq *= 2.0;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
+void main() {
+  // Normalize coords to [-1,1]
+  vec2 uv = (gl_FragCoord.xy / uResolution.xy) * 2.0 - 1.0;
+  uv.x *= uResolution.x / uResolution.y;
+
+  // Zoom in so pattern is bigger and less obviously repeated
+  uv *= float(${ZOOM_FACTOR});
+
+  // Time factor for wave domain warp
+  float t = uTime * float(${TIME_FACTOR});
+
+  // Random amplitude that changes over time
+  float waveAmp = float(${BASE_WAVE_AMPLITUDE}) + float(${RANDOM_WAVE_FACTOR})
+                  * noise2D(vec2(t, 27.7));
+
+  // Sine-based domain warp
+  float waveX = waveAmp * sin(uv.y * float(${WAVE_FREQUENCY}) + t);
+  float waveY = waveAmp * sin(uv.x * float(${WAVE_FREQUENCY}) - t);
+  uv.x += waveX;
+  uv.y += waveY;
+
+  // Additional swirl near center
+  float r = length(uv);
+  float angle = atan(uv.y, uv.x);
+  float swirlStrength = float(${BASE_SWIRL_STRENGTH})
+                        * (1.0 - smoothstep(0.0, 1.0, r));
+
+  angle += swirlStrength * sin(uTime + r * float(${SWIRL_TIME_MULT}));
+  uv = vec2(cos(angle), sin(angle)) * r;
+
+  // Evaluate fractal noise
+  float n = fbm(uv);
+
+  // Additional swirl effect modulated by noise
+  float swirlEffect = float(${NOISE_SWIRL_FACTOR})
+                      * sin(t + n * 3.0);
+  n += swirlEffect;
+
+  // Convert noise to [0..1]
+  float noiseVal = 0.5 * (n + 1.0);
+
+  // Discrete palette sampling
+  float idx = clamp(noiseVal, 0.0, 1.0) * float(NUM_COLORS - 1);
+  int iLow = int(floor(idx));
+  int iHigh = int(min(float(iLow + 1), float(NUM_COLORS - 1)));
+  float f = fract(idx);
+
+  vec3 colLow = seaColors[iLow];
+  vec3 colHigh = seaColors[iHigh];
+  vec3 color = mix(colLow, colHigh, f);
+
+  // If it's the darkest color, set alpha=0 => total transparency
+  if (iLow == 0 && iHigh == 0) {
+    outColor = vec4(color, 0.0);
+  } else {
+    outColor = vec4(color, 1.0);
+  }
+}
+`;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// STATIC VERTEX SHADER
+////////////////////////////////////////////////////////////////////////////////
+const vertexShaderSource = `#version 300 es
+precision mediump float;
+
+in vec2 aPosition;
+
+void main() {
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}`;
+
+////////////////////////////////////////////////////////////////////////////////
+// SHADER COMPILATION UTIL
+////////////////////////////////////////////////////////////////////////////////
+function createShaderProgram(
+  gl: WebGL2RenderingContext,
+  vsSource: string,
+  fsSource: string
+): WebGLProgram | null {
+  const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+  if (!vertexShader) return null;
+
+  gl.shaderSource(vertexShader, vsSource);
+  gl.compileShader(vertexShader);
+  if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+    console.error("Vertex shader error:", gl.getShaderInfoLog(vertexShader));
+    gl.deleteShader(vertexShader);
+    return null;
+  }
+
+  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!fragmentShader) {
+    gl.deleteShader(vertexShader);
+    return null;
+  }
+
+  gl.shaderSource(fragmentShader, fsSource);
+  gl.compileShader(fragmentShader);
+  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+    console.error("Fragment shader error:", gl.getShaderInfoLog(fragmentShader));
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error("Could not link WebGL program:", gl.getProgramInfoLog(program));
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    gl.deleteProgram(program);
+    return null;
+  }
+
+  return program;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// MAIN REACT COMPONENT
+////////////////////////////////////////////////////////////////////////////////
 export function OrbitalBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Build final fragment shader from above config
+    const fsSource = buildFragmentShader();
+
+    const gl = canvas.getContext('webgl2', { alpha: true });
+    if (!gl) {
+      console.error('WebGL2 is not supported by your browser.');
+      return;
+    }
+
+    // Enable blending for transparency
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    // Transparent background
+    gl.clearColor(0, 0, 0, 0);
+
+    // Resize canvas to fill screen
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const program = createShaderProgram(gl, vertexShaderSource, fsSource);
+    if (!program) {
+      console.error('Failed to create shader program.');
+      return;
+    }
+
+    gl.useProgram(program);
+
+    // Full-screen quad
+    const quadVertices = new Float32Array([
+      -1, -1,
+       1, -1,
+      -1,  1,
+      -1,  1,
+       1, -1,
+       1,  1,
+    ]);
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+
+    const aPositionLoc = gl.getAttribLocation(program, 'aPosition');
+    gl.enableVertexAttribArray(aPositionLoc);
+    gl.vertexAttribPointer(aPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+    // Uniform locations
+    const uResolutionLoc = gl.getUniformLocation(program, 'uResolution');
+    const uTimeLoc = gl.getUniformLocation(program, 'uTime');
+
+    let startTime = performance.now();
+
+    function render() {
+      if (!canvas || !gl || !program || !vao || !uResolutionLoc || !uTimeLoc) return;
+      
+      const currentTime = performance.now();
+      const elapsed = (currentTime - startTime) * 0.001; // seconds
+
+      // Canvas may have been resized
+      if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.useProgram(program);
+      gl.bindVertexArray(vao);
+
+      gl.uniform2f(uResolutionLoc, canvas.width, canvas.height);
+      gl.uniform1f(uTimeLoc, elapsed);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // Listen for window resizing
+    const handleResize = () => {
+      if (canvas) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gl?.viewport(0, 0, canvas.width, canvas.height);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (gl) {
+        gl.deleteProgram(program);
+        if (vbo) gl.deleteBuffer(vbo);
+        if (vao) gl.deleteVertexArray(vao);
+      }
+    };
+  }, []);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-black via-forest/20 to-emerald-900/10"
-        style={{
-          animation: "gradientAnimation 15s ease infinite",
-          backgroundSize: "400% 400%",
-        }}
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full block"
+        style={{ background: 'transparent' }}
       />
-      <svg className="absolute w-full h-full" viewBox="0 0 1000 1000">
-        {/* Orbital Paths */}
-        <motion.circle
-          cx="500"
-          cy="500"
-          r="200"
-          fill="none"
-          stroke="rgba(47, 58, 47, 0.2)"
-          strokeWidth="2"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 30, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
-        />
-        <motion.circle
-          cx="500"
-          cy="500"
-          r="300"
-          fill="none"
-          stroke="rgba(47, 58, 47, 0.15)"
-          strokeWidth="2"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 40, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
-        />
-        <motion.circle
-          cx="500"
-          cy="500"
-          r="400"
-          fill="none"
-          stroke="rgba(47, 58, 47, 0.1)"
-          strokeWidth="2"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 50, ease: "linear", repeat: Number.POSITIVE_INFINITY }}
-        />
-
-        {/* Floating Elements with Glows */}
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-            <feMerge>
-              <feMergeNode in="coloredBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Gradient for color transitions */}
-          <linearGradient id="dotGradient1" gradientTransform="rotate(90)">
-            <stop offset="0%" stopColor="rgba(16, 185, 129, 0.3)" />
-            <stop offset="50%" stopColor="rgba(47, 58, 47, 0.3)" />
-            <stop offset="100%" stopColor="rgba(16, 185, 129, 0.3)" />
-          </linearGradient>
-        </defs>
-
-        <motion.g filter="url(#glow)">
-          {/* Inner Circle Dot */}
-          <motion.circle
-            cx="500"
-            cy="300"
-            r="4"
-            fill="url(#dotGradient1)"
-            animate={{
-              cx: [700, 500, 300, 500, 700],
-              cy: [500, 700, 500, 300, 500],
-            }}
-            transition={{
-              duration: 30,
-              ease: "linear",
-              repeat: Number.POSITIVE_INFINITY,
-            }}
-          />
-          {/* Middle Circle Dot */}
-          <motion.circle
-            cx="500"
-            cy="200"
-            r="4"
-            fill="url(#dotGradient1)"
-            animate={{
-              cx: [800, 500, 200, 500, 800],
-              cy: [500, 800, 500, 200, 500],
-            }}
-            transition={{
-              duration: 40,
-              ease: "linear",
-              repeat: Number.POSITIVE_INFINITY,
-            }}
-          />
-          {/* Outer Circle Dot */}
-          <motion.circle
-            cx="500"
-            cy="100"
-            r="4"
-            fill="url(#dotGradient1)"
-            animate={{
-              cx: [900, 500, 100, 500, 900],
-              cy: [500, 900, 500, 100, 500],
-            }}
-            transition={{
-              duration: 50,
-              ease: "linear",
-              repeat: Number.POSITIVE_INFINITY,
-            }}
-          />
-        </motion.g>
-
-        {/* Center Glow */}
-        <motion.circle
-          cx="500"
-          cy="500"
-          r="150"
-          fill="url(#centerGlow)"
-          filter="url(#glow)"
-          animate={{
-            r: [150, 170, 150],
-            opacity: [0.3, 0.4, 0.3],
-          }}
-          transition={{
-            duration: 4,
-            ease: "easeInOut",
-            repeat: Number.POSITIVE_INFINITY,
-          }}
-        />
-
-        {/* Gradient Definitions */}
-        <defs>
-          <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="rgba(16, 185, 129, 0.2)" />
-            <stop offset="100%" stopColor="rgba(47, 58, 47, 0)" />
-          </radialGradient>
-        </defs>
-      </svg>
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
     </div>
-  )
+  );
 }
 

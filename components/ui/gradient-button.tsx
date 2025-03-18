@@ -15,12 +15,12 @@ const GradientButton = React.forwardRef<HTMLButtonElement, GradientButtonProps>(
     
     const variantStyles = {
       primary: "bg-gradient-to-r from-emerald-700/90 to-forest hover:from-emerald-800 hover:to-forest dark:from-zinc-900 dark:to-forest dark:hover:from-zinc-900 dark:hover:to-forest/90 text-white",
-      secondary: "bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 dark:from-gray-800 dark:to-gray-700 dark:hover:from-gray-700 dark:hover:to-gray-600 text-gray-800 dark:text-white"
+      secondary: "bg-gradient-to-r from-[#2F3A2F]/90 to-[#4A5A4A] hover:from-[#2F3A2F] hover:to-[#4A5A4A]/90 dark:from-[#2F3A2F] dark:to-[#4A5A4A] dark:hover:from-[#2F3A2F] dark:hover:to-[#4A5A4A]/90 text-white"
     }
     
     const blurStyles = {
       primary: "bg-gradient-to-r from-emerald-700/20 to-forest/30 dark:from-zinc-900/30 dark:to-forest/40",
-      secondary: "bg-gradient-to-r from-gray-200/20 to-gray-300/40 dark:from-gray-700/20 dark:to-gray-600/40"
+      secondary: "bg-gradient-to-r from-[#2F3A2F]/20 to-[#4A5A4A]/30 dark:from-[#2F3A2F]/30 dark:to-[#4A5A4A]/40"
     }
     
     return (

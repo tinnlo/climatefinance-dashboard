@@ -341,8 +341,8 @@ export function PhaseOutChart({
                       angle: -90,
                       position: "insideLeft",
                       fill: colors.text,
-                      fontSize: 12,
-                      dx: -1,
+                      fontSize: 11,
+                      dx: -2,
                       dy: 90,
                       className: "hidden md:block"
                     }}
@@ -358,9 +358,9 @@ export function PhaseOutChart({
                       angle: 90,
                       position: "insideRight",
                       fill: colors.text,
-                      fontSize: 12,
-                      dx: 4,
-                      dy: 95,
+                      fontSize: 11,
+                      dx: 2,
+                      dy: 98,
                       className: "hidden md:block"
                     }}
                     tickFormatter={(value) => (value / 1000).toFixed(1)}
