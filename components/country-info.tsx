@@ -62,15 +62,10 @@ interface CountryData {
   NDC_2025_source?: string
   Sectors?: string[]
   Asset_Amount?: number
-  Firm_Amount?: number
-  Emissions_Coverage?: number
-  SectorData?: {
-    [key: string]: {
-      Asset_Amount?: number
-      Firm_Amount?: number
-      Emissions_Coverage?: number
-    }
-  }
+  Capacity_operating?: number
+  Emissions_operating?: number
+  Capacity_planned?: number
+  Emissions_planned?: number
 }
 
 export function CountryInfo({ country = "in", className }: { country?: string; className?: string }) {
@@ -177,15 +172,24 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
   }, [country])
 
   const getCoverageData = () => {
-    if (!data || !data.SectorData) {
+    if (!data) {
       return {
-        Asset_Amount: data?.Asset_Amount,
-        Firm_Amount: data?.Firm_Amount,
-        Emissions_Coverage: data?.Emissions_Coverage
+        Asset_Amount: undefined,
+        Capacity_operating: undefined,
+        Emissions_operating: undefined,
+        Capacity_planned: undefined,
+        Emissions_planned: undefined
       }
     }
 
-    return data.SectorData[selectedSector] || data.SectorData["all"]
+    // For now, we return the data directly since sector handling is simplified
+    return {
+      Asset_Amount: data.Asset_Amount,
+      Capacity_operating: data.Capacity_operating,
+      Emissions_operating: data.Emissions_operating,
+      Capacity_planned: data.Capacity_planned,
+      Emissions_planned: data.Emissions_planned
+    }
   }
 
   const coverageData = getCoverageData()
@@ -247,27 +251,6 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             <Badge variant="outline">{data.Country_ISO3}</Badge>
             <Badge variant="secondary">{data.Region}</Badge>
           </div>
-          {data.Sectors && data.Sectors.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1">
-                  Sector: {selectedSector === "all" ? "All Sectors" : selectedSector}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuRadioGroup value={selectedSector} onValueChange={setSelectedSector}>
-                  <DropdownMenuRadioItem value="all">All Sectors</DropdownMenuRadioItem>
-                  <DropdownMenuSeparator />
-                  {data.Sectors.map((sector) => (
-                    <DropdownMenuRadioItem key={sector} value={sector}>
-                      {sector}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -333,16 +316,34 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           )}
 
           {/* Coverage Information Section */}
-          {(coverageData?.Asset_Amount || coverageData?.Firm_Amount || coverageData?.Emissions_Coverage) && (
+          {(coverageData?.Asset_Amount || coverageData?.Capacity_operating || coverageData?.Emissions_operating || coverageData?.Capacity_planned || coverageData?.Emissions_planned) && (
             <div className="space-y-4 border-t pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-lg font-medium">Coverage Information</p>
-                <p className="text-sm text-muted-foreground">
-                  {selectedSector === "all" ? "All Sectors" : `Sector: ${selectedSector}`}
-                </p>
+                {data.Sectors && data.Sectors.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 gap-1">
+                        Sector: {selectedSector === "all" ? "All Sectors" : selectedSector}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[200px]">
+                      <DropdownMenuRadioGroup value={selectedSector} onValueChange={setSelectedSector}>
+                        <DropdownMenuRadioItem value="all">All Sectors</DropdownMenuRadioItem>
+                        <DropdownMenuSeparator />
+                        {data.Sectors.map((sector) => (
+                          <DropdownMenuRadioItem key={sector} value={sector}>
+                            {sector}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
 
-              {/* Asset, Firm, and Emissions Coverage in one row */}
+              {/* Asset, Capacity, and Emissions Coverage in one row */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {coverageData?.Asset_Amount !== undefined && (
                   <div className="space-y-1">
@@ -352,22 +353,25 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                     </p>
                   </div>
                 )}
-                {coverageData?.Firm_Amount !== undefined && (
+                {coverageData?.Capacity_operating !== undefined && coverageData?.Capacity_planned !== undefined && (
                   <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Company Coverage</p>
+                    <p className="text-sm text-muted-foreground">Capacity Coverage</p>
                     <p className="text-xl font-medium">
-                      {coverageData.Firm_Amount.toLocaleString()} companies
+                      {(coverageData.Capacity_operating + coverageData.Capacity_planned).toLocaleString()} MW
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      ({coverageData.Capacity_operating.toLocaleString()} MW operating, {coverageData.Capacity_planned.toLocaleString()} MW planned)
                     </p>
                   </div>
                 )}
-                {coverageData?.Emissions_Coverage !== undefined && (
+                {coverageData?.Emissions_operating !== undefined && coverageData?.Emissions_planned !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Emissions Coverage</p>
                     <p className="text-xl font-medium">
-                      {coverageData.Emissions_Coverage.toFixed(2)} MtCO₂e
+                      {(coverageData.Emissions_operating + coverageData.Emissions_planned).toFixed(2)} MtCO₂e
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      (20-year time horizon)
+                      ({coverageData.Emissions_operating.toFixed(2)} MtCO₂e operating, {coverageData.Emissions_planned.toFixed(2)} MtCO₂e planned)
                     </p>
                   </div>
                 )}

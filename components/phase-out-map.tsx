@@ -5,6 +5,7 @@ import * as d3 from "d3"
 import { feature } from "topojson-client"
 import { TimelineSlider } from "./timeline-slider"
 import { Button } from "@/components/ui/button"
+import { GradientButton } from "@/components/ui/gradient-button"
 import { Home, Info } from "lucide-react"
 import { useTheme } from "next-themes"
 import { convertToIso3, iso2ToIso3Map } from "@/lib/utils"
@@ -1290,9 +1291,9 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
                         href={`/company-details?country=${convertToIso3(country)}`}
                         passHref
                       >
-                        <Button variant="outline" size="sm" className="h-7 text-xs">
+                        <GradientButton variant="secondary" className="h-7 text-xs">
                           View All Companies
-                        </Button>
+                        </GradientButton>
                       </Link>
                     </div>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2 border border-[#E5E5E5] dark:border-[#4A4A4A] rounded-md p-2">

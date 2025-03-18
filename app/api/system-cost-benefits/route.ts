@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server"
 
-// Define cost and benefit data based on the Python code
-const DUMMY_COST_DATA = {
-  costs: [
-    { name: "Private Funding", value: 0.3 * 3.5, color: "#ff7c43" },
-    { name: "Public Funding", value: 0.4 * 3.5, color: "#ffa600" },
-    { name: "International Climate Finance Needs", value: 0.3 * 3.5, color: "#ff9e6d" },
-  ],
-  totalCost: 3.5,
-  costGdpPercentage: 2.5, // Dummy data
-}
+// Define type for country codes
+type CountryCode = 'IND' | 'IDN' | 'ZAF' | 'VNM' | 'IRN' | 'MEX' | 'NGA' | 'EGY' | 'KEN' | 'TZA' | 'THA' | 'UGA';
 
 // Data endpoints
 const AIR_POLLUTION_BENEFITS_URL = "https://fapublicdata.blob.core.windows.net/fa-public-data/cost_benefit/discounted_benefit_35_50.json"
 const COUNTRY_BENEFITS_URL = "https://fapublicdata.blob.core.windows.net/fa-public-data/cost_benefit/country_cost_35_50.json"
 const GLOBAL_BENEFITS_URL = "https://fapublicdata.blob.core.windows.net/fa-public-data/cost_benefit/global_cost_35_50.json"
+const COUNTRY_INFO_URL = "https://fapublicdata.blob.core.windows.net/fa-public-data/country_info/country_info_list.json"
+const TOTAL_COST_URL = "https://fapublicdata.blob.core.windows.net/fa-public-data/cost_benefit/total_cost_35_50.json"
 
 // Simpler function to fetch data
 async function fetchData(url: string) {
@@ -44,27 +38,125 @@ async function fetchData(url: string) {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const country = searchParams.get("country") || "IND"
-  const scc = searchParams.get("scc") || "80"
-  const timeHorizon = searchParams.get("timeHorizon") || "2035"
-  
-  console.log(`Request parameters: country=${country}, scc=${scc}, timeHorizon=${timeHorizon}`);
-  
   try {
-    // Fetch all three data sources
-    console.log("Fetching data from SharePoint URLs...");
-    
-    const airPollutionData = await fetchData(AIR_POLLUTION_BENEFITS_URL);
-    const countryBenefitsData = await fetchData(COUNTRY_BENEFITS_URL);
-    const globalBenefitsData = await fetchData(GLOBAL_BENEFITS_URL);
-    
+    const { searchParams } = new URL(request.url)
+    const country = searchParams.get("country")
+    const scc = searchParams.get("scc")
+    const timeHorizon = searchParams.get("timeHorizon")
+
+    console.log("Request parameters:", { country, scc, timeHorizon })
+
+    // Fetch all data in parallel
+    const [airPollutionBenefits, countryBenefits, globalBenefits, countryInfoResponse, totalCostResponse] = await Promise.all([
+      fetch(AIR_POLLUTION_BENEFITS_URL).catch(err => {
+        console.error("Error fetching air pollution benefits:", err);
+        return null;
+      }),
+      fetch(COUNTRY_BENEFITS_URL).catch(err => {
+        console.error("Error fetching country benefits:", err);
+        return null;
+      }),
+      fetch(GLOBAL_BENEFITS_URL).catch(err => {
+        console.error("Error fetching global benefits:", err);
+        return null;
+      }),
+      fetch(COUNTRY_INFO_URL).catch(err => {
+        console.error("Error fetching country info:", err);
+        return null;
+      }),
+      fetch(TOTAL_COST_URL).catch(err => {
+        console.error("Error fetching total cost data:", err);
+        return null;
+      })
+    ])
+
+    // Check if all fetches failed
+    if (!airPollutionBenefits && !countryBenefits && !globalBenefits && !countryInfoResponse && !totalCostResponse) {
+      throw new Error("All data fetches failed")
+    }
+
+    // Initialize data objects with proper types
+    let airPollutionData: Record<string, Record<string, string>> = {}
+    let countryBenefitsData: Record<string, Record<string, Record<string, string>>> = {}
+    let globalBenefitsData: Record<string, Record<string, Record<string, string>>> = {}
+    let countryInfoData: Array<Record<string, any>> = []
+    let totalCostData: Record<string, any> = {}
+
+    // Process responses
+    if (airPollutionBenefits) {
+      airPollutionData = await airPollutionBenefits.json()
+    }
+    if (countryBenefits) {
+      countryBenefitsData = await countryBenefits.json()
+    }
+    if (globalBenefits) {
+      globalBenefitsData = await globalBenefits.json()
+    }
+    if (countryInfoResponse) {
+      countryInfoData = await countryInfoResponse.json()
+    }
+    if (totalCostResponse) {
+      totalCostData = await totalCostResponse.json()
+    }
+
+    // Get time key based on timeHorizon
+    const timeKey = timeHorizon === "2035" ? "2024-2035" : "2024-2050"
+
+    // Get cost data for the country
+    const countryCostData = country ? totalCostData[country] || {} : {}
+    const opportunityCost = parseFloat(countryCostData["Opportunity costs (in trillion dollars)"]?.[timeKey] || "0")
+    const investmentCost = parseFloat(countryCostData["Investment costs (in trillion dollars)"]?.[timeKey] || "0")
+    const gdpOverTime = parseFloat(countryCostData["GDP over time period (in trillion dollars)"]?.[timeKey] || "0")
+
+    // Calculate total cost
+    const totalCost = opportunityCost + investmentCost
+
+    // Create costs data for the donut chart
+    const costs = [
+      { 
+        name: "Opportunity Costs", 
+        value: opportunityCost,
+        color: "#ff7c43" 
+      },
+      { 
+        name: "Investment Costs", 
+        value: investmentCost,
+        color: "#ffa600" 
+      }
+    ]
+
+    // Log cost data for debugging
+    console.log("Cost data:", {
+      country,
+      timeKey,
+      opportunityCost,
+      investmentCost,
+      totalCost,
+      gdpOverTime
+    })
+
+    // Get country info and GDP data
+    const countryInfo = countryInfoData.find((c: any) => c.Country_ISO3 === country) || {}
+    console.log("Country info from SharePoint:", countryInfo)
+
+    // Get GDP in trillions USD (convert from current USD)
+    const gdpInTrillions = countryInfo.GDP_2023 ? countryInfo.GDP_2023 / 1e12 : 0
+    console.log("GDP in trillions USD:", gdpInTrillions)
+
+    // Log country info for debugging
+    console.log('Country Info:', {
+      country: country,
+      gdp: gdpInTrillions,
+      gdpRaw: countryInfo.GDP_2023,
+      name: countryInfo.Country || country
+    });
+
     console.log("Data fetched successfully. Processing values...");
     
     // 1. Process air pollution benefits
     let airPollutionBenefit = 0;
-    if (airPollutionData && airPollutionData[country] && airPollutionData[country][timeHorizon]) {
-      const rawValue = airPollutionData[country][timeHorizon];
+    if (country && airPollutionData[country]?.[timeHorizon || '']) {
+      const rawValue = airPollutionData[country][timeHorizon || ''];
       console.log(`Raw Air Pollution Benefit value: "${rawValue}" (${typeof rawValue})`);
       airPollutionBenefit = parseFloat(rawValue);
       console.log(`Parsed Air Pollution Benefit: ${airPollutionBenefit}`);
@@ -74,12 +166,9 @@ export async function GET(request: Request) {
     
     // 2. Process country benefits
     let countryBenefit = 0;
-    const timeKey = timeHorizon === "2035" ? "2024-2035" : "2024-2050";
     const countrySccKey = `scc ${scc} CC benefit (in trillion dollars)`;
     
-    if (countryBenefitsData && countryBenefitsData[country] && 
-        countryBenefitsData[country][countrySccKey] && 
-        countryBenefitsData[country][countrySccKey][timeKey]) {
+    if (country && countryBenefitsData[country]?.[countrySccKey]?.[timeKey]) {
       const rawValue = countryBenefitsData[country][countrySccKey][timeKey];
       console.log(`Raw Country Benefit value: "${rawValue}" (${typeof rawValue})`);
       countryBenefit = parseFloat(rawValue);
@@ -92,9 +181,7 @@ export async function GET(request: Request) {
     let worldBenefit = 0;
     const globalSccKey = `scc ${scc} GC benefit (in trillion dollars)`;
     
-    if (globalBenefitsData && globalBenefitsData[country] && 
-        globalBenefitsData[country][globalSccKey] && 
-        globalBenefitsData[country][globalSccKey][timeKey]) {
+    if (country && globalBenefitsData[country]?.[globalSccKey]?.[timeKey]) {
       const rawValue = globalBenefitsData[country][globalSccKey][timeKey];
       console.log(`Raw Global Benefit value: "${rawValue}" (${typeof rawValue})`);
       worldBenefit = parseFloat(rawValue);
@@ -112,29 +199,19 @@ export async function GET(request: Request) {
     console.log(`- Country Benefit: ${countryBenefit}`);
     console.log(`- World Benefit: ${worldBenefit}`);
     console.log(`- Total Benefit: ${totalBenefit}`);
+
+    // Calculate GDP percentages using GDP from total cost data
+    const costGdpPercentage = Number((totalCost / gdpOverTime * 100).toFixed(1));
+    const benefitGdpPercentage = totalBenefit > 0 ? Number((totalBenefit / gdpOverTime * 100).toFixed(1)) : 0;
     
-    // Use dummy cost data
-    const { costs, totalCost, costGdpPercentage } = DUMMY_COST_DATA;
-    
-    // Calculate benefit GDP percentage with more precision for small values
-    let benefitGdpPercentage;
-    if (totalBenefit > 0) {
-      // Scale the percentage based on the ratio of benefit to cost
-      const rawPercentage = (totalBenefit / totalCost) * costGdpPercentage;
-      
-      if (rawPercentage >= 1) {
-        // For larger percentages, show one decimal place
-        benefitGdpPercentage = rawPercentage.toFixed(1);
-      } else if (rawPercentage >= 0.1) {
-        // For medium percentages, show two decimal places
-        benefitGdpPercentage = rawPercentage.toFixed(2);
-      } else {
-        // For very small percentages, show more decimal places
-        benefitGdpPercentage = rawPercentage.toFixed(3);
-      }
-    } else {
-      benefitGdpPercentage = "0.0";
-    }
+    // Log final values
+    console.log('GDP calculations:', {
+      gdpOverTime,
+      costGdpPercentage,
+      benefitGdpPercentage,
+      totalCost,
+      totalBenefit
+    });
     
     // Construct the response data
     const responseData = {
