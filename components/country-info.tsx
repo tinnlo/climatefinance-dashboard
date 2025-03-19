@@ -61,7 +61,10 @@ interface CountryData {
   NDC_2025_statement?: string
   NDC_2025_source?: string
   Sectors?: string[]
+  Sector?: string
   Asset_Amount?: number
+  Asset_Amount_operating?: number
+  Asset_Amount_planned?: number
   Capacity_operating?: number
   Emissions_operating?: number
   Capacity_planned?: number
@@ -80,86 +83,13 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
         setLoading(true)
         setError(null)
         
-        const iso3Code = convertToIso3(country)
-        console.log(`Converting country code: ${country} -> ${iso3Code}`)
-        
-        const response = await fetch('/api/country-info')
+        const response = await fetch(`/api/country-info?country=${country}`)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         
-        const allCountryData = await response.json()
-        if (!Array.isArray(allCountryData)) {
-          console.error('Unexpected data format:', allCountryData)
-          throw new Error('Received invalid data format from API')
-        }
-        
-        console.log('API Response:', {
-          totalCountries: allCountryData.length,
-          firstFew: allCountryData.slice(0, 3),
-          searchingFor: iso3Code
-        })
-        
-        let countryData = allCountryData.find((c: CountryData) => c.Country_ISO3 === iso3Code)
-        console.log('Found country data:', countryData)
-        console.log('GDP Share value:', countryData?.GDP_Share_2023, typeof countryData?.GDP_Share_2023)
-        
-        // Transform the data to handle sectors properly
-        if (countryData) {
-          // If we have a single Sector field but no Sectors array
-          if (countryData.Sector && !countryData.Sectors) {
-            // Create a Sectors array with just the one sector
-            countryData = {
-              ...countryData,
-              Sectors: [countryData.Sector],
-              SectorData: {
-                "all": {
-                  Asset_Amount: countryData.Asset_Amount,
-                  Firm_Amount: countryData.Firm_Amount,
-                  Emissions_Coverage: countryData.Emissions_Coverage
-                },
-                [countryData.Sector]: {
-                  Asset_Amount: countryData.Asset_Amount,
-                  Firm_Amount: countryData.Firm_Amount,
-                  Emissions_Coverage: countryData.Emissions_Coverage
-                }
-              }
-            }
-          }
-          // If we already have a Sectors array but no SectorData
-          else if (countryData.Sectors && !countryData.SectorData) {
-            const sectorData: {
-              [key: string]: {
-                Asset_Amount?: number;
-                Firm_Amount?: number;
-                Emissions_Coverage?: number;
-              }
-            } = {
-              "all": {
-                Asset_Amount: countryData.Asset_Amount,
-                Firm_Amount: countryData.Firm_Amount,
-                Emissions_Coverage: countryData.Emissions_Coverage
-              }
-            }
-            
-            // Add data for each sector (using the same data for now)
-            // In a real implementation, this would come from the API
-            countryData.Sectors.forEach((sector: string) => {
-              sectorData[sector] = {
-                Asset_Amount: countryData.Asset_Amount,
-                Firm_Amount: countryData.Firm_Amount,
-                Emissions_Coverage: countryData.Emissions_Coverage
-              }
-            })
-            
-            countryData = {
-              ...countryData,
-              SectorData: sectorData
-            }
-          }
-        }
-        
-        setData(countryData || null)
+        const countryData = await response.json()
+        setData(countryData)
       } catch (error) {
         console.error('Error fetching country data:', error)
         setError(error instanceof Error ? error.message : 'Failed to fetch country data')
@@ -174,7 +104,8 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
   const getCoverageData = () => {
     if (!data) {
       return {
-        Asset_Amount: undefined,
+        Asset_Amount_operating: undefined,
+        Asset_Amount_planned: undefined,
         Capacity_operating: undefined,
         Emissions_operating: undefined,
         Capacity_planned: undefined,
@@ -184,7 +115,8 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
 
     // For now, we return the data directly since sector handling is simplified
     return {
-      Asset_Amount: data.Asset_Amount,
+      Asset_Amount_operating: data.Asset_Amount_operating,
+      Asset_Amount_planned: data.Asset_Amount_planned,
       Capacity_operating: data.Capacity_operating,
       Emissions_operating: data.Emissions_operating,
       Capacity_planned: data.Capacity_planned,
@@ -316,7 +248,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           )}
 
           {/* Coverage Information Section */}
-          {(coverageData?.Asset_Amount || coverageData?.Capacity_operating || coverageData?.Emissions_operating || coverageData?.Capacity_planned || coverageData?.Emissions_planned) && (
+          {(coverageData?.Asset_Amount_operating || coverageData?.Asset_Amount_planned || coverageData?.Capacity_operating || coverageData?.Emissions_operating || coverageData?.Capacity_planned || coverageData?.Emissions_planned) && (
             <div className="space-y-4 border-t pt-4">
               <div className="flex items-center justify-between">
                 <p className="text-lg font-medium">Coverage Information</p>
@@ -344,12 +276,17 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
               </div>
 
               {/* Asset, Capacity, and Emissions Coverage in one row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {coverageData?.Asset_Amount !== undefined && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(coverageData?.Asset_Amount_operating !== undefined || coverageData?.Asset_Amount_planned !== undefined) && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Asset Coverage</p>
                     <p className="text-xl font-medium">
-                      {coverageData.Asset_Amount.toLocaleString()} assets
+                      {((coverageData.Asset_Amount_operating || 0) + (coverageData.Asset_Amount_planned || 0)).toLocaleString()} assets
+                    </p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {coverageData.Asset_Amount_operating?.toLocaleString() || '0'} operating
+                      {"\n"}
+                      {coverageData.Asset_Amount_planned?.toLocaleString() || '0'} planned
                     </p>
                   </div>
                 )}
