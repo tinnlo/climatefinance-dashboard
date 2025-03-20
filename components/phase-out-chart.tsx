@@ -542,69 +542,7 @@ export function PhaseOutChart({
                 </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">No asset data available for this scenario.</p>
-                  <button 
-                    onClick={async () => {
-                      setIsLoadingAssets(true);
-                      try {
-                        console.log(`Retrying asset data fetch for ${countryCode} with scenario ${selectedScenario}`);
-                        const response = await fetch(`/api/asset-data?country=${countryCode}&scenario=${scenarioToFileNameMap[selectedScenario]}`, {
-                          method: 'GET',
-                          cache: 'no-store',
-                          headers: {
-                            'Accept': 'application/json'
-                          }
-                        });
-                        
-                        if (!response.ok) {
-                          throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        
-                        const data = await response.json();
-                        
-                        // Log detailed information about the retry response
-                        console.log(`Retry received asset data:`, {
-                          dataLength: data?.length || 0,
-                          isArray: Array.isArray(data),
-                          isEmpty: Array.isArray(data) && data.length === 0,
-                          sampleData: Array.isArray(data) && data.length > 0 ? {
-                            id: data[0].uniqueforwardassetid,
-                            name: data[0].asset_name,
-                            subsector: data[0].subsector
-                          } : null,
-                          rawData: data // Log the raw data for inspection
-                        });
-                        
-                        // The API should return the assets array directly
-                        if (Array.isArray(data)) {
-                          // Clean up any remaining NaN values
-                          const cleanData = data.map(asset => {
-                            const cleanAsset = { ...asset };
-                            // Replace any NaN values with null
-                            Object.keys(cleanAsset).forEach(key => {
-                              if (cleanAsset[key] !== null && typeof cleanAsset[key] === 'number' && isNaN(cleanAsset[key])) {
-                                cleanAsset[key] = null;
-                              }
-                            });
-                            return cleanAsset;
-                          });
-                          
-                          setAssetData(cleanData);
-                        } else {
-                          console.warn('Retry asset data is not an array:', data);
-                          setAssetData([]);
-                        }
-                      } catch (error) {
-                        console.error("Error in retry fetch:", error);
-                        setAssetData([]);
-                      } finally {
-                        setIsLoadingAssets(false);
-                      }
-                    }}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
-                  >
-                    Retry
-                  </button>
+                  <p className="text-sm text-muted-foreground">No asset data available for this scenario.</p>
                 </div>
               )}
             </div>

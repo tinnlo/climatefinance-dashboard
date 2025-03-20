@@ -68,6 +68,7 @@ function LoginContent() {
     
     setError("")
     setSuccess("")
+    setInfo("")
     setIsSubmitting(true)
 
     console.log("[Login Debug - Submit]", {
@@ -90,7 +91,6 @@ function LoginContent() {
         
         if (result.success && result.redirectTo) {
           setSuccess("Login successful! Redirecting...")
-          // Use returnTo from URL if available, otherwise use the result.redirectTo
           const path = result.redirectTo
           console.log("[Login Debug - Redirecting]", {
             path,
@@ -111,30 +111,27 @@ function LoginContent() {
           }
         } else {
           console.log("[Login Debug - Failure]", { message: result.message });
-          if (result.message.includes("pending approval") || result.message.includes("account setup is incomplete") || result.message.includes("notify you when")) {
-            // Use info style for pending approval messages
+          
+          // Handle all possible error cases
+          if (result.message === "User data not found. Please contact support.") {
+            // This is the message we get for unverified users
             setError("")
             setSuccess("")
-            setInfo(result.message)
-          } else if (result.message.includes("Email not confirmed")) {
-            // Use info style for email confirmation messages
-            setError("")
-            setSuccess("")
-            setInfo("Please check your email to confirm your account before logging in.")
+            setInfo("Your account is pending admin verification. Please wait for an admin to verify your account before logging in.")
           } else if (result.message.includes("Invalid login credentials")) {
             setError("Invalid email or password. Please try again.")
             setSuccess("")
             setInfo("")
+          } else if (result.message.includes("Email not confirmed")) {
+            setError("")
+            setSuccess("")
+            setInfo("Please check your email to confirm your account before logging in.")
           } else if (result.message.includes("system error")) {
             setError("We're experiencing technical difficulties. Please try again later or contact support.")
             setSuccess("")
             setInfo("")
-          } else if (result.message.includes("User data not found") || result.message.includes("Account setup incomplete")) {
-            // Use info style for account setup issues
-            setError("")
-            setSuccess("")
-            setInfo("Your account may need additional setup. Please check your email or contact support.")
           } else {
+            // For any other unexpected errors
             setError(result.message)
             setSuccess("")
             setInfo("")
@@ -199,77 +196,92 @@ function LoginContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <style jsx global>{`
+                input:-webkit-autofill,
+                input:-webkit-autofill:hover,
+                input:-webkit-autofill:focus {
+                  -webkit-box-shadow: 0 0 0 30px rgb(20, 33, 27) inset !important;
+                  -webkit-text-fill-color: rgb(167, 243, 208) !important;
+                  caret-color: rgb(167, 243, 208) !important;
+                }
+              `}</style>
+              <div className="space-y-6">
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
-                    id="name"
-                    placeholder="Your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="Your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {!isLogin && (
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
-                    id="confirm-password"
+                    id="password"
                     type="password"
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
-              )}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert>
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-              {info && (
-                <Alert>
-                  <AlertDescription>{info}</AlertDescription>
-                </Alert>
-              )}
-              <GradientButton
-                type="submit"
-                className="w-full"
-                disabled={isSubmitting || authLoading}
-              >
-                {(isSubmitting || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLogin ? "Login" : "Create account"}
-              </GradientButton>
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {success && (
+                  <Alert>
+                    <AlertDescription>{success}</AlertDescription>
+                  </Alert>
+                )}
+                {info && (
+                  <Alert>
+                    <AlertDescription>{info}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <div className="pt-6">
+                <GradientButton
+                  type="submit"
+                  className="w-full h-12 relative"
+                  disabled={isSubmitting || authLoading}
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {(isSubmitting || authLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <span>{isLogin ? "Login" : "Create Account"}</span>
+                  </div>
+                </GradientButton>
+              </div>
             </form>
           </CardContent>
           <CardFooter>

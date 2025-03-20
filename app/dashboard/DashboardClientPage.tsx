@@ -10,12 +10,14 @@ import { PhaseOutChart } from "@/components/phase-out-chart"
 import { SearchCountry } from "@/components/search-country"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, Info } from "lucide-react"
+import { Loader2, Info, LogIn } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StackedCostChart } from "@/components/stacked-cost-chart"
 import { Button } from "@/components/ui/button"
 import { convertToIso3 } from "@/lib/utils"
 import { COUNTRY_NAMES } from "@/lib/constants"
+import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 import {
   Dialog,
   DialogContent,
@@ -40,12 +42,19 @@ export default function DashboardClientPage() {
   const [phaseOutData, setPhaseOutData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { isAuthenticated } = useAuth()
 
   const handleCountryChange = (country: string) => {
     setSelectedCountry(country)
   }
 
   useEffect(() => {
+    // Only fetch data if user is authenticated
+    if (!isAuthenticated) {
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -85,7 +94,144 @@ export default function DashboardClientPage() {
         )
       })
       .finally(() => setIsLoading(false))
-  }, [selectedCountry, selectedOrder])
+  }, [selectedCountry, selectedOrder, isAuthenticated])
+
+  // Render CTA component for non-authenticated users
+  const renderAuthCTA = () => {
+    // Create the return URL for after login
+    const returnUrl = encodeURIComponent("/dashboard")
+    
+    return h(
+      Card,
+      { className: "bg-[#2F3A2F] dark:bg-[#2F3A2F] text-white border-0 my-6" },
+      h(
+        CardContent,
+        { className: "py-6" },
+        h(
+          "div",
+          { className: "text-center space-y-4" },
+          h("h3", { className: "text-lg md:text-xl font-semibold" }, "Sign in to view detailed phase-out data"),
+          h("p", { className: "text-gray-300 max-w-2xl mx-auto text-sm" }, 
+            "The phase-out chart and map visualizations provide valuable insights into power plant retirement schedules. " +
+            "Please sign in or create an account to access these premium features."
+          ),
+          h(
+            Link,
+            { href: `/login?returnTo=${returnUrl}` },
+            h(
+              Button,
+              { 
+                className: "bg-gradient-to-r from-black to-forest hover:from-black/90 hover:to-forest/90 " +
+                  "text-white px-5 py-2 text-sm rounded-full transition-all duration-300 shadow-lg hover:shadow-xl mt-2"
+              },
+              h(LogIn, { className: "mr-2 h-4 w-4" }),
+              "Sign in to access phase-out data"
+            )
+          )
+        )
+      )
+    )
+  }
+
+  // Render phase-out components for authenticated users
+  const renderPhaseOutComponents = () => {
+    return h(
+      "div",
+      { className: "space-y-6" },
+      // Phase-Out Map
+      h(
+        Card,
+        { className: "w-full dark:bg-black" },
+        h(
+          CardHeader,
+          null,
+          h(CardTitle, null, "Power Plant Phase-Out Map"),
+          h(CardDescription, null, `Visualizing phase-out schedules for ${COUNTRY_NAMES[selectedCountry]}`)
+        ),
+        h(
+          CardContent,
+          null,
+          h(
+            "div",
+            { className: "flex gap-4 mb-4" },
+            h(
+              Select,
+              { onValueChange: setSelectedOrder, defaultValue: selectedOrder },
+              h(SelectTrigger, { className: "w-[280px]" }, h(SelectValue, { placeholder: "Select an order" })),
+              h(
+                SelectContent,
+                null,
+                orders.map((order) => h(SelectItem, { key: order.value, value: order.value }, order.label))
+              )
+            )
+          ),
+          isLoading
+            ? h(
+                "div",
+                { className: "flex justify-center items-center h-[600px]" },
+                h(Loader2, { className: "h-8 w-8 animate-spin" })
+              )
+            : error
+              ? h(
+                  "div",
+                  { className: "flex justify-center items-center h-[600px]" },
+                  h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
+                )
+              : mapData
+                ? h(PhaseOutMap, { data: mapData, country: selectedCountry })
+                : h(
+                    "div",
+                    { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
+                    "No data available for this country and scenario."
+                  )
+        )
+      ),
+      // Phase-Out Chart
+      h(
+        Card,
+        { className: "dark:bg-[#2F3A2F]" },
+        h(
+          CardHeader,
+          { className: "relative" },
+          h(CardTitle, { className: "flex items-center justify-between" }, 
+            "Phase-Out Pipeline",
+            h(Dialog, null,
+              h(DialogTrigger, { asChild: true },
+                h(Button, { 
+                  variant: "ghost", 
+                  size: "icon", 
+                  className: "h-8 w-8" 
+                }, 
+                  h(Info, { className: "h-4 w-4" }),
+                  h("span", { className: "sr-only" }, "Figure Notes")
+                )
+              ),
+              h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
+                h(DialogHeader, null,
+                  h(DialogTitle, null, "Figure Notes"),
+                  h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
+                    PHASE_OUT_NOTES
+                  )
+                )
+              )
+            )
+          ),
+          h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
+        ),
+        h(
+          CardContent,
+          null,
+          isLoading
+            ? h(
+                "div",
+                { className: "flex justify-center items-center h-[400px]" },
+                h(Loader2, { className: "h-8 w-8 animate-spin" })
+              )
+            : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
+        )
+      )
+    )
+  }
 
   return h(
     "div",
@@ -139,102 +285,10 @@ export default function DashboardClientPage() {
             h(StackedCostChart, { className: "h-full", country: selectedCountry }),
           ),
         ),
-        h(
-          "div",
-          { className: "space-y-6" },
-          h(
-            Card,
-            { className: "w-full dark:bg-black" },
-            h(
-              CardHeader,
-              null,
-              h(CardTitle, null, "Power Plant Phase-Out Map"),
-              h(CardDescription, null, `Visualizing phase-out schedules for ${COUNTRY_NAMES[selectedCountry]}`),
-            ),
-            h(
-              CardContent,
-              null,
-              h(
-                "div",
-                { className: "flex gap-4 mb-4" },
-                h(
-                  Select,
-                  { onValueChange: setSelectedOrder, defaultValue: selectedOrder },
-                  h(SelectTrigger, { className: "w-[280px]" }, h(SelectValue, { placeholder: "Select an order" })),
-                  h(
-                    SelectContent,
-                    null,
-                    orders.map((order) => h(SelectItem, { key: order.value, value: order.value }, order.label)),
-                  ),
-                ),
-              ),
-              isLoading
-                ? h(
-                    "div",
-                    { className: "flex justify-center items-center h-[600px]" },
-                    h(Loader2, { className: "h-8 w-8 animate-spin" }),
-                  )
-                : error
-                  ? h(
-                      "div",
-                      { className: "flex justify-center items-center h-[600px]" },
-                      h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
-                    )
-                  : mapData
-                    ? h(PhaseOutMap, { data: mapData, country: selectedCountry })
-                    : h(
-                        "div",
-                        { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
-                        "No data available for this country and scenario."
-                      ),
-            ),
-          ),
-          h(
-            Card,
-            { className: "dark:bg-[#2F3A2F]" },
-            h(
-              CardHeader,
-              { className: "relative" },
-              h(CardTitle, { className: "flex items-center justify-between" }, 
-                "Phase-Out Pipeline",
-                h(Dialog, null,
-                  h(DialogTrigger, { asChild: true },
-                    h(Button, { 
-                      variant: "ghost", 
-                      size: "icon", 
-                      className: "h-8 w-8" 
-                    }, 
-                      h(Info, { className: "h-4 w-4" }),
-                      h("span", { className: "sr-only" }, "Figure Notes")
-                    )
-                  ),
-                  h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
-                    h(DialogHeader, null,
-                      h(DialogTitle, null, "Figure Notes"),
-                      h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
-                        PHASE_OUT_NOTES
-                      )
-                    )
-                  )
-                )
-              ),
-              h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
-            ),
-            h(
-              CardContent,
-              null,
-              isLoading
-                ? h(
-                    "div",
-                    { className: "flex justify-center items-center h-[400px]" },
-                    h(Loader2, { className: "h-8 w-8 animate-spin" })
-                  )
-                : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
-            ),
-          ),
-        ),
-      ),
-    ),
+        // Conditionally render either phase-out components or auth CTA
+        isAuthenticated ? renderPhaseOutComponents() : renderAuthCTA()
+      )
+    )
   )
 }
 
