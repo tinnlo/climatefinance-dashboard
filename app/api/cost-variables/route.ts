@@ -3,8 +3,8 @@ import { NextResponse } from "next/server"
 // Define the cost variables with their mapping to the external data source
 const COST_VARIABLES = [
   // Warm tones from the "costs" palette (oranges/reds)
-  { id: "cost_battery_grid", name: "Grid Battery", sourceKey: "battery_grid", color: "#ff7c43" },
-  { id: "cost_battery_long", name: "Long-term Battery", sourceKey: "battery_long", color: "#ffa600" },
+  { id: "cost_battery_grid", name: "Grid Battery", sourceKey: "battery_grid", color: "#e65c1a" },
+  { id: "cost_battery_long", name: "Long-term Battery", sourceKey: "battery_long", color: "#ff7c43" },
   { id: "cost_battery_pe", name: "PE Battery", sourceKey: "battery_pe", color: "#ff9e6d" },
   { id: "cost_battery_short", name: "Short-term Battery", sourceKey: "battery_short", color: "#ffbd59" },
   { id: "opportunity_cost", name: "Opportunity", sourceKey: "opportunity_cost", color: "#ffd29c" },

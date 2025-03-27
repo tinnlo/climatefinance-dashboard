@@ -396,10 +396,16 @@ export default function CompanyDetailsPage() {
                     <span className="capitalize">{item.status}</span>
                     <span className="font-medium">{item.count} plants ({((item.count / companyData.length) * 100).toFixed(1)}%)</span>
                   </div>
-                  <div className="w-full bg-[#E5E5E5] dark:bg-[#4A4A4A] h-2 rounded-full mt-1">
+                  <div className="w-full bg-[#4A5A4A] h-2 rounded-full mt-1">
                     <div 
-                      className="h-full rounded-full bg-[#2F3A2F]" 
-                      style={{ width: `${(item.count / companyData.length) * 100}%` }}
+                      className="h-full rounded-full" 
+                      style={{ 
+                        width: `${(item.count / companyData.length) * 100}%`,
+                        backgroundColor: 
+                          item.status === 'operating' ? "#0194C5" : 
+                          item.status === 'construction' ? "#319B9D" : 
+                          '#888888'
+                      }}
                     />
                   </div>
                 </div>
@@ -417,10 +423,16 @@ export default function CompanyDetailsPage() {
                     <span className="capitalize">{item.status}</span>
                     <span className="font-medium">{item.emissions.toFixed(2)} MtCO2</span>
                   </div>
-                  <div className="w-full bg-[#E5E5E5] dark:bg-[#4A4A4A] h-2 rounded-full mt-1">
+                  <div className="w-full bg-[#4A5A4A] h-2 rounded-full mt-1">
                     <div 
-                      className="h-full rounded-full bg-[#2F3A2F]" 
-                      style={{ width: `${totalEmissions > 0 ? (item.emissions / totalEmissions) * 100 : 0}%` }}
+                      className="h-full rounded-full" 
+                      style={{ 
+                        width: `${totalEmissions > 0 ? (item.emissions / totalEmissions) * 100 : 0}%`,
+                        backgroundColor: 
+                          item.status === 'operating' ? "#0194C5" : 
+                          item.status === 'construction' ? "#319B9D" : 
+                          '#888888'
+                      }}
                     />
                   </div>
                 </div>

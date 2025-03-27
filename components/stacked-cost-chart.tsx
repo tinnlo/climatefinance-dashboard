@@ -28,8 +28,8 @@ import { StackedBenefitChart } from "./stacked-benefit-chart"
 // Creates a spectrum from warm oranges to cool blues
 const COST_VARIABLES = [
   // Warm tones from the "costs" palette (oranges/reds)
-  { id: "cost_battery_grid", name: "Grid Battery", color: "#ff7c43" },
-  { id: "cost_battery_long", name: "Long-term Battery", color: "#ffa600" },
+  { id: "cost_battery_grid", name: "Grid Battery", color: "#e65c1a" },
+  { id: "cost_battery_long", name: "Long-term Battery", color: "#ff7c43" },
   { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
   { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" },
   { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },

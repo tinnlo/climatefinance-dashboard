@@ -18,7 +18,7 @@ const BENEFIT_VARIABLES = [
   // Warm tones for fossil fuel benefits
   { id: "coal_benefit", name: "Coal", color: "#ff7c43" },
   { id: "gas_benefit", name: "Gas", color: "#ffa600" },
-  { id: "oil_benefit", name: "Oil", color: "#ff9e6d" },
+  { id: "oil_benefit", name: "Oil", color: "#ffd29c" },
   // Cool tone for environmental benefit
   { id: "reduced_air_pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
 ]

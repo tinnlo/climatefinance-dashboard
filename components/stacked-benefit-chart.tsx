@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button"
 const BENEFIT_VARIABLES = [
   { id: "Coal", name: "Coal", color: "#ff7c43" },
   { id: "Gas", name: "Gas", color: "#ffa600" },
-  { id: "Oil", name: "Oil", color: "#ff9e6d" },
+  { id: "Oil", name: "Oil", color: "#ffd29c" },
   { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" },
 ]
 
