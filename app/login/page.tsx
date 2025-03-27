@@ -78,6 +78,26 @@ function LoginContent() {
     }
   }, [returnTo]);
 
+  // Add a timeout to reset the loading state if it gets stuck
+  useEffect(() => {
+    if (authLoading) {
+      const timeoutId = setTimeout(() => {
+        // Force refresh the page if loading state is stuck for too long
+        console.log("[Login Debug - Timeout] Auth loading stuck for too long, forcing refresh");
+        window.location.reload();
+      }, 10000); // 10 seconds timeout
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [authLoading]);
+
+  // Add a reset button for users
+  const handleResetLoadingState = () => {
+    setIsSubmitting(false);
+    console.log("[Login Debug - Manual Reset] User manually reset loading state");
+    window.location.reload();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
@@ -297,6 +317,17 @@ function LoginContent() {
                     <span>{isLogin ? "Login" : "Create Account"}</span>
                   </div>
                 </GradientButton>
+                
+                {/* Add reset button that appears when loading is taking too long */}
+                {(isSubmitting || authLoading) && (
+                  <Button 
+                    variant="link" 
+                    onClick={handleResetLoadingState}
+                    className="w-full mt-2 text-sm"
+                  >
+                    Login taking too long? Click to reset
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

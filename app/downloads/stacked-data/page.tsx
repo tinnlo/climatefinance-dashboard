@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function StackedDataDownloadPage() {
   const searchParams = useSearchParams()
@@ -61,6 +62,14 @@ export default function StackedDataDownloadPage() {
               </TabsContent>
             </div>
           </Tabs>
+        </div>
+
+        <div className="flex justify-center mt-8">
+          <Link href="/dashboard">
+            <Button variant="outline" className="w-auto">
+              Return to Dashboard
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
