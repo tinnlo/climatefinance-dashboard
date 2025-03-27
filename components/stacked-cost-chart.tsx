@@ -21,6 +21,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { StackedBenefitChart } from "./stacked-benefit-chart"
 
 // Color palette harmonized based on system-cost-benefits colors
 // Creates a spectrum from warm oranges to cool blues
@@ -252,10 +254,10 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     // Check if user is authenticated
     if (isAuthenticated) {
       // Redirect to the download page with query parameters
-      router.push(`/downloads/stacked-cost?country=${country}`);
+      router.push(`/downloads/stacked-data?type=cost&country=${country}`);
     } else {
       // Redirect to login page with return URL
-      router.push(`/login?returnTo=/downloads/stacked-cost?country=${country}`);
+      router.push(`/login?returnTo=/downloads/stacked-data?type=cost&country=${country}`);
     }
   }
 
@@ -264,7 +266,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
         <CardHeader className="flex-none pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+            <CardTitle>Aggregated Variables Over Time</CardTitle>
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -299,7 +301,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
         <CardHeader className="flex-none pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+            <CardTitle>Aggregated Variables Over Time</CardTitle>
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -337,7 +339,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
       <CardHeader className="flex-none pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle>Aggregated Cost Variables Over Time</CardTitle>
+          <CardTitle>Aggregated Variables Over Time</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleDownload} size="sm" className="h-8">
               <Download className="mr-2 h-4 w-4" />
@@ -361,107 +363,114 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
             </Dialog>
           </div>
         </div>
-        <CardDescription>Cost components from 2025 to 2050 - {COUNTRY_NAMES[country]} (Values in Trillion USD and % of GDP)</CardDescription>
-        {gdpValue === DEFAULT_GDP && (
-          <div className="mt-1 text-xs text-amber-500 dark:text-amber-400">
-            Note: Using estimated GDP data. GDP percentages may not be accurate.
-          </div>
-        )}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-          {COST_VARIABLES.map((variable) => (
-            <div key={variable.id} className="flex items-center space-x-1">
-              <Checkbox
-                id={`variable-${variable.id}`}
-                checked={visibleVariables.includes(variable.id)}
-                onCheckedChange={() => toggleVariable(variable.id)}
-                className="h-3 w-3"
-              />
-              <Label htmlFor={`variable-${variable.id}`} className="text-xs flex items-center">
-                <div className="w-2 h-2 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
-                {variable.name}
-              </Label>
-            </div>
-          ))}
-        </div>
+        <CardDescription>Cost and benefit components from 2025 to 2050 - {COUNTRY_NAMES[country]} (Values in Trillion USD and % of GDP)</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 pt-0">
-        <div className="w-full h-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={data} 
-              margin={{ top: 10, right: 50, left: 20, bottom: 40 }}
-              stackOffset="none"
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-              <XAxis
-                dataKey="year"
-                tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-                tickMargin={20}
-              />
-              <YAxis
-                yAxisId="left"
-                label={{
-                  value: "Cost (Trillion USD)",
-                  angle: -90,
-                  position: "insideLeft",
-                  fill: theme === "dark" ? "#ffffff" : "#000000",
-                  offset: -10,
-                }}
-                tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                tickMargin={10}
-                domain={[0, 'dataMax']} 
-                allowDataOverflow={false}
-                allowDecimals={true}
-                minTickGap={5}
-                tickFormatter={(value) => {
-                  // Format numbers to be more concise
-                  if (value === 0) return "0";
-                  if (value < 0.001) return value.toExponential(1);
-                  if (value < 0.01) return value.toFixed(3);
-                  if (value < 0.1) return value.toFixed(2);
-                  if (value < 1) return value.toFixed(2);
-                  if (value < 10) return value.toFixed(1);
-                  return Math.round(value).toString();
-                }}
-                width={60} // Increase width to accommodate labels
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                label={{
-                  value: "% of GDP",
-                  angle: 90,
-                  position: "insideRight",
-                  fill: theme === "dark" ? "#ffffff" : "#000000",
-                  offset: -10,
-                }}
-                tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                tickMargin={10}
-                tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
-                dataKey="gdpPercentage"
-                domain={[0, 'dataMax']}
-                allowDataOverflow={false}
-                allowDecimals={true}
-                minTickGap={5}
-                width={60} // Increase width to accommodate labels
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
-              {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
-                <Bar 
-                  key={variable.id} 
-                  dataKey={variable.id} 
-                  stackId="a" 
-                  fill={variable.color} 
-                  name={variable.name}
-                  yAxisId="left"
-                />
+      <CardContent className="flex-1 min-h-0 p-0">
+        <Tabs defaultValue="cost" className="w-full h-full flex flex-col">
+          <div className="px-6">
+            <TabsList className="w-[400px] grid grid-cols-2 mb-4">
+              <TabsTrigger value="cost">Cost Variables</TabsTrigger>
+              <TabsTrigger value="benefit">Benefit Variables</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="cost" className="flex-1 min-h-0 px-6">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
+              {COST_VARIABLES.map((variable) => (
+                <div key={variable.id} className="flex items-center space-x-1">
+                  <Checkbox
+                    id={`variable-${variable.id}`}
+                    checked={visibleVariables.includes(variable.id)}
+                    onCheckedChange={() => toggleVariable(variable.id)}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor={`variable-${variable.id}`} className="text-xs flex items-center">
+                    <div className="w-2 h-2 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
+                    {variable.name}
+                  </Label>
+                </div>
               ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+            </div>
+            <div className="w-full h-[calc(100%-2rem)]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={data} 
+                  margin={{ top: 10, right: 50, left: 20, bottom: 40 }}
+                  stackOffset="none"
+                >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis
+                    dataKey="year"
+                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    tickMargin={20}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    label={{
+                      value: "Cost (Trillion USD)",
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: theme === "dark" ? "#ffffff" : "#000000",
+                      offset: -10,
+                    }}
+                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+                    tickMargin={10}
+                    domain={[0, 'dataMax']} 
+                    allowDataOverflow={false}
+                    allowDecimals={true}
+                    minTickGap={5}
+                    tickFormatter={(value) => {
+                      if (value === 0) return "0";
+                      if (value < 0.001) return value.toExponential(1);
+                      if (value < 0.01) return value.toFixed(3);
+                      if (value < 0.1) return value.toFixed(2);
+                      if (value < 1) return value.toFixed(2);
+                      if (value < 10) return value.toFixed(1);
+                      return Math.round(value).toString();
+                    }}
+                    width={60}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    label={{
+                      value: "% of GDP",
+                      angle: 90,
+                      position: "insideRight",
+                      fill: theme === "dark" ? "#ffffff" : "#000000",
+                      offset: -10,
+                    }}
+                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+                    tickMargin={10}
+                    tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
+                    dataKey="gdpPercentage"
+                    domain={[0, 'dataMax']}
+                    allowDataOverflow={false}
+                    allowDecimals={true}
+                    minTickGap={5}
+                    width={60}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
+                  {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
+                    <Bar 
+                      key={variable.id} 
+                      dataKey={variable.id} 
+                      stackId="a" 
+                      fill={variable.color} 
+                      name={variable.name}
+                      yAxisId="left"
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+          <TabsContent value="benefit" className="flex-1 min-h-0">
+            <StackedBenefitChart country={country} />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   )

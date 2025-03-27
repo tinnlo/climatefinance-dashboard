@@ -32,25 +32,41 @@ function LoginContent() {
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
-    if (isAuthenticated && user) {
-      console.log("[Login Debug - Already Authenticated]", {
-        user: user.email,
-        role: user.role,
-        returnTo,
-        timestamp: new Date().toISOString(),
-      });
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      if (!mounted) return;
       
-      // If already authenticated, redirect to the returnTo path or default dashboard
-      const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
-      const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
-      
-      console.log("[Login Debug - Auto Redirecting]", { redirectPath });
-      router.push(redirectPath)
-    } else {
-      // Try to refresh the session on page load
-      refreshSession();
-    }
-  }, [isAuthenticated, user, returnTo, router, refreshSession]);
+      try {
+        if (isAuthenticated && user) {
+          console.log("[Login Debug - Already Authenticated]", {
+            user: user.email,
+            role: user.role,
+            returnTo,
+            timestamp: new Date().toISOString(),
+          });
+          
+          // If already authenticated, redirect to the returnTo path or default dashboard
+          const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
+          const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
+          
+          console.log("[Login Debug - Auto Redirecting]", { redirectPath });
+          router.push(redirectPath)
+        } else if (!authLoading) {
+          // Only refresh session if we're not already loading
+          await refreshSession();
+        }
+      } catch (error) {
+        console.error("[Login Debug - Auth Error]", error);
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated, user, returnTo, router, refreshSession, authLoading]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
