@@ -8,6 +8,8 @@ const COST_VARIABLES = [
   { id: "cost_battery_pe", name: "PE Battery", sourceKey: "battery_pe", color: "#ff9e6d" },
   { id: "cost_battery_short", name: "Short-term Battery", sourceKey: "battery_short", color: "#ffbd59" },
   { id: "opportunity_cost", name: "Opportunity", sourceKey: "opportunity_cost", color: "#ffd29c" },
+  { id: "worker_compensation_cost", name: "Worker Compensation", sourceKey: "worker_compensation", color: "#ffaa6b" },
+  { id: "worker_retraining_cost", name: "Worker Retraining", sourceKey: "worker_retraining", color: "#ffc880" },
   
   // Cool tones from the "benefits" palette (blues)
   { id: "solar_cost", name: "Solar", sourceKey: "solar", color: "#80d3e8" },

@@ -21,6 +21,8 @@ const COST_VARIABLES = [
   { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
   { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" },
   { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
+  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#ffaa6b" },
+  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ffc880" },
   
   // Cool tones from the "benefits" palette (blues)
   { id: "solar_cost", name: "Solar", color: "#80d3e8" },

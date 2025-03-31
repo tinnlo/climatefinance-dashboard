@@ -276,12 +276,12 @@ export default function DashboardClientPage() {
           { className: "grid grid-cols-1 md:grid-cols-10 gap-4 mb-6" },
           h(
             "div",
-            { className: "md:col-span-4 h-[600px]" },
+            { className: "md:col-span-4 h-[650px]" },
             h(ClimateFinanceChart, { className: "h-full", country: selectedCountry }),
           ),
           h(
             "div",
-            { className: "md:col-span-6 h-[600px]" },
+            { className: "md:col-span-6 h-[650px]" },
             h(StackedCostChart, { className: "h-full", country: selectedCountry }),
           ),
         ),

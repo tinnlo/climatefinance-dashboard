@@ -276,43 +276,44 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   }
 
   return (
-    <div className="w-full h-full flex flex-col px-6">
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
+    <div className="w-full h-full flex flex-col px-2 sm:px-4 md:px-6">
+      <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-1 gap-y-0.5 sm:gap-2 mb-1 sm:mb-2 max-h-[120px] xs:max-h-none overflow-y-auto">
         {BENEFIT_VARIABLES.filter(variable => 
           data.some((yearData: YearData) => {
             const value = yearData[variable.id]
             return typeof value === 'number' && value > 0
           })
         ).map((variable) => (
-          <div key={variable.id} className="flex items-center space-x-1">
+          <div key={variable.id} className="flex items-center space-x-1 min-h-[18px]">
             <Checkbox
               id={`variable-${variable.id}`}
               checked={visibleVariables.includes(variable.id)}
               onCheckedChange={() => toggleVariable(variable.id)}
               className="h-3 w-3"
             />
-            <Label htmlFor={`variable-${variable.id}`} className="text-xs flex items-center">
-              <div className="w-2 h-2 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
+            <Label htmlFor={`variable-${variable.id}`} className="text-[10px] xs:text-xs flex items-center truncate">
+              <div className="w-2 h-2 mr-1 rounded-sm flex-shrink-0" style={{ backgroundColor: variable.color }} />
               {variable.name}
             </Label>
           </div>
         ))}
       </div>
-      <div className="w-full h-[calc(100%-2rem)]">
+      <div className="w-full h-[calc(100%-4rem)]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart 
             data={data} 
-            margin={{ top: 10, right: 50, left: 20, bottom: 40 }}
+            margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
             stackOffset="none"
           >
             <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
             <XAxis
               dataKey="year"
-              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 11 }}
               angle={-45}
               textAnchor="end"
-              height={60}
-              tickMargin={20}
+              height={40}
+              tickMargin={10}
+              interval="preserveStartEnd"
             />
             <YAxis
               yAxisId="left"
@@ -321,24 +322,24 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                 angle: -90,
                 position: "insideLeft",
                 fill: theme === "dark" ? "#ffffff" : "#000000",
-                offset: -10,
+                offset: 0,
+                fontSize: 11
               }}
-              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-              tickMargin={10}
+              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
+              tickMargin={5}
+              width={45}
               domain={[0, 'dataMax']} 
               allowDataOverflow={false}
               allowDecimals={true}
               minTickGap={5}
               tickFormatter={(value) => {
-                if (value === 0) return "0";
-                if (value < 0.001) return value.toExponential(1);
+                if (Math.abs(value) < 0.0001) return "0";
                 if (value < 0.01) return value.toFixed(3);
                 if (value < 0.1) return value.toFixed(2);
                 if (value < 1) return value.toFixed(2);
-                if (value < 10) return value.toFixed(1);
-                return Math.round(value).toString();
+                return value.toFixed(2);
               }}
-              width={60}
+              scale="linear"
             />
             <YAxis
               yAxisId="right"
@@ -348,9 +349,10 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                 angle: 90,
                 position: "insideRight",
                 fill: theme === "dark" ? "#ffffff" : "#000000",
-                offset: -10,
+                offset: 0,
+                fontSize: 11
               }}
-              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
+              tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
               tickMargin={10}
               tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
               dataKey="gdpPercentage"
@@ -359,6 +361,8 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
               allowDecimals={true}
               minTickGap={5}
               width={60}
+              scale="linear"
+              interval="preserveStartEnd"
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
             {BENEFIT_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (

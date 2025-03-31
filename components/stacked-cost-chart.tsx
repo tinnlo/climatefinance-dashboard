@@ -33,6 +33,8 @@ const COST_VARIABLES = [
   { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
   { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" },
   { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
+  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#ffaa6b" },
+  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ffc880" },
   
   // Cool tones from the "benefits" palette (blues)
   { id: "solar_cost", name: "Solar", color: "#80d3e8" },
@@ -45,7 +47,11 @@ const COST_VARIABLES = [
 // Default GDP value to use if data fetch fails
 const DEFAULT_GDP = 1.0; // Trillion USD
 
-const FIGURE_NOTES = `In this Figure, the breakdown of the decarbonization costs of EMDEs as a whole and eight countries with large power sector emissions (i.e., India, USA, Indonesia, Vietnam, Türkiye, Germany, Poland, and Kazakhstan) are displayed, for both the time horizon to 2035 and the time horizon to 2050. Country costs of decarbonization consist of (i) the opportunity costs to phase out fossil fuel power plants early (i.e., the stranded asset value of a power plant (defined as the expected discounted value of future missed cashflows of the power plant resulting from closing it down early according to NGFS NZ2050-1.5°C-50% decarbonization scenario relative to free cashflows earned in the NGFS GCAM6.0 Current Policy scenario), the compensation to power plant workers for missed wages; and retraining cost); the (ii) investment costs in renewable power plants (plus supporting short- and long-duration energy storage and grid extensions) to replace the fossil fuel power plants that are closed early keep up with any growth in electricity demand. Here we assume that each country, and EMDEs as a whole, pays for all its decarbonization costs (i.e., no foreign climate finance offerings or private sector co-payment). For each country, and for EMDEs as a whole, we assume decarbonization occurs via a decarbonization pathway in line with the NGFS NZ2050-1.5°C-50% decarbonization scenario. We use the NGFS GCAM6.0 Current Policy scenario to project electricity demand, for each fossil fuel power plant type, in each country, under business-as-usual.`
+const FIGURE_NOTES = `In this Figure, the breakdown of the decarbonization costs of EMDEs as a whole and eight countries with large power sector emissions (i.e., India, USA, Indonesia, Vietnam, Türkiye, Germany, Poland, and Kazakhstan) are displayed, for both the time horizon to 2035 and the time horizon to 2050. Country costs of decarbonization consist of (i) the opportunity costs to phase out fossil fuel power plants early (i.e., the stranded asset value of a power plant (defined as the expected discounted value of future missed cashflows of the power plant resulting from closing it down early according to NGFS NZ2050-1.5°C-50% decarbonization scenario relative to free cashflows earned in the NGFS GCAM6.0 Current Policy scenario), the compensation to power plant workers for missed wages; and retraining cost); the (ii) investment costs in renewable power plants (plus supporting short- and long-duration energy storage and grid extensions) to replace the fossil fuel power plants that are closed early keep up with any growth in electricity demand. 
+
+The cost components include worker compensation for missed wages and worker retraining costs, which are considered part of the just transition costs to ensure that fossil fuel workers are not left behind in the clean energy transition.
+
+Here we assume that each country, and EMDEs as a whole, pays for all its decarbonization costs (i.e., no foreign climate finance offerings or private sector co-payment). For each country, and for EMDEs as a whole, we assume decarbonization occurs via a decarbonization pathway in line with the NGFS NZ2050-1.5°C-50% decarbonization scenario. We use the NGFS GCAM6.0 Current Policy scenario to project electricity demand, for each fossil fuel power plant type, in each country, under business-as-usual.`
 
 interface StackedCostChartProps {
   className?: string
@@ -188,12 +194,12 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       
       // Calculate total battery and opportunity costs
       const batteryAndOpportunityCosts = COST_VARIABLES
-        .filter(v => v.id.startsWith('cost_battery_') || v.id === 'opportunity_cost')
+        .filter(v => v.id.startsWith('cost_battery_') || v.id === 'opportunity_cost' || v.id === 'worker_compensation_cost' || v.id === 'worker_retraining_cost')
         .reduce((sum, v) => sum + (yearData[v.id] || 0), 0);
       
       // Calculate total renewable costs
       const renewableCosts = COST_VARIABLES
-        .filter(v => v.id.endsWith('_cost') && !v.id.startsWith('cost_battery_') && v.id !== 'opportunity_cost')
+        .filter(v => v.id.endsWith('_cost') && !v.id.startsWith('cost_battery_') && v.id !== 'opportunity_cost' && v.id !== 'worker_compensation_cost' && v.id !== 'worker_retraining_cost')
         .reduce((sum, v) => sum + (yearData[v.id] || 0), 0);
       
       return (
@@ -203,7 +209,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
             Total Cost: {totalCostDisplay}T USD ({gdpPercentageDisplay}% of GDP)
           </p>
           <p style={{ ...tooltipItemStyle, fontWeight: 'bold', color: '#ff7c43' }}>
-            Battery & Opportunity Costs: {batteryAndOpportunityCosts.toFixed(4)}T USD
+            Battery, Opportunity & Worker Costs: {batteryAndOpportunityCosts.toFixed(4)}T USD
           </p>
           {payload.map((entry: any, index: number) => {
             if (entry.dataKey === 'gdpPercentage') return null;
@@ -263,7 +269,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
 
   if (isLoading) {
     return (
-      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
+      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[650px]", className)}>
         <CardHeader className="flex-none pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>Aggregated Variables Over Time</CardTitle>
@@ -298,7 +304,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
 
   if (error || !data) {
     return (
-      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
+      <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[650px]", className)}>
         <CardHeader className="flex-none pb-2">
           <div className="flex items-center justify-between">
             <CardTitle>Aggregated Variables Over Time</CardTitle>
@@ -336,18 +342,18 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   }
 
   return (
-    <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[600px]", className)}>
+    <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[650px]", className)}>
       <CardHeader className="flex-none pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <CardTitle>Aggregated Variables Over Time</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
             <Button variant="outline" onClick={handleDownload} size="sm" className="h-8">
               <Download className="mr-2 h-4 w-4" />
               Download Data
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
                   <Info className="h-4 w-4" />
                   <span className="sr-only">Figure Notes</span>
                 </Button>
@@ -367,104 +373,109 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0">
         <Tabs defaultValue="cost" className="w-full h-full flex flex-col">
-          <div className="px-6">
-            <TabsList className="w-[400px] grid grid-cols-2 mb-4">
+          <div className="px-2 sm:px-4 md:px-6">
+            <TabsList className="w-full sm:w-[300px] md:w-[400px] grid grid-cols-2 mb-2">
               <TabsTrigger value="cost">Cost Variables</TabsTrigger>
               <TabsTrigger value="benefit">Benefit Variables</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="cost" className="flex-1 min-h-0 px-6">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mb-2">
-              {COST_VARIABLES.map((variable) => (
-                <div key={variable.id} className="flex items-center space-x-1">
-                  <Checkbox
-                    id={`variable-${variable.id}`}
-                    checked={visibleVariables.includes(variable.id)}
-                    onCheckedChange={() => toggleVariable(variable.id)}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor={`variable-${variable.id}`} className="text-xs flex items-center">
-                    <div className="w-2 h-2 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
-                    {variable.name}
-                  </Label>
-                </div>
-              ))}
-            </div>
-            <div className="w-full h-[calc(100%-2rem)]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={data} 
-                  margin={{ top: 10, right: 50, left: 20, bottom: 40 }}
-                  stackOffset="none"
-                >
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis
-                    dataKey="year"
-                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                    tickMargin={20}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    label={{
-                      value: "Cost (Trillion USD)",
-                      angle: -90,
-                      position: "insideLeft",
-                      fill: theme === "dark" ? "#ffffff" : "#000000",
-                      offset: -10,
-                    }}
-                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                    tickMargin={10}
-                    domain={[0, 'dataMax']} 
-                    allowDataOverflow={false}
-                    allowDecimals={true}
-                    minTickGap={5}
-                    tickFormatter={(value) => {
-                      if (value === 0) return "0";
-                      if (value < 0.001) return value.toExponential(1);
-                      if (value < 0.01) return value.toFixed(3);
-                      if (value < 0.1) return value.toFixed(2);
-                      if (value < 1) return value.toFixed(2);
-                      if (value < 10) return value.toFixed(1);
-                      return Math.round(value).toString();
-                    }}
-                    width={60}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    label={{
-                      value: "% of GDP",
-                      angle: 90,
-                      position: "insideRight",
-                      fill: theme === "dark" ? "#ffffff" : "#000000",
-                      offset: -10,
-                    }}
-                    tick={{ fill: theme === "dark" ? "#ffffff" : "#000000" }}
-                    tickMargin={10}
-                    tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
-                    dataKey="gdpPercentage"
-                    domain={[0, 'dataMax']}
-                    allowDataOverflow={false}
-                    allowDecimals={true}
-                    minTickGap={5}
-                    width={60}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
-                  {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
-                    <Bar 
-                      key={variable.id} 
-                      dataKey={variable.id} 
-                      stackId="a" 
-                      fill={variable.color} 
-                      name={variable.name}
-                      yAxisId="left"
+          <TabsContent value="cost" className="flex-1 min-h-0">
+            <div className="w-full h-full flex flex-col px-2 sm:px-4 md:px-6">
+              <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-1 gap-y-0.5 sm:gap-2 mb-1 sm:mb-2 max-h-[100px] xs:max-h-none overflow-y-auto">
+                {COST_VARIABLES.map((variable) => (
+                  <div key={variable.id} className="flex items-center space-x-1 min-h-[18px]">
+                    <Checkbox
+                      id={`variable-${variable.id}`}
+                      checked={visibleVariables.includes(variable.id)}
+                      onCheckedChange={() => toggleVariable(variable.id)}
+                      className="h-3 w-3"
                     />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+                    <Label htmlFor={`variable-${variable.id}`} className="text-[10px] xs:text-xs flex items-center truncate">
+                      <div className="w-2 h-2 mr-1 rounded-sm flex-shrink-0" style={{ backgroundColor: variable.color }} />
+                      {variable.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <div className="w-full h-[calc(100%-3.5rem)]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={data} 
+                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+                    stackOffset="none"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis
+                      dataKey="year"
+                      tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 11 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={40}
+                      tickMargin={10}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      label={{
+                        value: "Cost (Trillion USD)",
+                        angle: -90,
+                        position: "insideLeft",
+                        fill: theme === "dark" ? "#ffffff" : "#000000",
+                        offset: 0,
+                        fontSize: 11
+                      }}
+                      tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
+                      tickMargin={5}
+                      width={45}
+                      domain={[0, 'dataMax']} 
+                      allowDataOverflow={false}
+                      allowDecimals={true}
+                      minTickGap={5}
+                      tickFormatter={(value) => {
+                        if (value === 0) return "0";
+                        if (value < 0.001) return value.toExponential(1);
+                        if (value < 0.01) return value.toFixed(3);
+                        if (value < 0.1) return value.toFixed(2);
+                        if (value < 1) return value.toFixed(2);
+                        if (value < 10) return value.toFixed(1);
+                        return Math.round(value).toString();
+                      }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      label={{
+                        value: "% of GDP",
+                        angle: 90,
+                        position: "insideRight",
+                        fill: theme === "dark" ? "#ffffff" : "#000000",
+                        offset: 0,
+                        fontSize: 11
+                      }}
+                      tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
+                      tickMargin={10}
+                      tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
+                      dataKey="gdpPercentage"
+                      domain={[0, 'dataMax']}
+                      allowDataOverflow={false}
+                      allowDecimals={true}
+                      minTickGap={5}
+                      width={60}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
+                    {COST_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
+                      <Bar 
+                        key={variable.id} 
+                        dataKey={variable.id} 
+                        stackId="a" 
+                        fill={variable.color} 
+                        name={variable.name}
+                        yAxisId="left"
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </TabsContent>
           <TabsContent value="benefit" className="flex-1 min-h-0">
