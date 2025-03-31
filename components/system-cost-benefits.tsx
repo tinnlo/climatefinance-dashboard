@@ -395,7 +395,7 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
                 <p className="text-2xl md:text-2xl font-bold leading-none mb-1">${data.totalCost.toFixed(1)}T</p>
-                <p className="text-sm md:text-sm text-muted-foreground">{data.costGdpPercentage}% of GDP</p>
+                <p className="text-xs md:text-xs text-muted-foreground">{data.costGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
@@ -427,7 +427,7 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
                 <p className="text-2xl md:text-2xl font-bold leading-none mb-1">{totalBenefitDisplay}</p>
-                <p className="text-sm md:text-sm text-muted-foreground">{data.benefitGdpPercentage}% of GDP</p>
+                <p className="text-xs md:text-xs text-muted-foreground">{data.benefitGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>

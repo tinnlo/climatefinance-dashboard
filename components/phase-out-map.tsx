@@ -24,6 +24,8 @@ import Link from "next/link"
 
 const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year. The map includes state/province boundaries and major cities for better geographical context."
 
+const COMPANY_STATS_NOTES = "This panel presents key statistics about power companies and their assets in the selected country. The summary includes the total number of power plants, total companies operating them, cumulative emissions, and average phase-out year across all plants. The fuel type distribution shows how plants are distributed across coal, gas, and oil. When available, company status information displays the operational status breakdown of companies. The table at the bottom shows the top companies by emissions with their status and capacity information."
+
 interface CountryData {
   Country_ISO3: string
   Country: string
@@ -1198,7 +1200,24 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
         {/* Company Statistics Summary */}
         <div className="lg:col-span-1 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
           <Card className="h-full bg-white dark:bg-black border border-[#E5E5E5] dark:border-[#4A4A4A] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-2 p-4 pb-0">Company Statistics</h3>
+            <div className="flex justify-between items-center mb-2 p-4 pb-0">
+              <h3 className="text-xl font-semibold">Company Statistics</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Info className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Company Statistics</DialogTitle>
+                  </DialogHeader>
+                  <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                    {COMPANY_STATS_NOTES}
+                  </DialogDescription>
+                </DialogContent>
+              </Dialog>
+            </div>
             
             {isLoadingCompanyData ? (
               <div className="flex justify-center items-center h-20 mt-4">
