@@ -69,6 +69,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   const { theme } = useTheme()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
+  const [useBillions, setUseBillions] = useState<boolean>(false)
 
   // Fetch GDP data first
   useEffect(() => {
@@ -167,6 +168,11 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
           }
         })
         
+        // Determine if we should use billions instead of trillions for display
+        // Find maximum cost across all years
+        const maxCost = Math.max(...dataWithGdp.map((year: any) => year.totalCost));
+        setUseBillions(maxCost < 0.1);
+        
         setData(dataWithGdp)
       } catch (e: any) {
         console.error("Error fetching cost variables data:", e)
@@ -181,6 +187,37 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     }
   }, [country, gdpValue])
 
+  // Format values based on whether using billions or trillions
+  const formatValue = (value: number, detailed: boolean = false): string => {
+    if (value === 0) return "0";
+    
+    if (useBillions) {
+      // Convert to billions
+      const valueInBillions = value * 1000;
+      if (detailed) {
+        if (valueInBillions < 0.001) return valueInBillions.toExponential(1) + "B";
+        if (valueInBillions < 0.01) return valueInBillions.toFixed(3) + "B";
+        if (valueInBillions < 0.1) return valueInBillions.toFixed(2) + "B";
+        if (valueInBillions < 10) return valueInBillions.toFixed(1) + "B";
+        return Math.round(valueInBillions) + "B";
+      } else {
+        return valueInBillions.toFixed(2) + "B";
+      }
+    } else {
+      // Use trillions
+      if (detailed) {
+        if (value < 0.001) return value.toExponential(1) + "T";
+        if (value < 0.01) return value.toFixed(3) + "T";
+        if (value < 0.1) return value.toFixed(2) + "T";
+        if (value < 1) return value.toFixed(2) + "T";
+        if (value < 10) return value.toFixed(1) + "T";
+        return Math.round(value) + "T";
+      } else {
+        return value.toFixed(2) + "T";
+      }
+    }
+  };
+
   // Custom tooltip that shows total cost and GDP percentage
   const CustomTooltip = (props: any) => {
     const { active, payload, label } = props;
@@ -191,7 +228,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       
       if (!yearData) return null;
       
-      const totalCostDisplay = yearData.totalCost.toFixed(4);
+      const totalCostDisplay = formatValue(yearData.totalCost);
       const gdpPercentageDisplay = yearData.gdpPercentage.toFixed(2);
       
       // Calculate total battery and opportunity costs
@@ -208,10 +245,10 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
         <div style={tooltipStyle}>
           <p style={tooltipLabelStyle}>Year: {label}</p>
           <p style={{ ...tooltipItemStyle, fontWeight: 'bold', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '4px' }}>
-            Total Cost: {totalCostDisplay}T USD ({gdpPercentageDisplay}% of GDP)
+            Total Cost: {totalCostDisplay} USD ({gdpPercentageDisplay}% of GDP)
           </p>
           <p style={{ ...tooltipItemStyle, fontWeight: 'bold', color: '#ff7c43' }}>
-            Battery, Opportunity & Worker Costs: {batteryAndOpportunityCosts.toFixed(4)}T USD
+            Battery, Opportunity & Worker Costs: {formatValue(batteryAndOpportunityCosts)} USD
           </p>
           {payload.map((entry: any, index: number) => {
             if (entry.dataKey === 'gdpPercentage') return null;
@@ -222,7 +259,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
             return (
               <p key={`item-${index}`} style={tooltipItemStyle}>
                 <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: entry.color, marginRight: '5px' }}></span>
-                {entry.name}: {entry.value.toFixed(4)}T USD ({percentage}%)
+                {entry.name}: {formatValue(entry.value)} USD ({percentage}%)
               </p>
             );
           })}
@@ -371,7 +408,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
             </Dialog>
           </div>
         </div>
-        <CardDescription>Cost and benefit components from 2025 to 2050 - {COUNTRY_NAMES[country]} (Values in Trillion USD and % of GDP)</CardDescription>
+        <CardDescription>Cost and benefit components from 2025 to 2050 - {COUNTRY_NAMES[country]} (SCC 190 USD and NGFS Scenarios)</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0">
         <Tabs defaultValue="cost" className="w-full h-full flex flex-col">
@@ -419,7 +456,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                     <YAxis
                       yAxisId="left"
                       label={{
-                        value: "Cost (Trillion USD)",
+                        value: useBillions ? "Cost (Billion USD)" : "Cost (Trillion USD)",
                         angle: -90,
                         position: "insideLeft",
                         fill: theme === "dark" ? "#ffffff" : "#000000",
@@ -434,13 +471,26 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                       allowDecimals={true}
                       minTickGap={5}
                       tickFormatter={(value) => {
-                        if (value === 0) return "0";
-                        if (value < 0.001) return value.toExponential(1);
-                        if (value < 0.01) return value.toFixed(3);
-                        if (value < 0.1) return value.toFixed(2);
-                        if (value < 1) return value.toFixed(2);
-                        if (value < 10) return value.toFixed(1);
-                        return Math.round(value).toString();
+                        if (useBillions) {
+                          // Convert to billions for display
+                          const valueInBillions = value * 1000;
+                          if (valueInBillions === 0) return "0";
+                          if (valueInBillions < 0.001) return valueInBillions.toExponential(1);
+                          if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
+                          if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
+                          if (valueInBillions < 1) return valueInBillions.toFixed(2);
+                          if (valueInBillions < 10) return valueInBillions.toFixed(1);
+                          return Math.round(valueInBillions).toString();
+                        } else {
+                          // Use trillions
+                          if (value === 0) return "0";
+                          if (value < 0.001) return value.toExponential(1);
+                          if (value < 0.01) return value.toFixed(3);
+                          if (value < 0.1) return value.toFixed(2);
+                          if (value < 1) return value.toFixed(2);
+                          if (value < 10) return value.toFixed(1);
+                          return Math.round(value).toString();
+                        }
                       }}
                     />
                     <YAxis

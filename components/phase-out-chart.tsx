@@ -426,7 +426,7 @@ export function PhaseOutChart({
                             </div>
                           ))}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 md:gap-2">
+                        <div className="flex flex-col gap-1 md:gap-2">
                           {payload?.slice(3).map((entry: any, index: number) => (
                             <div key={`line-${index}`} className="flex items-center gap-1 md:gap-2">
                               <div
@@ -442,10 +442,6 @@ export function PhaseOutChart({
                               </span>
                             </div>
                           ))}
-                        </div>
-                        <div className="text-[8px] md:text-[10px] text-muted-foreground flex flex-col">
-                          <div>(N) = Number of plants shut down in that year</div>
-                          <div>Start Rank → End Rank of plants in phase-out sequence</div>
                         </div>
                       </div>
                     )}

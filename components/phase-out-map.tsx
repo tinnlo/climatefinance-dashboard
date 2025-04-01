@@ -879,10 +879,12 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
         .scaleExtent([1, 8])
         .translateExtent([
           [0, 0],
-          [dimensions.width, dimensions.height],
+          [dimensions.width || 800, dimensions.height || 600], // Provide fallback values
         ])
         .on("zoom", (event: any) => {
-          mapContainer.attr("transform", event.transform)
+          // Use explicit transform values instead of the event transform directly
+          const transform = event.transform;
+          mapContainer.attr("transform", `translate(${transform.x}, ${transform.y}) scale(${transform.k})`)
         })
 
       // Store the zoom reference for later use
@@ -891,8 +893,11 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       // Initialize with identity transform
       initialTransformRef.current = d3.zoomIdentity
       
-      // Apply zoom behavior to SVG
-      svg.call(zoom as any)
+      // Apply zoom behavior to SVG with explicit size
+      svg
+        .attr("width", dimensions.width || 800)
+        .attr("height", dimensions.height || 600)
+        .call(zoom as any)
 
       const path = d3.geoPath().projection(projection)
 
@@ -1051,7 +1056,10 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       d3.select(svgRef.current)
         .transition()
         .duration(750)
-        .call(zoomRef.current.transform, d3.zoomIdentity)
+        .call(
+          zoomRef.current.transform, 
+          d3.zoomIdentity.translate(0, 0).scale(1)
+        )
     }
   }
 

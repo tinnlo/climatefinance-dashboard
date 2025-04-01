@@ -196,18 +196,33 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
       percentage = (value / totalValue) * 100;
     }
     
-    // Format value display based on magnitude
+    // Format value display based on magnitude and using the same billion/trillion logic
     let valueDisplay;
     if (value === 0) {
       valueDisplay = "$0";
-    } else if (value >= 0.1) {
-      valueDisplay = `$${value.toFixed(2)}T`;
-    } else if (value >= 0.001) {
-      valueDisplay = `$${value.toFixed(4)}T`;
-    } else if (value > 0) {
-      valueDisplay = `$${value.toFixed(6)}T`;
+    } else if (useBillions) {
+      // Display in billions
+      const valueInBillions = value * 1000;
+      if (valueInBillions >= 0.1) {
+        valueDisplay = `$${valueInBillions.toFixed(2)}B`;
+      } else if (valueInBillions >= 0.001) {
+        valueDisplay = `$${valueInBillions.toFixed(3)}B`;
+      } else if (valueInBillions > 0) {
+        valueDisplay = `$${valueInBillions.toFixed(6)}B`;
+      } else {
+        valueDisplay = "$0";
+      }
     } else {
-      valueDisplay = "$0";
+      // Display in trillions
+      if (value >= 0.1) {
+        valueDisplay = `$${value.toFixed(2)}T`;
+      } else if (value >= 0.001) {
+        valueDisplay = `$${value.toFixed(4)}T`;
+      } else if (value > 0) {
+        valueDisplay = `$${value.toFixed(6)}T`;
+      } else {
+        valueDisplay = "$0";
+      }
     }
     
     return (
@@ -270,6 +285,10 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
   const nonZeroSegments = [displayAirPollutionValue, displayCountryValue, displayWorldValue]
     .filter(v => v > 0).length;
 
+  // Determine if we should use billions instead of trillions for display
+  const smallerTotal = Math.min(data.totalCost, data.totalBenefit);
+  const useBillions = smallerTotal < 0.1;
+  
   // Create a scaling factor for very small values to make their proportions visible
   // This ensures we can see the relative sizes between segments
   const getChartValue = (value: number): number => {
@@ -331,9 +350,20 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
       (data.totalBenefit >= 0.1 ? 
         `$${data.totalBenefit.toFixed(1)}T` : 
         data.totalBenefit >= 0.001 ?
-        `$${data.totalBenefit.toFixed(3)}T` :
-        `$${data.totalBenefit.toFixed(6)}T`) : 
-      "$0.0T");
+        `$${(data.totalBenefit * 1000).toFixed(1)}B` :
+        `$${(data.totalBenefit * 1000).toFixed(3)}B`) : 
+      "$0.0B");
+
+  const formatValue = (value: number) => {
+    if (useBillions) {
+      // Convert to billions
+      const valueInBillions = value * 1000;
+      return `$${valueInBillions.toFixed(1)}B`;
+    } else {
+      // Keep in trillions
+      return `$${value.toFixed(1)}T`;
+    }
+  };
 
   return (
     <Card className={cn("flex flex-col h-full dark:bg-[#2F3A2F]", className)}>
@@ -358,7 +388,7 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
           </Dialog>
         </div>
         <CardDescription>
-          Comparison of total costs and benefits (Trillion USD) - {countryName}
+          Comparison of total costs and benefits - {countryName}
         </CardDescription>
         <div className="flex flex-wrap gap-4 mt-4">
           <Select value={selectedSCC} onValueChange={setSelectedSCC}>
@@ -394,7 +424,7 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
-                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">${data.totalCost.toFixed(1)}T</p>
+                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">{formatValue(data.totalCost)}</p>
                 <p className="text-xs md:text-xs text-muted-foreground">{data.costGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>

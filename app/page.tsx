@@ -57,7 +57,7 @@ export default function LandingPage() {
                 The Forward Global Institute (FGI) is a public research arm of Forward 
                 Analytics Group dedicated to help governments, finance ministries, central 
                 banks and international financial organisations navigate the net-zero 
-                transition and support climate finance. Our commitment is to to aid 
+                transition and support climate finance. Our commitment is to aid 
                 economic and political decision-makers with data and tools to inform 
                 climate-resilient economic development and align financial flows.
               </p>

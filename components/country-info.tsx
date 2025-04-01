@@ -48,6 +48,7 @@ interface CountryData {
   Emission_2023: number
   Emissions_Share_2023: number
   Emissions_Change_2023: number
+  End_target?: string
   End_target_percentage_reduction?: number
   End_target_baseline_year?: number
   End_target_year?: number
@@ -75,7 +76,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
   const [data, setData] = useState<CountryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedSector, setSelectedSector] = useState<string>("all")
+  const [selectedSector, setSelectedSector] = useState<string>("Power / Energy")
 
   useEffect(() => {
     const fetchCountryData = async () => {
@@ -222,7 +223,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
           </div>
 
           {/* NDC Target Section */}
-          {data.End_target_percentage_reduction && (
+          {data.End_target_percentage_reduction !== undefined && data.End_target_year && (
             <div className="space-y-2 border-t pt-4">
               <div className="flex items-center gap-2">
                 <p className="text-lg font-medium">NDC Target:</p>
@@ -232,7 +233,13 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                 )}
               </div>
               <p className="text-xl">
-                {data.End_target_percentage_reduction}% by {data.End_target_year}
+                {data.End_target && (
+                  <span>{data.End_target}: </span>
+                )}
+                {data.End_target_percentage_reduction === 0 
+                  ? `to Zero by ${data.End_target_year}`
+                  : `${data.End_target_percentage_reduction}% by ${data.End_target_year}`
+                }
                 {data.End_target_baseline_year && (
                   <span className="text-sm ml-2">
                     (from {data.End_target_baseline_year} baseline)
@@ -256,7 +263,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="h-8 gap-1">
-                        Sector: {selectedSector === "all" ? "All Sectors" : selectedSector}
+                        Sector: {selectedSector}
                         <ChevronDown className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -277,42 +284,27 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
 
               {/* Asset, Capacity, and Emissions Coverage in one row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(coverageData?.Asset_Amount_operating !== undefined || coverageData?.Asset_Amount_planned !== undefined) && (
+                {coverageData?.Asset_Amount_operating !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Asset Coverage</p>
                     <p className="text-xl font-medium">
-                      {((coverageData.Asset_Amount_operating || 0) + (coverageData.Asset_Amount_planned || 0)).toLocaleString()} assets
-                    </p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {coverageData.Asset_Amount_operating?.toLocaleString() || '0'} operating
-                      {"\n"}
-                      {coverageData.Asset_Amount_planned?.toLocaleString() || '0'} planned
+                      {coverageData.Asset_Amount_operating.toLocaleString()} assets
                     </p>
                   </div>
                 )}
-                {coverageData?.Capacity_operating !== undefined && coverageData?.Capacity_planned !== undefined && (
+                {coverageData?.Capacity_operating !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Capacity Coverage</p>
                     <p className="text-xl font-medium">
-                      {(coverageData.Capacity_operating + coverageData.Capacity_planned).toLocaleString()} MW
-                    </p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {coverageData.Capacity_operating.toLocaleString()} MW operating
-                      {"\n"}
-                      {coverageData.Capacity_planned.toLocaleString()} MW planned
+                      {coverageData.Capacity_operating.toLocaleString()} MW
                     </p>
                   </div>
                 )}
-                {coverageData?.Emissions_operating !== undefined && coverageData?.Emissions_planned !== undefined && (
+                {coverageData?.Emissions_operating !== undefined && (
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Emissions Coverage</p>
                     <p className="text-xl font-medium">
-                      {(coverageData.Emissions_operating + coverageData.Emissions_planned).toFixed(2)} MtCO₂e
-                    </p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line">
-                      {coverageData.Emissions_operating.toFixed(2)} MtCO₂e operating
-                      {"\n"}
-                      {coverageData.Emissions_planned.toFixed(2)} MtCO₂e planned
+                      {coverageData.Emissions_operating.toFixed(2)} MtCO₂e
                     </p>
                   </div>
                 )}

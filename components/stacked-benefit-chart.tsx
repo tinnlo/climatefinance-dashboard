@@ -51,6 +51,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   const [error, setError] = useState<string | null>(null)
   const [visibleVariables, setVisibleVariables] = useState<string[]>(BENEFIT_VARIABLES.map((v) => v.id))
   const [gdpValue, setGdpValue] = useState<number>(DEFAULT_GDP)
+  const [useBillions, setUseBillions] = useState<boolean>(false)
   const { theme } = useTheme()
   const router = useRouter()
   const { isAuthenticated } = useAuth()
@@ -148,6 +149,11 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
           }
         })
         
+        // Determine if we should use billions instead of trillions for display
+        // Find maximum benefit across all years
+        const maxBenefit = Math.max(...transformedData.map((year: YearData) => year.totalBenefit));
+        setUseBillions(maxBenefit < 0.1);
+        
         // Update visible variables to only show those that have data
         const availableBenefitTypes = BENEFIT_VARIABLES.filter(variable =>
           transformedData.some((yearData: YearData) => {
@@ -177,6 +183,37 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
     }
   }, [country, gdpValue])
 
+  // Format values based on whether using billions or trillions
+  const formatValue = (value: number, detailed: boolean = false): string => {
+    if (value === 0) return "0";
+    
+    if (useBillions) {
+      // Convert to billions
+      const valueInBillions = value * 1000;
+      if (detailed) {
+        if (valueInBillions < 0.001) return valueInBillions.toExponential(1) + "B";
+        if (valueInBillions < 0.01) return valueInBillions.toFixed(3) + "B";
+        if (valueInBillions < 0.1) return valueInBillions.toFixed(2) + "B";
+        if (valueInBillions < 10) return valueInBillions.toFixed(1) + "B";
+        return Math.round(valueInBillions) + "B";
+      } else {
+        return valueInBillions.toFixed(2) + "B";
+      }
+    } else {
+      // Use trillions
+      if (detailed) {
+        if (value < 0.001) return value.toExponential(1) + "T";
+        if (value < 0.01) return value.toFixed(3) + "T";
+        if (value < 0.1) return value.toFixed(2) + "T";
+        if (value < 1) return value.toFixed(2) + "T";
+        if (value < 10) return value.toFixed(1) + "T";
+        return Math.round(value) + "T";
+      } else {
+        return value.toFixed(2) + "T";
+      }
+    }
+  };
+
   // Custom tooltip that shows total benefit and GDP percentage
   const CustomTooltip = (props: any) => {
     const { active, payload, label } = props;
@@ -187,14 +224,14 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
       
       if (!yearData) return null;
       
-      const totalBenefitDisplay = yearData.totalBenefit.toFixed(4);
+      const totalBenefitDisplay = formatValue(yearData.totalBenefit);
       const gdpPercentageDisplay = yearData.gdpPercentage.toFixed(2);
       
       return (
         <div style={tooltipStyle}>
           <p style={tooltipLabelStyle}>Year: {label}</p>
           <p style={{ ...tooltipItemStyle, fontWeight: 'bold', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '4px' }}>
-            Total Benefit: {totalBenefitDisplay}T USD ({gdpPercentageDisplay}% of GDP)
+            Total Benefit: {totalBenefitDisplay} USD ({gdpPercentageDisplay}% of GDP)
           </p>
           {payload.map((entry: any, index: number) => {
             if (entry.dataKey === 'gdpPercentage') return null;
@@ -205,7 +242,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
             return (
               <p key={`item-${index}`} style={tooltipItemStyle}>
                 <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: entry.color, marginRight: '5px' }}></span>
-                {entry.name}: {entry.value.toFixed(4)}T USD ({percentage}%)
+                {entry.name}: {formatValue(entry.value)} USD ({percentage}%)
               </p>
             );
           })}
@@ -318,7 +355,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
             <YAxis
               yAxisId="left"
               label={{
-                value: "Benefit (Trillion USD)",
+                value: useBillions ? "Benefit (Billion USD)" : "Benefit (Trillion USD)",
                 angle: -90,
                 position: "insideLeft",
                 fill: theme === "dark" ? "#ffffff" : "#000000",
@@ -333,11 +370,22 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
               allowDecimals={true}
               minTickGap={5}
               tickFormatter={(value) => {
-                if (Math.abs(value) < 0.0001) return "0";
-                if (value < 0.01) return value.toFixed(3);
-                if (value < 0.1) return value.toFixed(2);
-                if (value < 1) return value.toFixed(2);
-                return value.toFixed(2);
+                if (useBillions) {
+                  // Convert to billions for display
+                  const valueInBillions = value * 1000;
+                  if (Math.abs(valueInBillions) < 0.0001) return "0";
+                  if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
+                  if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
+                  if (valueInBillions < 1) return valueInBillions.toFixed(2);
+                  return valueInBillions.toFixed(2);
+                } else {
+                  // Use trillions
+                  if (Math.abs(value) < 0.0001) return "0";
+                  if (value < 0.01) return value.toFixed(3);
+                  if (value < 0.1) return value.toFixed(2);
+                  if (value < 1) return value.toFixed(2);
+                  return value.toFixed(2);
+                }
               }}
               scale="linear"
             />
