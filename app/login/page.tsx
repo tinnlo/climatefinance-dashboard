@@ -27,46 +27,46 @@ function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParamsContext()
   const returnTo = searchParams?.get('returnTo')
-  const { login, register, isLoading: authLoading, user, isAuthenticated, refreshSession } = useAuth()
+  const { 
+    login, 
+    register, 
+    isLoading: authLoading, 
+    user, 
+    isAuthenticated, 
+    refreshSession, 
+    sessionExpiredMessage,
+    clearSessionExpiredMessage
+  } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
-      if (!mounted) return;
+    // This effect should ONLY redirect if already authenticated.
+    // Initialization and session refresh are handled by AuthProvider.
+    if (isAuthenticated && user && mounted) {
+      console.log("[Login Debug - Already Authenticated, Redirecting]", {
+        user: user.email,
+        role: user.role,
+        returnTo,
+        timestamp: new Date().toISOString(),
+      });
       
-      try {
-        if (isAuthenticated && user) {
-          console.log("[Login Debug - Already Authenticated]", {
-            user: user.email,
-            role: user.role,
-            returnTo,
-            timestamp: new Date().toISOString(),
-          });
-          
-          // If already authenticated, redirect to the returnTo path or default dashboard
-          const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
-          const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
-          
-          console.log("[Login Debug - Auto Redirecting]", { redirectPath });
-          router.push(redirectPath)
-        } else if (!authLoading) {
-          // Only refresh session if we're not already loading
-          await refreshSession();
-        }
-      } catch (error) {
-        console.error("[Login Debug - Auth Error]", error);
-      }
-    };
+      const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
+      const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
+      
+      console.log("[Login Debug - Auto Redirecting]", { redirectPath });
+      router.push(redirectPath)
+    }
 
-    initializeAuth();
+    // No need for the complex async IIFE or the refreshSession call here.
 
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, user, returnTo, router, refreshSession, authLoading]);
+  // Dependencies: Only need to re-run if auth state or user changes, or target path changes.
+  }, [isAuthenticated, user, returnTo, router]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
@@ -97,6 +97,13 @@ function LoginContent() {
     console.log("[Login Debug - Manual Reset] User manually reset loading state");
     window.location.reload();
   };
+
+  // Function to clear expiry message when user interacts
+  const handleInputInteraction = () => {
+    if (sessionExpiredMessage) {
+      clearSessionExpiredMessage()
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -262,7 +269,11 @@ function LoginContent() {
                     type="email"
                     placeholder="Your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      handleInputInteraction()
+                    }}
+                    onFocus={handleInputInteraction}
                     required
                   />
                 </div>
@@ -273,7 +284,11 @@ function LoginContent() {
                     type="password"
                     placeholder="Your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      handleInputInteraction()
+                    }}
+                    onFocus={handleInputInteraction}
                     required
                   />
                 </div>
@@ -289,6 +304,11 @@ function LoginContent() {
                       required
                     />
                   </div>
+                )}
+                {sessionExpiredMessage && (
+                  <Alert>
+                    <AlertDescription>{sessionExpiredMessage}</AlertDescription>
+                  </Alert>
                 )}
                 {error && (
                   <Alert variant="destructive">
@@ -320,10 +340,11 @@ function LoginContent() {
                 
                 {/* Add reset button that appears when loading is taking too long */}
                 {(isSubmitting || authLoading) && (
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     onClick={handleResetLoadingState}
                     className="w-full mt-2 text-sm"
+                    disabled={isSubmitting}
                   >
                     Login taking too long? Click to reset
                   </Button>

@@ -21,6 +21,25 @@ import { Feature, FeatureCollection, Geometry, GeoJsonProperties } from 'geojson
 import { Topology, GeometryObject } from 'topojson-specification'
 import { Card } from "@/components/ui/card"
 import Link from "next/link"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { PhaseOutChart, ChartData } from "@/components/phase-out-chart"
+
+interface PhaseOutData {
+  year: number
+  amount_mtco2: number
+  cumulative_mtco2: number
+  plants_by_subsector: {
+    Coal: number
+    Gas: number
+    Oil: number
+  }
+}
 
 const FIGURE_NOTES = "This map visualizes the phase-out schedules for power plants across different countries. The visualization shows the geographical distribution of power plants, their fuel types (coal, gas, or oil), and their planned phase-out years. The size of each marker is proportional to the plant's emissions, while the color indicates the phase-out year. Use the timeline slider below to see which plants are scheduled for phase-out by a specific year. The map includes state/province boundaries and major cities for better geographical context."
 
@@ -52,23 +71,26 @@ interface MapData {
   phase_out_year: number
   emissions: number
   uniqueId: string
+  technology: string
+  owner: string
+  capacity: number
 }
 
 interface CompanyStats {
   totalPlants: number
   totalCompanies: number
   totalEmissions: number
-  fuelTypeBreakdown: {
-    Coal: number
-    Gas: number
-    Oil: number
-  }
-  averagePhaseOutYear: number
+  visiblePlants: number
+  visibleCompanies: number
+  phaseOutEmissions: number
 }
 
 interface PhaseOutMapProps {
   data: MapData[]
   country?: string
+  chartData?: any
+  selectedOrder: string
+  onOrderChange: (value: string) => void
 }
 
 // Country names mapping
@@ -222,7 +244,7 @@ const STATE_BOUNDARY_SOURCES = {
   }
 }
 
-export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
+export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, onOrderChange }: PhaseOutMapProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -235,6 +257,31 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
   const initialTransformRef = useRef<d3.ZoomTransform | null>(null)
   const zoomRef = useRef<any>(null)
   const { theme, systemTheme } = useTheme()
+
+  // Calculate total capacity and emissions from valid data
+  const totalCapacity = useMemo(() => 
+    data.reduce((sum, plant) => sum + (plant.capacity || 0), 0),
+    [data]
+  )
+
+  const totalAssetEmissions = useMemo(() => 
+    data.reduce((sum, plant) => sum + plant.emissions, 0),
+    [data]
+  )
+
+  // Scenarios for the dropdown
+  const scenarios = [
+    { value: "maturity", label: "By Power Plant Maturity" },
+    { value: "emission_factor", label: "By Power Plant Emission Intensity" },
+    { value: "emissions_per_OC_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
+  ]
+
+  // Scenario to data mapping
+  const scenarioToDataKey = {
+    "maturity": "maturity",
+    "emission_factor": "emission_intensity",
+    "emissions_per_OC_maturity": "benefits_costs"
+  }
 
   // Fetch country data
   useEffect(() => {
@@ -519,7 +566,10 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       )
       .attr("visibility", (d: any) => (d.phase_out_year <= currentYear ? "visible" : "hidden"))
       .on("mouseover", (event: any, d: any) => {
-        d3.select(event.currentTarget).attr("opacity", 1).attr("stroke", colors.border).attr("stroke-width", 2.5) // Increased from 2
+        d3.select(event.currentTarget)
+          .attr("opacity", 1)
+          .attr("stroke", currentTheme === "dark" ? "#ffffff" : "#000000")
+          .attr("stroke-width", 2.5)
         tooltip.transition().duration(200).style("opacity", 0.9)
         tooltip
           .html(
@@ -530,7 +580,9 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
               <div style="opacity: 0.9; color: ${colors.text}">
                 Emissions: ${d.emissions.toFixed(1)} MtCO2<br/>
                 Phase-out Year: ${d.phase_out_year}<br/>
-                Fuel Type: ${d.fuel_type}
+                Fuel Type: ${d.fuel_type}<br/>
+                Technology: ${d.technology || 'N/A'}<br/>
+                Owner: ${d.owner || 'N/A'}
               </div>
             </div>`
           )
@@ -1069,38 +1121,58 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
       totalPlants: 0,
       totalCompanies: 0,
       totalEmissions: 0,
-      fuelTypeBreakdown: { Coal: 0, Gas: 0, Oil: 0 },
-      averagePhaseOutYear: 0
+      visiblePlants: 0,
+      visibleCompanies: 0,
+      phaseOutEmissions: 0
     }
 
-    // Get company count from actual company data
-    const uniqueCompaniesCount = companyData.length > 0 ? 
-      new Set(companyData.map(company => company.Company_Name)).size : 0;
+    // Get visible plants (those with phase-out year <= current year)
+    const visiblePlants = validData.filter(plant => plant.phase_out_year <= currentYear);
+    
+    // Get unique companies from visible plants
+    const visibleCompanies = new Set(visiblePlants.map(plant => plant.owner)).size;
+    
+    // Calculate phase-out emissions (sum of emissions from visible plants)
+    const phaseOutEmissions = visiblePlants.reduce((sum, plant) => sum + plant.emissions, 0);
 
-    // Calculate total company emissions if available
-    const totalCompanyEmissions = companyData.length > 0 ?
-      companyData.reduce((sum, company) => sum + (company.Emissions || 0), 0) : 0;
+    return {
+      totalPlants: validData.length,
+      totalCompanies: new Set(validData.map(plant => plant.owner)).size,
+      totalEmissions: validData.reduce((sum, plant) => sum + plant.emissions, 0),
+      visiblePlants: visiblePlants.length,
+      visibleCompanies: visibleCompanies,
+      phaseOutEmissions: phaseOutEmissions
+    }
+  }, [validData, currentYear])
 
-    const stats = validData.reduce((acc, plant) => {
-      acc.totalPlants++
-      acc.totalEmissions += plant.emissions
-      acc.fuelTypeBreakdown[plant.fuel_type as keyof typeof acc.fuelTypeBreakdown]++
-      acc.averagePhaseOutYear += plant.phase_out_year
-      return acc
-    }, {
-      totalPlants: 0,
-      totalCompanies: uniqueCompaniesCount || 0, // Use actual company count
-      totalEmissions: 0,
-      fuelTypeBreakdown: { Coal: 0, Gas: 0, Oil: 0 },
-      averagePhaseOutYear: 0
-    })
+  // Calculate statistics based on phase-out data and current year
+  const calculateStatistics = useCallback(() => {
+    if (!chartData || !chartData.scenarios || !chartData.scenarios[selectedOrder]) {
+      return {
+        reductionEmissions: 0,
+        cumulativeEmissions: 0,
+        totalCapacity: 0,
+        totalEmissions: 0
+      }
+    }
 
-    stats.averagePhaseOutYear = stats.totalPlants > 0 
-      ? Math.round(stats.averagePhaseOutYear / stats.totalPlants) 
-      : 0
+    const phaseOutData = chartData.scenarios[selectedOrder];
+    const currentYearData = phaseOutData.find((d: PhaseOutData) => d.year === currentYear);
+    const previousYearData = phaseOutData.find((d: PhaseOutData) => d.year === currentYear - 1);
 
-    return stats
-  }, [validData, companyData])
+    return {
+      // Reduction Emissions: Annual emissions reduction up to current year
+      reductionEmissions: currentYearData?.amount_mtco2 || 0,
+      // Cumulative Emissions: Cumulative avoided emissions up to current year
+      cumulativeEmissions: currentYearData?.cumulative_mtco2 || 0,
+      // Total Capacity: Sum of all plant capacities
+      totalCapacity: validData.reduce((sum, plant) => sum + (plant.capacity || 0), 0),
+      // Total Emissions: Sum of all plant emissions
+      totalEmissions: validData.reduce((sum, plant) => sum + plant.emissions, 0)
+    }
+  }, [chartData, selectedOrder, currentYear, validData]);
+
+  const stats = useMemo(() => calculateStatistics(), [calculateStatistics]);
 
   if (!data || data.length === 0) {
     return (
@@ -1136,65 +1208,84 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-0 lg:h-[520px]">
-        <div className="lg:col-span-2 pr-0 lg:pr-4 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
-          <div className="h-full flex flex-col">
-            {/* Map Container */}
-            <div 
-              ref={containerRef} 
-              className="relative w-full flex-1 rounded-none lg:rounded-lg bg-[#2F3A2F] dark:bg-[#2F3A2F] overflow-hidden" 
-            >
-              {/* Map controls */}
-              <div className="absolute top-4 right-4 z-10 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetView}
-                  className="bg-background/80 backdrop-blur-sm"
-                >
-                  <Home className="h-4 w-4 mr-1" />
-                  Reset View
-                </Button>
-                
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
-                      <Info className="h-4 w-4 mr-1" />
-                      Info
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Figure Notes</DialogTitle>
-                    </DialogHeader>
-                    <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                      {FIGURE_NOTES}
-                    </DialogDescription>
-                  </DialogContent>
-                </Dialog>
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 lg:gap-6">
+        {/* Left Column - Map and Chart Container */}
+        <div className="lg:col-span-7">
+          {/* Map Container with dropdown inside */}
+          <div className="space-y-4">
+            <div className="h-[500px] relative bg-background dark:bg-[#2F3A2F] rounded-lg border border-border">
+              {/* Scenario Selector - Inside map container */}
+              <div className="absolute top-4 left-4 z-10 w-[300px]">
+                <Select onValueChange={onOrderChange} defaultValue={selectedOrder}>
+                  <SelectTrigger className="w-full bg-background/80 backdrop-blur-sm">
+                    <SelectValue placeholder="Select a scenario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {scenarios.map((scenario) => (
+                      <SelectItem key={scenario.value} value={scenario.value}>
+                        {scenario.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              
-              {/* SVG Map */}
-              <svg
-                ref={svgRef}
-                width="100%"
-                height="100%"
-                style={{ background: colors.background }}
-                className="overflow-hidden"
-                preserveAspectRatio="xMidYMid meet"
+
+              <div 
+                ref={containerRef} 
+                className="relative w-full h-full rounded-lg overflow-hidden" 
               >
-                <rect
+                {/* Map controls */}
+                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetView}
+                    className="bg-background/80 backdrop-blur-sm"
+                  >
+                    <Home className="h-4 w-4 mr-1" />
+                    Reset View
+                  </Button>
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
+                        <Info className="h-4 w-4 mr-1" />
+                        Info
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Figure Notes</DialogTitle>
+                      </DialogHeader>
+                      <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+                        {FIGURE_NOTES}
+                      </DialogDescription>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                
+                {/* SVG Map */}
+                <svg
+                  ref={svgRef}
                   width="100%"
                   height="100%"
-                  fill={colors.background}
-                />
-                <g className="map-container" />
-                <g className="legend-container" />
-              </svg>
+                  style={{ background: colors.background }}
+                  className="overflow-hidden"
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  <rect
+                    width="100%"
+                    height="100%"
+                    fill={colors.background}
+                  />
+                  <g className="map-container" />
+                  <g className="legend-container" />
+                </svg>
+              </div>
             </div>
 
-            {/* Timeline controls */}
-            <div className="h-[40px]">
+            {/* Timeline controls - Restored to original style */}
+            <div className="h-[40px] bg-transparent mt-2 mb-8">
               <TimelineSlider
                 minYear={2025}
                 maxYear={2050}
@@ -1202,14 +1293,23 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
                 onChange={handleYearChange}
               />
             </div>
+
+            {/* Phase Out Chart */}
+            <div className="h-[400px] bg-background dark:bg-[#2F3A2F] rounded-lg mt-8 border border-border">
+              <PhaseOutChart
+                country={country}
+                data={chartData}
+                selectedScenario={selectedOrder}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Company Statistics Summary */}
-        <div className="lg:col-span-1 h-[calc(100vh-24rem)] min-h-[500px] lg:h-full">
-          <Card className="h-full bg-white dark:bg-black border border-[#E5E5E5] dark:border-[#4A4A4A] overflow-y-auto">
-            <div className="flex justify-between items-center mb-2 p-4 pb-0">
-              <h3 className="text-xl font-semibold">Company Statistics</h3>
+        {/* Right Column - Statistics Summary */}
+        <div className="lg:col-span-3">
+          <Card className="h-full p-3 sm:p-4 lg:p-5 bg-background dark:bg-[#2F3A2F] border-border overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Statistics Summary</h3>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -1218,7 +1318,7 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Company Statistics</DialogTitle>
+                    <DialogTitle>Statistics Summary</DialogTitle>
                   </DialogHeader>
                   <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
                     {COMPANY_STATS_NOTES}
@@ -1226,124 +1326,99 @@ export function PhaseOutMap({ data, country = "in" }: PhaseOutMapProps) {
                 </DialogContent>
               </Dialog>
             </div>
-            
+
             {isLoadingCompanyData ? (
               <div className="flex justify-center items-center h-20 mt-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
-                <span className="ml-2 text-sm text-muted-foreground">Loading company data...</span>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Loading data...</span>
               </div>
             ) : (
-              <div className="space-y-6 p-4 pt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Power Plants</p>
-                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{validData.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Companies</p>
-                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyData.length > 0 ? new Set(companyData.map(company => company.Company_Name)).size : 0}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Emissions</p>
-                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyData.length > 0 ? companyData.reduce((sum, company) => sum + (company.Emissions || 0), 0).toFixed(2) : (countryData?.Emissions_Coverage?.toFixed(2) || "0.00")} MtCO2</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Average Phase-out Year</p>
-                    <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{companyStats.averagePhaseOutYear}</p>
-                  </div>
-                </div>
+              <div className="space-y-6">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-3">Fuel Type Distribution</p>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                      <p className="text-xs text-muted-foreground">Coal</p>
-                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Coal}</p>
-                    </div>
-                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                      <p className="text-xs text-muted-foreground">Gas</p>
-                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Gas}</p>
-                    </div>
-                    <div className="bg-white dark:bg-black p-3 rounded-lg border-0">
-                      <p className="text-xs text-muted-foreground">Oil</p>
-                      <p className="text-xl font-medium mt-1 text-foreground dark:text-white">{companyStats.fuelTypeBreakdown.Oil}</p>
-                    </div>
+                  <p className="text-sm text-muted-foreground">Current View Year</p>
+                  <p className="text-2xl font-medium mt-1 text-foreground dark:text-white">{currentYear}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Visible Plants</p>
+                    <p className="text-lg font-medium">{companyStats.visiblePlants}</p>
+                  </div>
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Visible Companies</p>
+                    <p className="text-lg font-medium">{companyStats.visibleCompanies}</p>
                   </div>
                 </div>
-                
-                {/* Company Status Distribution - Moved before Top Companies */}
-                {companyData.length > 0 && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-3">Company Status</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Cumulative Emissions</p>
+                    <p className="text-lg font-medium">{stats.cumulativeEmissions.toFixed(2)} Mt</p>
+                  </div>
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Reduction Emissions</p>
+                    <p className="text-lg font-medium">{stats.reductionEmissions.toFixed(2)} Mt</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Total Capacity</p>
+                    <p className="text-lg font-medium">{stats.totalCapacity.toFixed(0)} MW</p>
+                  </div>
+                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Total Emissions</p>
+                    <p className="text-lg font-medium">{stats.totalEmissions.toFixed(1)} Mt</p>
+                  </div>
+                </div>
+
+                {/* Company Details Section */}
+                <div className="mt-8">
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="text-sm text-muted-foreground">Top Companies by Phase-out Emissions</p>
+                    <Link 
+                      href={`/company-details?country=${convertToIso3(country)}`}
+                      passHref
+                    >
+                      <GradientButton variant="secondary" className="h-7 text-xs">
+                        View All
+                      </GradientButton>
+                    </Link>
+                  </div>
+                  <div className="space-y-2 max-h-[450px] overflow-y-auto pr-2 border border-border rounded-md p-2">
                     {(() => {
-                      // Calculate status distribution
-                      const statusCounts = companyData.reduce((acc, company) => {
-                        const status = company.Status || "unknown";
-                        acc[status] = (acc[status] || 0) + 1;
+                      // Group plants by owner and calculate total emissions
+                      const companyEmissions = validData.reduce((acc, plant) => {
+                        if (plant.phase_out_year <= currentYear) {
+                          acc[plant.owner] = (acc[plant.owner] || 0) + plant.emissions;
+                        }
                         return acc;
                       }, {} as Record<string, number>);
-                      
-                      // Get total for percentage calculation
-                      const total = Object.values(statusCounts).reduce((a, b) => a + b, 0);
-                      
-                      return (
-                        <div className="space-y-2">
-                          {Object.entries(statusCounts).map(([status, count]) => (
-                            <div key={status}>
-                              <div className="flex justify-between text-xs">
-                                <span className="capitalize">{status}</span>
-                                <span>{count} ({((count / total) * 100).toFixed(1)}%)</span>
-                              </div>
-                              <div className="w-full bg-[#E5E5E5] dark:bg-[#4A4A4A] h-2 rounded-full mt-1">
-                                <div
-                                  className="h-full rounded-full bg-[#2F3A2F]"
-                                  style={{ width: `${(count / total) * 100}%` }}
-                                />
-                              </div>
+
+                      // Sort companies by emissions and take top 10
+                      const topCompanies = Object.entries(companyEmissions)
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 10);
+
+                      return topCompanies.map(([owner, emissions], index) => (
+                        <div key={`${owner}-${index}`} className="flex justify-between items-center py-2 border-b border-border last:border-0">
+                          <div className="flex items-center">
+                            <span className="text-xs font-medium mr-2">{index + 1}.</span>
+                            <div>
+                              <p className="text-xs font-medium truncate max-w-[140px]" title={owner}>
+                                {owner}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {validData.filter(plant => plant.owner === owner && plant.phase_out_year <= currentYear).length} plants
+                              </p>
                             </div>
-                          ))}
+                          </div>
+                          <span className="text-xs font-medium">{emissions.toFixed(1)} Mt</span>
                         </div>
-                      );
+                      ));
                     })()}
                   </div>
-                )}
-                
-                {/* Top Companies Section */}
-                {companyData.length > 0 && (
-                  <div>
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-sm text-muted-foreground">Top Companies by Emissions</p>
-                      <Link 
-                        href={`/company-details?country=${convertToIso3(country)}`}
-                        passHref
-                      >
-                        <GradientButton variant="secondary" className="h-7 text-xs">
-                          View All Companies
-                        </GradientButton>
-                      </Link>
-                    </div>
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 border border-[#E5E5E5] dark:border-[#4A4A4A] rounded-md p-2">
-                      {[...companyData]
-                        .sort((a, b) => (b.Emissions || 0) - (a.Emissions || 0))
-                        .slice(0, 10)
-                        .map((company, index) => (
-                          <div key={`${company.Company_Name}-${index}`} className="flex justify-between items-center py-1 border-b border-[#E5E5E5] dark:border-[#4A4A4A] last:border-0">
-                            <div className="flex items-center">
-                              <span className="text-xs font-medium mr-2">{index + 1}.</span>
-                              <div>
-                                <p className="text-xs font-medium truncate max-w-[140px]" title={company.Company_Name}>
-                                  {company.Company_Name}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground">{company.Status} - {company.Capacity?.toFixed(0)} {company.Capacity_Unit}</p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-medium">{company.Emissions?.toFixed(3) || 0} Mt</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </Card>

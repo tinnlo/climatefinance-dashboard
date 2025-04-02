@@ -22,6 +22,8 @@ interface AuthContextType {
   logout: () => Promise<void>
   isAuthenticated: boolean
   refreshSession: () => Promise<void>
+  sessionExpiredMessage: string | null
+  clearSessionExpiredMessage: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -34,6 +36,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParamsContext()
@@ -66,6 +69,10 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     return false
   }
 
+  const clearSessionExpiredMessage = useCallback(() => {
+    setSessionExpiredMessage(null)
+  }, [])
+
   const refreshSession = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -74,6 +81,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession()
       
       if (session) {
+        clearSessionExpiredMessage()
         // This is an auth check, not a user-initiated login
         const result = await login(session.user.email ?? "", "", true)
         
@@ -89,13 +97,13 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setSessionActive(false)
       }
     } catch (error) {
-      console.error("Error refreshing session:", error)
+      logAuthState('Refresh Session Error', { error })
       setIsAuthenticated(false)
       setSessionActive(false)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [clearSessionExpiredMessage])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -145,12 +153,16 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             setIsAuthenticated(true)
             setSessionActive(true)
             logAuthState('User State Updated', { user: userState })
+            clearSessionExpiredMessage()
           }
         } else if (sessionActive && mounted) {
-          // If localStorage says we're active but we don't have a session,
-          // try to refresh the session
-          logAuthState('Session Mismatch', { sessionActive, hasSession: !!session })
+          // If localStorage says we're active but we don't have a session, IT'S EXPIRED!
+          logAuthState('Session Mismatch - Likely Expired', { sessionActive, hasSession: !!session })
+          setSessionExpiredMessage("Your session has expired. Please log in again.")
           await refreshSession()
+        } else if (mounted) {
+           // No active session in storage and no session from Supabase
+           clearSessionExpiredMessage();
         }
       } catch (error) {
         logAuthState('Initialize Error', error)
@@ -158,6 +170,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
           setUser(null)
           setIsAuthenticated(false)
           setSessionActive(false)
+          clearSessionExpiredMessage()
         }
       } finally {
         if (mounted) {
@@ -221,6 +234,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
                 router.push(returnTo)
               }
             }
+            clearSessionExpiredMessage()
           }
         } catch (error) {
           logAuthState('State Change Error', error)
@@ -233,7 +247,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [router, searchParams, refreshSession])
+  }, [router, searchParams, refreshSession, clearSessionExpiredMessage])
 
   const login = async (email: string, password: string, isAuthCheck = false) => {
     if (typeof window === 'undefined') {
@@ -254,7 +268,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       })
 
       if (error) {
-        console.error("Login error:", error)
+        logAuthState('Login Error', { error: error?.message || error })
         return { success: false, message: error.message }
       }
 
@@ -318,7 +332,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         redirectTo: returnTo || redirectTo 
       }
     } catch (error: any) {
-      console.error("Unexpected login error:", error)
+      logAuthState('Login Error', { error: error?.message || error })
       return { 
         success: false, 
         message: "An unexpected error occurred. Please try again." 
@@ -447,6 +461,8 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         logout,
         isAuthenticated,
         refreshSession,
+        sessionExpiredMessage,
+        clearSessionExpiredMessage,
       }}
     >
       {children}

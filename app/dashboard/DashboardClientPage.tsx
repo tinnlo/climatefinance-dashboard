@@ -145,26 +145,12 @@ export default function DashboardClientPage() {
         h(
           CardHeader,
           null,
-          h(CardTitle, null, "Power Plant Phase-Out Map"),
+          h(CardTitle, null, "Power Plant Phase-Out Pipeline"),
           h(CardDescription, null, `Visualizing phase-out schedules for ${COUNTRY_NAMES[selectedCountry]}`)
         ),
         h(
           CardContent,
           null,
-          h(
-            "div",
-            { className: "flex gap-4 mb-4" },
-            h(
-              Select,
-              { onValueChange: setSelectedOrder, defaultValue: selectedOrder },
-              h(SelectTrigger, { className: "w-[280px]" }, h(SelectValue, { placeholder: "Select an order" })),
-              h(
-                SelectContent,
-                null,
-                orders.map((order) => h(SelectItem, { key: order.value, value: order.value }, order.label))
-              )
-            )
-          ),
           isLoading
             ? h(
                 "div",
@@ -178,56 +164,18 @@ export default function DashboardClientPage() {
                   h("span", { className: "text-muted-foreground text-lg" }, "No data available for this country and scenario.")
                 )
               : mapData
-                ? h(PhaseOutMap, { data: mapData, country: selectedCountry })
+                ? h(PhaseOutMap, { 
+                    data: mapData, 
+                    country: selectedCountry, 
+                    chartData: phaseOutData,
+                    selectedOrder: selectedOrder,
+                    onOrderChange: setSelectedOrder 
+                  })
                 : h(
                     "div",
                     { className: "flex justify-center items-center h-[600px] text-muted-foreground" },
                     "No data available for this country and scenario."
                   )
-        )
-      ),
-      // Phase-Out Chart
-      h(
-        Card,
-        { className: "dark:bg-[#2F3A2F]" },
-        h(
-          CardHeader,
-          { className: "relative" },
-          h(CardTitle, { className: "flex items-center justify-between" }, 
-            "Phase-Out Pipeline",
-            h(Dialog, null,
-              h(DialogTrigger, { asChild: true },
-                h(Button, { 
-                  variant: "ghost", 
-                  size: "icon", 
-                  className: "h-8 w-8" 
-                }, 
-                  h(Info, { className: "h-4 w-4" }),
-                  h("span", { className: "sr-only" }, "Figure Notes")
-                )
-              ),
-              h(DialogContent, { className: "max-w-3xl max-h-[80vh] overflow-y-auto" },
-                h(DialogHeader, null,
-                  h(DialogTitle, null, "Figure Notes"),
-                  h(DialogDescription, { className: "text-sm leading-relaxed whitespace-pre-line" }, 
-                    PHASE_OUT_NOTES
-                  )
-                )
-              )
-            )
-          ),
-          h(CardDescription, null, `Annual emissions reduction and cumulative avoided emissions for ${COUNTRY_NAMES[selectedCountry]}`)
-        ),
-        h(
-          CardContent,
-          null,
-          isLoading
-            ? h(
-                "div",
-                { className: "flex justify-center items-center h-[400px]" },
-                h(Loader2, { className: "h-8 w-8 animate-spin" })
-              )
-            : h(PhaseOutChart, { country: selectedCountry.toUpperCase(), data: phaseOutData })
         )
       )
     )

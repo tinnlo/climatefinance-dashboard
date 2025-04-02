@@ -112,7 +112,7 @@ export default function LandingPage() {
       </div>
       
       {/* Footer */}
-      <footer className="bg-gray-100 py-6">
+      <footer className="bg-white py-6">
         <div className="container mx-auto px-6 flex justify-between items-center">
           <p className="text-gray-700">Forward Global Institute</p>
           <Link href="https://www.linkedin.com/company/forwardanalytics/posts/?feedView=all" target="_blank" rel="noopener noreferrer">
