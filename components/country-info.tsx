@@ -7,6 +7,7 @@ import { convertToIso3 } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Info, ChevronDown } from "lucide-react"
+import { InfoDialog } from "@/components/ui/info-dialog"
 import {
   Dialog,
   DialogContent,
@@ -162,22 +163,22 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-4xl font-semibold">{data.Country.toUpperCase()}</CardTitle>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info className="h-4 w-4" />
-                <span className="sr-only">Country Profile Information</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>About Country Profile Data</DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                {COUNTRY_PROFILE_DESCRIPTION}
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
+          <InfoDialog title="About Country Profile Data">
+            <p>
+              The country profile infobox displays comprehensive information about each country's emissions and climate commitments using data from several authoritative sources:
+            </p>
+            
+            <ol className="list-decimal pl-5 my-2 space-y-1">
+              <li>The emissions data comes from the <strong>Emissions Database for Global Atmospheric Research (EDGAR)</strong>, which provides current greenhouse gas emissions and tracks year-over-year changes.</li>
+              <li>Climate target information is sourced from the <strong>Net Zero Tracker</strong>, showing each country's emission reduction goals and their implementation status.</li>
+              <li>The <strong>Nationally Determined Contributions (NDC) Tracker</strong> from ClimateWatch provides details about countries' formal commitments under the Paris Agreement.</li>
+              <li>Economic context is added through <strong>GDP data</strong>, showing each country's economic scale and its share of the global economy.</li>
+            </ol>
+            
+            <p className="mt-4">
+              Together, these data sources give users a complete snapshot of each country's current emissions, climate ambitions, and economic context, helping them understand both the challenges and opportunities in addressing climate change.
+            </p>
+          </InfoDialog>
         </div>
         <div className="flex justify-between items-center mt-2">
           <div className="flex gap-2">

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Download, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
+import { InfoDialog } from "@/components/ui/info-dialog"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +22,36 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-const FIGURE_NOTES = "This figure shows the analysis of costs and benefits related to climate change mitigation. The benefits are divided into three categories: Benefits from Air Pollution (health benefits), Benefits to the Country (economic benefits within the country), and Benefits to the Rest of the World (global climate benefits). The Social Cost of Carbon (SCC) represents the monetary value of damages from emitting one ton of carbon dioxide, with different price scenarios (80, 190, or 1056 USD per ton). Data is shown for different time horizons (2035 or 2050)."
+// Format notes with proper styling
+const FormattedNotes = () => (
+  <div className="prose prose-sm dark:prose-invert max-w-none">
+    <p>
+      This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Network for Greening the Financial System (NGFS)</a>.
+    </p>
+    
+    <h3 className="text-lg font-semibold mt-4 mb-2">Transition investment needs</h3>
+    <p>are categorized into three distinct components:</p>
+    
+    <ol className="list-decimal pl-5 my-2 space-y-1">
+      <li><strong>Phase-out costs</strong>: The costs associated with the early retirement of fossil fuel power plants, ahead of their initially planned lifetimes.</li>
+      <li><strong>Investments into renewables</strong>: The investments required to deploy renewable power generation capacity to replace the phased-out fossil fuel capacity.</li>
+      <li><strong>Investments into infrastructure</strong>: The investments required to expanding grid infrastructure, developing electricity storage capacity, and deploying other supporting technologies necessary to integrate renewable generation.</li>
+    </ol>
+    
+    <h3 className="text-lg font-semibold mt-4 mb-2">The reduced economic damages</h3>
+    <p>are categorized into three distinct components:</p>
+    
+    <ol className="list-decimal pl-5 my-2 space-y-1">
+      <li><strong>Domestic damage reduction</strong>: Lower economic losses within the country, stemming from avoided climate-related damages, productivity losses, and adaptation costs.</li>
+      <li><strong>Global damage reduction</strong>: Lower economic losses to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs.</li>
+      <li><strong>Reduced air pollution damages</strong>: Economic benefits arising from improved air quality and associated health and productivity gains.</li>
+    </ol>
+    
+    <p className="mt-4">
+      The <strong>Social Cost of Carbon (SCC)</strong> represents the estimated monetary value of economic damages caused by emitting one metric ton of carbon dioxide. Three SCC values are considered—<strong>80, 190, and 1,056 USD per ton</strong>—reflecting different damage cost assumptions. Results are presented for two key time horizons: <strong>2035</strong> and <strong>2050</strong>, and are discounted to present value terms.
+    </p>
+  </div>
+);
 
 // Colors for the pie charts
 const COLORS = {
@@ -370,22 +401,33 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
       <CardHeader className="flex-none">
         <div className="flex items-center justify-between">
           <CardTitle>System Cost and Benefits</CardTitle>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info className="h-4 w-4" />
-                <span className="sr-only">Figure Notes</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Figure Notes</DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                {FIGURE_NOTES}
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
+          <InfoDialog title="Figure Notes">
+            <p>
+              This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-primary">Network for Greening the Financial System (NGFS)</a>.
+            </p>
+            
+            <h3 className="text-lg font-semibold mt-4 mb-2">Transition investment needs</h3>
+            <p>are categorized into three distinct components:</p>
+            
+            <ol className="list-decimal pl-5 my-2 space-y-1">
+              <li><strong>Phase-out costs</strong>: The costs associated with the early retirement of fossil fuel power plants, ahead of their initially planned lifetimes.</li>
+              <li><strong>Investments into renewables</strong>: The investments required to deploy renewable power generation capacity to replace the phased-out fossil fuel capacity.</li>
+              <li><strong>Investments into infrastructure</strong>: The investments required to expanding grid infrastructure, developing electricity storage capacity, and deploying other supporting technologies necessary to integrate renewable generation.</li>
+            </ol>
+            
+            <h3 className="text-lg font-semibold mt-4 mb-2">The reduced economic damages</h3>
+            <p>are categorized into three distinct components:</p>
+            
+            <ol className="list-decimal pl-5 my-2 space-y-1">
+              <li><strong>Domestic damage reduction</strong>: Lower economic losses within the country, stemming from avoided climate-related damages, productivity losses, and adaptation costs.</li>
+              <li><strong>Global damage reduction</strong>: Lower economic losses to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs.</li>
+              <li><strong>Reduced air pollution damages</strong>: Economic benefits arising from improved air quality and associated health and productivity gains.</li>
+            </ol>
+            
+            <p className="mt-4">
+              The <strong>Social Cost of Carbon (SCC)</strong> represents the estimated monetary value of economic damages caused by emitting one metric ton of carbon dioxide. Three SCC values are considered—<strong>80, 190, and 1,056 USD per ton</strong>—reflecting different damage cost assumptions. Results are presented for two key time horizons: <strong>2035</strong> and <strong>2050</strong>, and are discounted to present value terms.
+            </p>
+          </InfoDialog>
         </div>
         <CardDescription>
           Comparison of total costs and benefits - {countryName}

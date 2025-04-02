@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { convertToIso3 } from "@/lib/utils"
+import { InfoDialog } from "@/components/ui/info-dialog"
 import {
   Dialog,
   DialogContent,
@@ -310,24 +311,19 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     return (
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[650px]", className)}>
         <CardHeader className="flex-none pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle>Aggregated Variables Over Time</CardTitle>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Info className="h-4 w-4" />
-                  <span className="sr-only">Figure Notes</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Figure Notes</DialogTitle>
-                </DialogHeader>
-                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+            <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
+              <Button variant="outline" onClick={handleDownload} size="sm" className="h-8">
+                <Download className="mr-2 h-4 w-4" />
+                Download Data
+              </Button>
+              <InfoDialog>
+                <p className="whitespace-pre-line">
                   {FIGURE_NOTES}
-                </DialogDescription>
-              </DialogContent>
-            </Dialog>
+                </p>
+              </InfoDialog>
+            </div>
           </div>
           <CardDescription>Loading data for {COUNTRY_NAMES[country]}...</CardDescription>
         </CardHeader>
@@ -345,24 +341,19 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
     return (
       <Card className={cn("dark:bg-[#2F3A2F] flex flex-col h-[650px]", className)}>
         <CardHeader className="flex-none pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle>Aggregated Variables Over Time</CardTitle>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Info className="h-4 w-4" />
-                  <span className="sr-only">Figure Notes</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Figure Notes</DialogTitle>
-                </DialogHeader>
-                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
+            <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
+              <Button variant="outline" onClick={handleDownload} size="sm" className="h-8">
+                <Download className="mr-2 h-4 w-4" />
+                Download Data
+              </Button>
+              <InfoDialog>
+                <p className="whitespace-pre-line">
                   {FIGURE_NOTES}
-                </DialogDescription>
-              </DialogContent>
-            </Dialog>
+                </p>
+              </InfoDialog>
+            </div>
           </div>
           <CardDescription>Error loading data for {COUNTRY_NAMES[country] || country}</CardDescription>
         </CardHeader>
@@ -390,22 +381,11 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
               <Download className="mr-2 h-4 w-4" />
               Download Data
             </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                  <Info className="h-4 w-4" />
-                  <span className="sr-only">Figure Notes</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Figure Notes</DialogTitle>
-                </DialogHeader>
-                <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                  {FIGURE_NOTES}
-                </DialogDescription>
-              </DialogContent>
-            </Dialog>
+            <InfoDialog>
+              <p className="whitespace-pre-line">
+                {FIGURE_NOTES}
+              </p>
+            </InfoDialog>
           </div>
         </div>
         <CardDescription>Cost and benefit components from 2025 to 2050 - {COUNTRY_NAMES[country]} (SCC 190 USD and NGFS Scenarios)</CardDescription>

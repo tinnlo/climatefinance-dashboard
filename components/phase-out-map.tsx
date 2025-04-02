@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PhaseOutChart, ChartData } from "@/components/phase-out-chart"
+import { InfoDialog } from "@/components/ui/info-dialog"
 
 interface PhaseOutData {
   year: number
@@ -1246,22 +1247,11 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                     Reset View
                   </Button>
                   
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="bg-background/80 backdrop-blur-sm">
-                        <Info className="h-4 w-4 mr-1" />
-                        Info
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Figure Notes</DialogTitle>
-                      </DialogHeader>
-                      <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                        {FIGURE_NOTES}
-                      </DialogDescription>
-                    </DialogContent>
-                  </Dialog>
+                  <InfoDialog title="Figure Notes">
+                    <p className="whitespace-pre-line">
+                      {FIGURE_NOTES}
+                    </p>
+                  </InfoDialog>
                 </div>
                 
                 {/* SVG Map */}
@@ -1310,21 +1300,11 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
           <Card className="h-full p-3 sm:p-4 lg:p-5 bg-background dark:bg-[#2F3A2F] border-border overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">Statistics Summary</h3>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Info className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Statistics Summary</DialogTitle>
-                  </DialogHeader>
-                  <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                    {COMPANY_STATS_NOTES}
-                  </DialogDescription>
-                </DialogContent>
-              </Dialog>
+              <InfoDialog title="Statistics Summary">
+                <p className="whitespace-pre-line">
+                  {COMPANY_STATS_NOTES}
+                </p>
+              </InfoDialog>
             </div>
 
             {isLoadingCompanyData ? (

@@ -8,6 +8,7 @@ import { COUNTRY_NAMES } from "@/lib/constants"
 import { useTheme } from "next-themes"
 import { Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { InfoDialog } from "@/components/ui/info-dialog"
 import {
   Dialog,
   DialogContent,
@@ -157,22 +158,11 @@ export function ClimateFinanceChart({ className, country = "in" }: { className?:
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           Annual Climate Finance Needs
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info className="h-4 w-4" />
-                <span className="sr-only">Figure Notes</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Figure Notes</DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="text-sm leading-relaxed whitespace-pre-line">
-                {FIGURE_NOTES}
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
+          <InfoDialog>
+            <p>
+              {FIGURE_NOTES}
+            </p>
+          </InfoDialog>
         </CardTitle>
         <CardDescription>Fiscal Cost (%) 2025-2035 - {COUNTRY_NAMES[country]}</CardDescription>
       </CardHeader>

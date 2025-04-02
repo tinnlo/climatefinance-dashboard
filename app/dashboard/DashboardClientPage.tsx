@@ -1,7 +1,7 @@
 "use client"
 
 import { createElement as h, useState, useEffect } from "react"
-import { ClimateFinanceChart } from "@/components/climate-finance-chart"
+import { AlignmentChart } from "@/components/alignment-chart"
 import { SystemCostBenefits } from "@/components/system-cost-benefits"
 import { CountryInfo } from "@/components/country-info"
 import { Header } from "@/components/header"
@@ -216,7 +216,7 @@ export default function DashboardClientPage() {
           h(
             "div",
             { className: "lg:col-span-4" },
-            h(SystemCostBenefits, { className: "h-full", country: selectedCountry }),
+            h(AlignmentChart, { className: "h-full", country: selectedCountry }),
           ),
         ),
         h(
@@ -225,7 +225,7 @@ export default function DashboardClientPage() {
           h(
             "div",
             { className: "lg:col-span-4 h-[650px]" },
-            h(ClimateFinanceChart, { className: "h-full", country: selectedCountry }),
+            h(SystemCostBenefits, { className: "h-full", country: selectedCountry }),
           ),
           h(
             "div",
