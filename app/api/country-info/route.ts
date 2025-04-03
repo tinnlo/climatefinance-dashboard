@@ -32,6 +32,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Country not found" }, { status: 404 })
     }
 
+    // If Asset_Amount_operating is a regular number and not an object with technology breakdown
+    // Convert it to maintain backward compatibility
+    if (countryData.Asset_Amount_operating && typeof countryData.Asset_Amount_operating === 'number') {
+      countryData.Asset_Amount_operating = {
+        total_assets: countryData.Asset_Amount_operating,
+        technologies: []
+      };
+    }
+
     // Transform the data to handle sectors properly
     if (countryData) {
       // If we have a single Sector field but no Sectors array
@@ -64,7 +73,7 @@ export async function GET(request: Request) {
       else if (countryData.Sectors && !countryData.SectorData) {
         const sectorData: {
           [key: string]: {
-            Asset_Amount_operating?: number;
+            Asset_Amount_operating?: any;
             Asset_Amount_planned?: number;
             Capacity_operating?: number;
             Capacity_planned?: number;

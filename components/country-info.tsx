@@ -38,6 +38,16 @@ const COUNTRY_PROFILE_DESCRIPTION = `The country profile infobox displays compre
 
 Together, these data sources give users a complete snapshot of each country's current emissions, climate ambitions, and economic context, helping them understand both the challenges and opportunities in addressing climate change.`
 
+interface AssetTechnology {
+  technology: string
+  asset_count: number
+}
+
+interface AssetAmountOperating {
+  total_assets: number
+  technologies: AssetTechnology[]
+}
+
 interface CountryData {
   Country_ISO3: string
   Country: string
@@ -65,13 +75,28 @@ interface CountryData {
   Sectors?: string[]
   Sector?: string
   Asset_Amount?: number
-  Asset_Amount_operating?: number
+  Asset_Amount_operating?: number | AssetAmountOperating
   Asset_Amount_planned?: number
   Capacity_operating?: number
   Emissions_operating?: number
+  Activity_operating?: number
   Capacity_planned?: number
   Emissions_planned?: number
 }
+
+// Color mapping for different technology types
+const technologyColors: Record<string, string> = {
+  "Solar": "#FFD700",
+  "Wind": "#87CEEB",
+  "Hydropower": "#1E90FF",
+  "Bioenergy": "#8FBC8F",
+  "Nuclear": "#9932CC",
+  "Coal": "#696969",
+  "Natural Gas": "#B8860B",
+  "Oil": "#A52A2A",
+  // Default color for any other technology
+  "default": "#CCCCCC"
+};
 
 export function CountryInfo({ country = "in", className }: { country?: string; className?: string }) {
   const [data, setData] = useState<CountryData | null>(null)
@@ -127,6 +152,62 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
   }
 
   const coverageData = getCoverageData()
+
+  // Function to render the stacked bar chart for technology distribution
+  const renderAssetDistribution = () => {
+    const assetData = coverageData.Asset_Amount_operating;
+    if (!assetData || typeof assetData === 'number') return null;
+    
+    // Sort technologies by asset_count descending to make the chart more readable
+    const sortedTechnologies = [...assetData.technologies]
+      .sort((a, b) => b.asset_count - a.asset_count)
+      .map(tech => {
+        // Pre-calculate the percentage for each technology
+        const percentage = (tech.asset_count / assetData.total_assets) * 100;
+        return {
+          ...tech,
+          percentage,
+          tooltipText: `${tech.technology}: ${tech.asset_count} (${percentage.toFixed(1)}%)`
+        };
+      });
+    
+    return (
+      <div className="space-y-2 mt-2">
+        <p className="text-sm text-muted-foreground">Technology Distribution</p>
+        
+        <div className="flex h-[5px] w-full rounded-sm overflow-hidden">
+          {sortedTechnologies.map((tech) => {
+            // We need to wrap each segment in a div that can show a tooltip
+            return (
+              <div 
+                key={tech.technology}
+                className="relative h-full"
+                style={{ width: `${tech.percentage}%` }}
+                title={tech.tooltipText}
+              >
+                <div
+                  className="absolute inset-0 h-full"
+                  style={{ backgroundColor: technologyColors[tech.technology] || technologyColors.default }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="flex flex-wrap gap-2 text-xs">
+          {sortedTechnologies.map((tech) => (
+            <div key={tech.technology} className="flex items-center gap-1">
+              <div 
+                className="w-3 h-3 rounded-sm" 
+                style={{ backgroundColor: technologyColors[tech.technology] || technologyColors.default }}
+              />
+              <span>{tech.technology}: {tech.asset_count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -289,7 +370,9 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Asset Coverage</p>
                     <p className="text-xl font-medium">
-                      {coverageData.Asset_Amount_operating.toLocaleString()} assets
+                      {typeof coverageData.Asset_Amount_operating === 'number' 
+                        ? coverageData.Asset_Amount_operating.toLocaleString() 
+                        : coverageData.Asset_Amount_operating.total_assets.toLocaleString()} assets
                     </p>
                   </div>
                 )}
@@ -310,6 +393,11 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                   </div>
                 )}
               </div>
+              
+              {/* Technology distribution bar chart placed outside the grid to use full width */}
+              {coverageData?.Asset_Amount_operating !== undefined && 
+               typeof coverageData.Asset_Amount_operating !== 'number' && 
+               renderAssetDistribution()}
             </div>
           )}
         </div>
