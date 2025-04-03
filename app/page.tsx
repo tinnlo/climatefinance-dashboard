@@ -85,23 +85,12 @@ export default function LandingPage() {
         <div className="container mx-auto px-6 md:px-12">
           <h2 className="text-3xl md:text-4xl font-bold text-black text-center mb-16">Strategic Partners and Funders</h2>
           
-          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24">
+          <div className="flex justify-center items-center">
             {/* Imperial Logo */}
-            <div className="w-40 md:w-48">
+            <div className="w-48 md:w-64">
               <Image
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Imperial_College_London_new_logo-uGMnN8NtfiHO2myAq5TKMye8E23BH4.png"
                 alt="Imperial College London"
-                width={200}
-                height={80}
-                className="w-full h-auto"
-              />
-            </div>
-            
-            {/* UNIDO Logo */}
-            <div className="w-40 md:w-48">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/UNIDO-xaoW3OMw1HdVzxbLUe8OSsp1rq6eF2.png"
-                alt="UNIDO"
                 width={200}
                 height={80}
                 className="w-full h-auto"
