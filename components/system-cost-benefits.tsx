@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import Link from "next/link"
 import { InfoDialog } from "@/components/ui/info-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -61,9 +62,9 @@ const COLORS = {
 
 // SCC options for the dropdown
 const sccOptions = [
-  { value: "80", label: "SCC 80 USD" },
-  { value: "190", label: "SCC 190 USD" },
-  { value: "1056", label: "SCC 1056 USD" },
+  { value: "80", label: "80 USD" },
+  { value: "190", label: "190 USD" },
+  { value: "1056", label: "1056 USD" },
 ]
 
 // Time horizon options for the dropdown
@@ -89,13 +90,23 @@ const COUNTRY_CODE_MAP: { [key: string]: string } = {
 };
 
 export function SystemCostBenefits({ className, country = "IND" }: { className?: string; country?: string }) {
-  const [data, setData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { theme } = useTheme()
   const [selectedSCC, setSelectedSCC] = useState("80")
   const [selectedTimeHorizon, setSelectedTimeHorizon] = useState("2035")
   const { isAuthenticated } = useAuth()
+  
+  // New state structure to store all SCC data
+  const [allData, setAllData] = useState<{
+    [scc: string]: any
+  }>({})
+  
+  // Computed data based on selected SCC
+  const data = allData[selectedSCC]
+  
+  // New state for the tabs
+  const [investmentTab, setInvestmentTab] = useState("cost-breakdown")
 
   // Convert country code to lowercase for COUNTRY_NAMES lookup
   const countryLower = country.toLowerCase();
@@ -104,53 +115,83 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
   const countryName = COUNTRY_NAMES[countryLower] || country;
 
   const router = useRouter()
+  
+  // Function to generate finance source data (2/3 private, 1/3 public)
+  const getFinanceSourceData = (totalCost: number) => {
+    const privateFinance = totalCost * (2/3);
+    const publicFinance = totalCost * (1/3);
+    
+    return [
+      {
+        name: "Privately Financed",
+        value: privateFinance,
+        color: "#ffa600",
+        type: "cost",
+        totalCost: totalCost,
+      },
+      {
+        name: "Publicly Financed",
+        value: publicFinance,
+        color: "#ff7c43",
+        type: "cost",
+        totalCost: totalCost,
+      }
+    ];
+  };
 
+  // Function to process data from API
+  const processData = (fetchedData: any) => {
+    if (fetchedData.error) {
+      throw new Error(fetchedData.error)
+    }
+    
+    // Ensure proper numeric formatting for all benefit values
+    return {
+      ...fetchedData,
+      airPollutionBenefit: Number(fetchedData.airPollutionBenefit) || 0,
+      countryBenefit: Number(fetchedData.countryBenefit) || 0,
+      worldBenefit: Number(fetchedData.worldBenefit) || 0,
+      totalBenefit: Number(fetchedData.totalBenefit) || 0,
+    }
+  }
+
+  // Load data for all SCC values in parallel
   useEffect(() => {
-    setIsLoading(true)
-    setError(null)
+    const loadAllSCCData = async () => {
+      setIsLoading(true)
+      setError(null)
 
-    // Determine the correct API country code
-    // If country is a 2-letter code, map it to 3-letter code, otherwise use as-is
-    const apiCountryCode = country.length === 2 ? 
-      COUNTRY_CODE_MAP[country.toLowerCase()] : 
-      country;
+      // Determine the correct API country code
+      const apiCountryCode = country.length === 2 ? 
+        COUNTRY_CODE_MAP[country.toLowerCase()] : 
+        country;
 
-    console.log(`Fetching data for: country=${apiCountryCode}, scc=${selectedSCC}, timeHorizon=${selectedTimeHorizon}`)
-
-    fetch(`/api/system-cost-benefits?country=${apiCountryCode}&scc=${selectedSCC}&timeHorizon=${selectedTimeHorizon}`)
-      .then((res) => res.json())
-      .then((fetchedData) => {
-        if (fetchedData.error) {
-          throw new Error(fetchedData.error)
-        }
+      try {
+        const fetchPromises = sccOptions.map(option => 
+          fetch(`/api/system-cost-benefits?country=${apiCountryCode}&scc=${option.value}&timeHorizon=${selectedTimeHorizon}`)
+            .then(res => res.json())
+            .then(data => processData(data))
+        );
         
-        console.log("Raw data from API:", JSON.stringify(fetchedData, null, 2))
+        const results = await Promise.all(fetchPromises);
         
-        // Ensure proper numeric formatting for all benefit values
-        // This is particularly important for small values that might be coming as strings
-        const processedData = {
-          ...fetchedData,
-          airPollutionBenefit: Number(fetchedData.airPollutionBenefit) || 0,
-          countryBenefit: Number(fetchedData.countryBenefit) || 0,
-          worldBenefit: Number(fetchedData.worldBenefit) || 0,
-          totalBenefit: Number(fetchedData.totalBenefit) || 0,
-        }
+        // Create object with SCC as keys
+        const newAllData: {[key: string]: any} = {};
+        sccOptions.forEach((option, index) => {
+          newAllData[option.value] = results[index];
+        });
         
-        console.log("Processed benefit values (after Number conversion):", {
-          airPollutionBenefit: processedData.airPollutionBenefit,
-          countryBenefit: processedData.countryBenefit,
-          worldBenefit: processedData.worldBenefit,
-          totalBenefit: processedData.totalBenefit
-        })
-        
-        setData(processedData)
-      })
-      .catch((err) => {
-        console.error("Error fetching system cost benefits data:", err)
-        setError(err.message || "Failed to load data")
-      })
-      .finally(() => setIsLoading(false))
-  }, [country, selectedSCC, selectedTimeHorizon])
+        setAllData(newAllData);
+      } catch (err: any) {
+        console.error("Error fetching system cost benefits data:", err);
+        setError(err.message || "Failed to load data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadAllSCCData();
+  }, [country, selectedTimeHorizon]);
 
   const handleDownload = () => {
     // Determine the correct API country code
@@ -172,10 +213,10 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
     return (
       <Card className="dark:bg-[#2F3A2F]">
         <CardHeader>
-          <CardTitle>System Cost and Benefits</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-bold">Investment Needs & Reduced Damages</CardTitle>
           <CardDescription>Loading data for {countryName}...</CardDescription>
         </CardHeader>
-        <CardContent className="h-[400px] flex items-center justify-center">
+        <CardContent className="h-[500px] flex items-center justify-center">
           <div className="flex items-center gap-2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span>Loading...</span>
@@ -189,12 +230,12 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
     return (
       <Card className="dark:bg-[#2F3A2F]">
         <CardHeader>
-          <CardTitle>System Cost and Benefits</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-bold">Investment Needs & Reduced Damages</CardTitle>
           <CardDescription>
             Data temporarily unavailable for {countryName}. Please try again later.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
+        <CardContent className="h-[500px] flex items-center justify-center text-muted-foreground">
           <p>We're working on gathering this data. Please check back soon.</p>
         </CardContent>
       </Card>
@@ -269,121 +310,103 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
     )
   }
 
-  const costsData = data.costs.map((item: any) => ({
-    ...item,
-    type: "cost",
-    totalCost: data.totalCost,
-  }))
-
-  // Create benefits data arrays with proper handling for small or zero values
-  const benefitsData = [];
-  const totalBenefit = data.totalBenefit || 0.000001; // Prevent division by zero
-
-  // For very small values, we need to scale them relative to each other to make the chart visually meaningful
-  // while preserving the actual values for tooltips
-  const airPollutionValue = data.airPollutionBenefit;
-  const countryValue = data.countryBenefit;
-  const worldValue = data.worldBenefit;
-
-  console.log("Raw benefit values from API:", {
-    airPollution: airPollutionValue,
-    country: countryValue,
-    world: worldValue,
-    total: data.totalBenefit
-  });
-
-  // FOR TESTING: Set demo values to ensure visualization works
-  // REMOVE THIS FOR PRODUCTION OR ONCE API VALUES ARE CONFIRMED
-  const useTestValues = false; // Using real API data now
-  
-  // These test values are kept for reference but won't be used (useTestValues = false)
-  const testAirPollutionValue = 0.42;
-  const testCountryValue = 0.67;
-  const testWorldValue = 0.31;
-  
-  // Use either test values or API values
-  const displayAirPollutionValue = useTestValues ? testAirPollutionValue : airPollutionValue;
-  const displayCountryValue = useTestValues ? testCountryValue : countryValue;
-  const displayWorldValue = useTestValues ? testWorldValue : worldValue;
-  const displayTotalBenefit = useTestValues ? 
-    (testAirPollutionValue + testCountryValue + testWorldValue) : 
-    data.totalBenefit;
-
-  // Check if all values are extremely small or zero
-  const allSmallOrZero = displayAirPollutionValue < 0.001 && displayCountryValue < 0.001 && displayWorldValue < 0.001;
-  
-  // Count how many segments have non-zero values (even if very small)
-  const nonZeroSegments = [displayAirPollutionValue, displayCountryValue, displayWorldValue]
-    .filter(v => v > 0).length;
-
-  // Determine if we should use billions instead of trillions for display
-  const smallerTotal = Math.min(data.totalCost, data.totalBenefit);
-  const useBillions = smallerTotal < 0.1;
-  
-  // Create a scaling factor for very small values to make their proportions visible
-  // This ensures we can see the relative sizes between segments
-  const getChartValue = (value: number): number => {
-    // If all values are zero, create equal segments
-    if (nonZeroSegments === 0) {
-      return 1;
-    } 
+  // Function to prepare chart data for current SCC
+  const prepareChartData = (currentData: any) => {
+    if (!currentData) return { costsData: [], benefitsData: [], totalBenefitDisplay: "$0.0" };
     
-    // For very small positive values
-    if (value > 0 && value < 0.001) {
-      // Use logarithmic scaling for very small values to make differences more visible
-      // This will ensure tiny values are still shown with visible differences
-      return 0.5 + Math.log10(value * 10000 + 1) * 0.2;
-    }
+    const costsData = currentData.costs.map((item: any) => ({
+      ...item,
+      type: "cost",
+      totalCost: currentData.totalCost,
+    }));
+
+    // Create benefits data arrays with proper handling for small or zero values
+    const benefitsData = [];
+    const totalBenefit = currentData.totalBenefit || 0.000001; // Prevent division by zero
+
+    // For very small values, we need to scale them relative to each other
+    const airPollutionValue = currentData.airPollutionBenefit;
+    const countryValue = currentData.countryBenefit;
+    const worldValue = currentData.worldBenefit;
     
-    // For zero values when others are non-zero, make them very small but visible
-    if (value <= 0 && nonZeroSegments > 0) {
-      return 0.05;
-    }
+    // Use actual API values
+    const displayAirPollutionValue = airPollutionValue;
+    const displayCountryValue = countryValue;
+    const displayWorldValue = worldValue;
+    const displayTotalBenefit = currentData.totalBenefit;
+
+    // Count how many segments have non-zero values
+    const nonZeroSegments = [displayAirPollutionValue, displayCountryValue, displayWorldValue]
+      .filter(v => v > 0).length;
+
+    // Determine if we should use billions instead of trillions for display
+    const smallerTotal = Math.min(currentData.totalCost, currentData.totalBenefit);
+    const useBillions = smallerTotal < 0.1;
     
-    // For normal sized values, use the actual value but ensure a minimum size
-    return Math.max(value, 0.1);
-  };
+    // Create a scaling factor for very small values to make their proportions visible
+    const getChartValue = (value: number): number => {
+      // If all values are zero, create equal segments
+      if (nonZeroSegments === 0) {
+        return 1;
+      } 
+      
+      // For very small positive values
+      if (value > 0 && value < 0.001) {
+        // Use logarithmic scaling for very small values to make differences more visible
+        return 0.5 + Math.log10(value * 10000 + 1) * 0.2;
+      }
+      
+      // For zero values when others are non-zero, make them very small but visible
+      if (value <= 0 && nonZeroSegments > 0) {
+        return 0.05;
+      }
+      
+      // For normal sized values, use the actual value but ensure a minimum size
+      return Math.max(value, 0.1);
+    };
 
-  // Add the three benefit categories with properly scaled values
-  benefitsData.push({
-    name: "Benefits from Air Pollution",
-    value: getChartValue(displayAirPollutionValue), // Scaled value for chart display
-    color: COLORS.benefits[0],
-    type: "benefit",
-    totalBenefit: displayTotalBenefit,
-    actualValue: displayAirPollutionValue, // Store actual value for tooltip
-  });
+    // Add the three benefit categories with properly scaled values
+    benefitsData.push({
+      name: "Reduced Air Pollution Damages",
+      value: getChartValue(displayAirPollutionValue),
+      color: COLORS.benefits[0],
+      type: "benefit",
+      totalBenefit: displayTotalBenefit,
+      actualValue: displayAirPollutionValue,
+    });
 
-  benefitsData.push({
-    name: "Benefits to the Country",
-    value: getChartValue(displayCountryValue),
-    color: COLORS.benefits[1],
-    type: "benefit",
-    totalBenefit: displayTotalBenefit,
-    actualValue: displayCountryValue,
-  });
+    benefitsData.push({
+      name: "Domestic Damage Reduction",
+      value: getChartValue(displayCountryValue),
+      color: COLORS.benefits[1],
+      type: "benefit",
+      totalBenefit: displayTotalBenefit,
+      actualValue: displayCountryValue,
+    });
 
-  benefitsData.push({
-    name: "Benefits to the Rest of the World",
-    value: getChartValue(displayWorldValue),
-    color: COLORS.benefits[2],
-    type: "benefit",
-    totalBenefit: displayTotalBenefit,
-    actualValue: displayWorldValue,
-  });
+    benefitsData.push({
+      name: "Global Damage Reduction",
+      value: getChartValue(displayWorldValue),
+      color: COLORS.benefits[2],
+      type: "benefit",
+      totalBenefit: displayTotalBenefit,
+      actualValue: displayWorldValue,
+    });
 
-  console.log("Chart values after scaling:", benefitsData.map(d => ({ name: d.name, value: d.value })));
-
-  // Format the total benefit display - show more decimal places for small values
-  const totalBenefitDisplay = useTestValues ? 
-    `$${displayTotalBenefit.toFixed(1)}T` :
-    (data.totalBenefit > 0 ? 
-      (data.totalBenefit >= 0.1 ? 
-        `$${data.totalBenefit.toFixed(1)}T` : 
-        data.totalBenefit >= 0.001 ?
-        `$${(data.totalBenefit * 1000).toFixed(1)}B` :
-        `$${(data.totalBenefit * 1000).toFixed(3)}B`) : 
+    // Format the total benefit display
+    const totalBenefitDisplay = (currentData.totalBenefit > 0 ? 
+      (currentData.totalBenefit >= 0.1 ? 
+        `$${currentData.totalBenefit.toFixed(1)}T` : 
+        currentData.totalBenefit >= 0.001 ?
+        `$${(currentData.totalBenefit * 1000).toFixed(1)}B` :
+        `$${(currentData.totalBenefit * 1000).toFixed(3)}B`) : 
       "$0.0B");
+
+    return { costsData, benefitsData, totalBenefitDisplay, useBillions };
+  }
+
+  // Process chart data once for current selection
+  const { costsData, benefitsData, totalBenefitDisplay, useBillions } = prepareChartData(data);
 
   const formatValue = (value: number) => {
     if (useBillions) {
@@ -400,7 +423,7 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
     <Card className={cn("flex flex-col h-full dark:bg-[#2F3A2F]", className)}>
       <CardHeader className="flex-none">
         <div className="flex items-center justify-between">
-          <CardTitle>System Cost and Benefits</CardTitle>
+          <CardTitle className="text-xl md:text-2xl font-bold">Investment Needs & Reduced Damages</CardTitle>
           <InfoDialog title="Figure Notes">
             <p>
               This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-primary">Network for Greening the Financial System (NGFS)</a>.
@@ -430,56 +453,46 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
           </InfoDialog>
         </div>
         <CardDescription>
-          Comparison of total costs and benefits - {countryName}
+          Comparison of Investment needs and Reduced Damages - {countryName}
         </CardDescription>
-        <div className="flex flex-wrap gap-4 mt-4">
-          <Select value={selectedSCC} onValueChange={setSelectedSCC}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select SCC" />
-            </SelectTrigger>
-            <SelectContent>
-              {sccOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedTimeHorizon} onValueChange={setSelectedTimeHorizon}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select time horizon" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeHorizons.map((horizon) => (
-                <SelectItem key={horizon.value} value={horizon.value}>
-                  {horizon.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Select value={selectedTimeHorizon} onValueChange={setSelectedTimeHorizon}>
+          <SelectTrigger className="w-[180px] mt-4">
+            <SelectValue placeholder="Select time horizon" />
+          </SelectTrigger>
+          <SelectContent>
+            {timeHorizons.map((horizon) => (
+              <SelectItem key={horizon.value} value={horizon.value}>
+                {horizon.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col justify-between p-4 md:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 h-full">
           <div className="w-full flex flex-col justify-center">
-            <div className="relative h-[180px] md:h-[240px] lg:h-[280px] mx-auto w-full max-w-[300px]">
+            <p className="text-center font-semibold text-base mb-2">Investment Needs</p>
+            <div className="relative h-[200px] md:h-[250px] lg:h-[280px] mx-auto w-full max-w-[350px]">
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
-                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">{formatValue(data.totalCost)}</p>
+                <p className="text-3xl md:text-3xl font-bold leading-none mb-1">{formatValue(data.totalCost)}</p>
                 <p className="text-xs md:text-xs text-muted-foreground">{data.costGdpPercentage}% of GDP</p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
-                    data={costsData}
-                    innerRadius={45}
-                    outerRadius={70}
+                    data={investmentTab === "cost-breakdown" ? costsData : getFinanceSourceData(data.totalCost)}
+                    innerRadius={55}
+                    outerRadius={85}
                     paddingAngle={2}
                     dataKey="value"
                     nameKey="name"
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
-                    {costsData.map((entry: any, index: number) => (
+                    {(investmentTab === "cost-breakdown" ? costsData : getFinanceSourceData(data.totalCost)).map((entry: any, index: number) => (
                       <Cell
                         key={`cell-cost-${index}`}
                         fill={entry.color || COLORS.costs[index % COLORS.costs.length]}
@@ -490,23 +503,42 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-center font-medium text-sm mt-0">Total Cost</p>
+            <div className="w-full mt-0">
+              <div className="h-5">
+                {/* Empty space to match SCC label height */}
+              </div>
+              <Tabs 
+                defaultValue="cost-breakdown" 
+                onValueChange={setInvestmentTab}
+                className="w-full"
+              >
+                <TabsList className="w-full grid grid-cols-2">
+                  <TabsTrigger value="cost-breakdown" className="text-xs px-2">Cost Breakdown</TabsTrigger>
+                  <TabsTrigger value="finance-source" className="text-xs px-2">Finance Source</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
           <div className="w-full flex flex-col justify-center">
-            <div className="relative h-[180px] md:h-[240px] lg:h-[280px] mx-auto w-full max-w-[300px]">
+            <p className="text-center font-semibold text-base mb-2">Reduced Damages</p>
+            <div className="relative h-[200px] md:h-[250px] lg:h-[280px] mx-auto w-full max-w-[350px]">
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
               >
-                <p className="text-2xl md:text-2xl font-bold leading-none mb-1">{totalBenefitDisplay}</p>
-                <p className="text-xs md:text-xs text-muted-foreground">{data.benefitGdpPercentage}% of GDP</p>
+                <p className="text-3xl md:text-3xl font-bold leading-none mb-1 transition-all duration-300 ease-in-out">
+                  {totalBenefitDisplay}
+                </p>
+                <p className="text-xs md:text-xs text-muted-foreground transition-all duration-300 ease-in-out">
+                  {data?.benefitGdpPercentage}% of GDP
+                </p>
               </div>
               <ResponsiveContainer width="100%" height="100%" style={{ position: 'relative', zIndex: 1 }}>
                 <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <Pie
                     data={benefitsData}
-                    innerRadius={45}
-                    outerRadius={70}
+                    innerRadius={55}
+                    outerRadius={85}
                     paddingAngle={3}
                     dataKey="value"
                     nameKey="name"
@@ -514,6 +546,9 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
                     endAngle={450}
                     label={false}
                     labelLine={false}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
                     {benefitsData.map((entry: any, index: number) => (
                       <Cell
@@ -527,11 +562,28 @@ export function SystemCostBenefits({ className, country = "IND" }: { className?:
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <p className="text-center font-medium text-sm mt-0">Total Benefit</p>
+            <div className="w-full mt-0">
+              <div className="text-center text-xs text-muted-foreground h-5 flex items-center justify-center">
+                Social Cost of Carbon (SCC)
+              </div>
+              <Tabs 
+                defaultValue="80" 
+                onValueChange={setSelectedSCC}
+                className="w-full"
+              >
+                <TabsList className="w-full grid grid-cols-3">
+                  {sccOptions.map((option) => (
+                    <TabsTrigger key={option.value} value={option.value} className="text-xs px-1">
+                      {option.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-center mt-1 md:mt-2">
+        <div className="flex justify-center mt-2">
           <Button 
             variant="outline" 
             onClick={handleDownload} 

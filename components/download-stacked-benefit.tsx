@@ -13,15 +13,26 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { convertToIso3 } from "@/lib/utils"
 
-// Color palette for benefit variables
-const BENEFIT_VARIABLES = [
-  // Warm tones for fossil fuel benefits
-  { id: "coal_benefit", name: "Coal", color: "#ff7c43" },
-  { id: "gas_benefit", name: "Gas", color: "#ffa600" },
-  { id: "oil_benefit", name: "Oil", color: "#ffd29c" },
-  // Cool tone for environmental benefit
-  { id: "reduced_air_pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
-]
+// Group benefit variables into categories to match the chart display
+const BENEFIT_CATEGORIES = [
+  {
+    name: "Economic damage reduction",
+    variables: [
+      { id: "Coal", name: "Coal", color: "#ff7c43" },
+      { id: "Gas", name: "Gas", color: "#ffa600" },
+      { id: "Oil", name: "Oil", color: "#ffd29c" }
+    ]
+  },
+  {
+    name: "Reduced air pollution damages",
+    variables: [
+      { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
+    ]
+  }
+];
+
+// Flatten benefit variables for API use
+const BENEFIT_VARIABLES = BENEFIT_CATEGORIES.flatMap(category => category.variables);
 
 // Define an interface for the year data
 interface YearData {
@@ -113,24 +124,27 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
         .filter(v => selectedVariables.includes(v.id))
         .map(v => v.name)
       
-      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Benefit", "GDP Percentage"].join(",")
+      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Benefit (Billion)", "GDP Percentage"].join(",")
       
       // Create data rows
       const dataRows = result.data.map((yearData: YearData) => {
         const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
         
-        // Add values for each selected variable
+        // Add values for each selected variable (converting to billions)
         let totalBenefit = 0
         for (const variable of BENEFIT_VARIABLES) {
           if (selectedVariables.includes(variable.id)) {
             const value = yearData[variable.id] || 0
-            rowValues.push(value.toFixed(4))
+            // Convert trillion to billion
+            const valueInBillions = value * 1000
+            rowValues.push(valueInBillions.toFixed(4))
             totalBenefit += value
           }
         }
         
-        // Add total benefit and GDP percentage
-        rowValues.push(totalBenefit.toFixed(4))
+        // Add total benefit in billions and GDP percentage
+        const totalBenefitInBillions = totalBenefit * 1000
+        rowValues.push(totalBenefitInBillions.toFixed(4))
         const gdpPercentage = (totalBenefit / gdpValue) * 100
         rowValues.push(gdpPercentage.toFixed(2))
         
@@ -176,7 +190,7 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
         .filter(v => availableVariables.includes(v.id))
         .map(v => v.name)
       
-      const headerRow = ["Year", "Country", ...availableVarNames, "Total Benefit", "GDP Percentage"].join(",")
+      const headerRow = ["Year", "Country", ...availableVarNames, "Total Benefit (Billion)", "GDP Percentage"].join(",")
       
       const dataRows = result.data.map((yearData: YearData) => {
         const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
@@ -185,12 +199,16 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
         for (const variable of BENEFIT_VARIABLES) {
           if (availableVariables.includes(variable.id)) {
             const value = yearData[variable.id] || 0
-            rowValues.push(value.toFixed(4))
+            // Convert trillion to billion
+            const valueInBillions = value * 1000
+            rowValues.push(valueInBillions.toFixed(4))
             totalBenefit += value
           }
         }
         
-        rowValues.push(totalBenefit.toFixed(4))
+        // Add total benefit in billions and GDP percentage
+        const totalBenefitInBillions = totalBenefit * 1000
+        rowValues.push(totalBenefitInBillions.toFixed(4))
         const gdpPercentage = (totalBenefit / gdpValue) * 100
         rowValues.push(gdpPercentage.toFixed(2))
         
@@ -238,7 +256,6 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
         <CardContent>
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Country</label>
               <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                 <SelectTrigger className="w-full md:w-[300px] bg-[#3A4A3A] border-[#4A5A4A]">
                   <SelectValue placeholder="Select country" />
@@ -255,26 +272,38 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
             
             <div className="space-y-2">
               <label className="text-sm font-medium">Benefit Variables</label>
-              <div className="flex flex-wrap gap-4 mt-2">
-                {BENEFIT_VARIABLES.filter(variable => availableVariables.includes(variable.id)).map((variable) => (
-                  <div key={variable.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`variable-${variable.id}`}
-                      checked={selectedVariables.includes(variable.id)}
-                      onCheckedChange={() => toggleVariable(variable.id)}
-                      className="bg-[#3A4A3A] border-[#4A5A4A]"
-                    />
-                    <Label htmlFor={`variable-${variable.id}`} className="text-sm flex items-center">
-                      <div className="w-3 h-3 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
-                      {variable.name}
-                    </Label>
+              
+              {BENEFIT_CATEGORIES.map((category, categoryIndex) => (
+                <div key={`category-${categoryIndex}`} className="mt-4">
+                  <h3 className="text-sm font-medium mb-2">{category.name}</h3>
+                  <div className="flex flex-wrap gap-4 ml-4">
+                    {category.variables
+                      .filter(variable => availableVariables.includes(variable.id))
+                      .map((variable) => (
+                      <div key={variable.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`variable-${variable.id}`}
+                          checked={selectedVariables.includes(variable.id)}
+                          onCheckedChange={() => toggleVariable(variable.id)}
+                          className="bg-[#3A4A3A] border-[#4A5A4A]"
+                        />
+                        <Label htmlFor={`variable-${variable.id}`} className="text-sm flex items-center">
+                          <div className="w-3 h-3 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
+                          {variable.name}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
           
-          <div className="flex justify-center mt-8">
+          <div className="flex flex-col items-center mt-8">
+            <div className="bg-[#3A4A3A] px-4 py-2 rounded-md mb-4 w-full md:w-auto text-center">
+              <span className="font-medium">Current selection: </span>
+              <span className="text-white font-bold">{COUNTRY_NAMES[selectedCountry]}</span>
+            </div>
             <Button 
               onClick={handleDownload} 
               variant="outline"
@@ -298,15 +327,21 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
       </Card>
       
       <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
-        <CardHeader>
-          <CardTitle>Available Data Files</CardTitle>
-          <CardDescription>Sample files available for download</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Available Data Files</CardTitle>
+            <CardDescription>Ready-to-use files for {COUNTRY_NAMES[selectedCountry]}</CardDescription>
+          </div>
+          <div className="bg-[#3A4A3A] px-3 py-1 rounded-md hidden md:block">
+            <span className="text-sm font-medium">Country: </span>
+            <span className="text-sm text-white font-bold">{COUNTRY_NAMES[selectedCountry]}</span>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Benefit Data - {COUNTRY_NAMES[selectedCountry]} (All Variables)</h3>
+                <h3 className="font-medium">Stacked Benefit Data - All Variables</h3>
                 <p className="text-sm text-muted-foreground">CSV, 18KB</p>
               </div>
               <Button 
@@ -327,7 +362,7 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
             
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Benefit Data - {COUNTRY_NAMES[selectedCountry]} (Excel Format)</h3>
+                <h3 className="font-medium">Stacked Benefit Data - Excel Format</h3>
                 <p className="text-sm text-muted-foreground">Excel, 22KB</p>
               </div>
               <Button 

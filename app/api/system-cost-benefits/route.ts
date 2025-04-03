@@ -105,23 +105,29 @@ export async function GET(request: Request) {
     // Get cost data for the country
     const countryCostData = country ? totalCostData[country] || {} : {}
     const opportunityCost = parseFloat(countryCostData["Opportunity costs (in trillion dollars)"]?.[timeKey] || "0")
-    const investmentCost = parseFloat(countryCostData["Investment costs (in trillion dollars)"]?.[timeKey] || "0")
+    const renewableCost = parseFloat(countryCostData["Investment costs in renewable energy"]?.[timeKey] || "0")
+    const infrastructureCost = parseFloat(countryCostData["Investments costs in infrastructure"]?.[timeKey] || "0")
     const gdpOverTime = parseFloat(countryCostData["GDP over time period (in trillion dollars)"]?.[timeKey] || "0")
 
     // Calculate total cost
-    const totalCost = opportunityCost + investmentCost
+    const totalCost = opportunityCost + renewableCost + infrastructureCost
 
     // Create costs data for the donut chart
     const costs = [
       { 
-        name: "Opportunity Costs", 
+        name: "Phase-out Costs", 
         value: opportunityCost,
         color: "#ff7c43" 
       },
       { 
-        name: "Investment Costs", 
-        value: investmentCost,
+        name: "Renewable Energy", 
+        value: renewableCost,
         color: "#ffa600" 
+      },
+      {
+        name: "Infrastructure",
+        value: infrastructureCost,
+        color: "#ff9e6d"
       }
     ]
 
@@ -130,7 +136,8 @@ export async function GET(request: Request) {
       country,
       timeKey,
       opportunityCost,
-      investmentCost,
+      renewableCost,
+      infrastructureCost,
       totalCost,
       gdpOverTime
     })

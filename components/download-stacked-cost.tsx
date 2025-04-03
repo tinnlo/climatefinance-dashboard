@@ -13,26 +13,39 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { convertToIso3 } from "@/lib/utils"
 
-// Import the cost variables from the stacked-cost-chart component
-const COST_VARIABLES = [
-  // Warm tones from the "costs" palette (oranges/reds)
-  { id: "cost_battery_grid", name: "Grid Battery", color: "#e65c1a" },
-  { id: "cost_battery_long", name: "Long-term Battery", color: "#ff7c43" },
-  { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
-  { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" },
-  { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
-  
-  // Worker-related costs using climate finance colors
-  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#b3de69" },
-  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#d4e79e" },
-  
-  // Cool tones from the "benefits" palette (blues)
-  { id: "solar_cost", name: "Solar", color: "#80d3e8" },
-  { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
-  { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
-  { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
-  { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" },
-]
+// Group cost variables into categories to match the chart display
+const COST_CATEGORIES = [
+  {
+    name: "Phase-out costs",
+    variables: [
+      { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
+      { id: "worker_compensation_cost", name: "Worker Compensation", color: "#b3de69" },
+      { id: "worker_retraining_cost", name: "Worker Retraining", color: "#d4e79e" }
+    ]
+  },
+  {
+    name: "Investments into infrastructure",
+    variables: [
+      { id: "cost_battery_grid", name: "Grid Battery", color: "#e65c1a" },
+      { id: "cost_battery_long", name: "Long-term Battery", color: "#ff7c43" },
+      { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
+      { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" }
+    ]
+  },
+  {
+    name: "Investments into renewables",
+    variables: [
+      { id: "solar_cost", name: "Solar", color: "#80d3e8" },
+      { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
+      { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
+      { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
+      { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" }
+    ]
+  }
+];
+
+// Flatten cost variables for API use
+const COST_VARIABLES = COST_CATEGORIES.flatMap(category => category.variables);
 
 // Define an interface for the year data
 interface YearData {
@@ -131,24 +144,27 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
         .filter(v => selectedVariables.includes(v.id))
         .map(v => v.name)
       
-      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Cost", "GDP Percentage"].join(",")
+      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Cost (Billion)", "GDP Percentage"].join(",")
       
       // Create data rows from the API response
       const dataRows = result.data.map((yearData: YearData) => {
         const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
         
-        // Add values for each selected variable
+        // Add values for each selected variable (converting to billions)
         let totalCost = 0
         for (const variable of COST_VARIABLES) {
           if (selectedVariables.includes(variable.id)) {
             const value = yearData[variable.id] || 0
-            rowValues.push(value.toFixed(4))
+            // Convert trillion to billion
+            const valueInBillions = value * 1000
+            rowValues.push(valueInBillions.toFixed(4))
             totalCost += value
           }
         }
         
-        // Add total cost and GDP percentage
-        rowValues.push(totalCost.toFixed(4))
+        // Add total cost in billions and GDP percentage
+        const totalCostInBillions = totalCost * 1000
+        rowValues.push(totalCostInBillions.toFixed(4))
         
         // Calculate GDP percentage using the actual GDP value
         const gdpPercentage = (totalCost / gdpValue) * 100
@@ -197,22 +213,25 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
       const allVarNames = COST_VARIABLES.map(v => v.name)
       
       // Create header row with all variables
-      const headerRow = ["Year", "Country", ...allVarNames, "Total Cost", "GDP Percentage"].join(",")
+      const headerRow = ["Year", "Country", ...allVarNames, "Total Cost (Billion)", "GDP Percentage"].join(",")
       
       // Create data rows from the API response
       const dataRows = result.data.map((yearData: YearData) => {
         const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
         
-        // Add values for all variables
+        // Add values for all variables (converting to billions)
         let totalCost = 0
         for (const variable of COST_VARIABLES) {
           const value = yearData[variable.id] || 0
-          rowValues.push(value.toFixed(4))
+          // Convert trillion to billion
+          const valueInBillions = value * 1000
+          rowValues.push(valueInBillions.toFixed(4))
           totalCost += value
         }
         
-        // Add total cost and GDP percentage
-        rowValues.push(totalCost.toFixed(4))
+        // Add total cost in billions and GDP percentage
+        const totalCostInBillions = totalCost * 1000
+        rowValues.push(totalCostInBillions.toFixed(4))
         
         // Calculate GDP percentage using the actual GDP value
         const gdpPercentage = (totalCost / gdpValue) * 100
@@ -265,7 +284,6 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
         <CardContent>
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Country</label>
               <Select value={selectedCountry} onValueChange={setSelectedCountry}>
                 <SelectTrigger className="w-full md:w-[300px] bg-[#3A4A3A] border-[#4A5A4A]">
                   <SelectValue placeholder="Select country" />
@@ -282,26 +300,36 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">Cost Variables</label>
-              <div className="flex flex-wrap gap-4 mt-2">
-                {COST_VARIABLES.map((variable) => (
-                  <div key={variable.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`variable-${variable.id}`}
-                      checked={selectedVariables.includes(variable.id)}
-                      onCheckedChange={() => toggleVariable(variable.id)}
-                      className="bg-[#3A4A3A] border-[#4A5A4A]"
-                    />
-                    <Label htmlFor={`variable-${variable.id}`} className="text-sm flex items-center">
-                      <div className="w-3 h-3 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
-                      {variable.name}
-                    </Label>
+              
+              {COST_CATEGORIES.map((category, categoryIndex) => (
+                <div key={`category-${categoryIndex}`} className="mt-4">
+                  <h3 className="text-sm font-medium mb-2">{category.name}</h3>
+                  <div className="flex flex-wrap gap-4 ml-4">
+                    {category.variables.map((variable) => (
+                      <div key={variable.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`variable-${variable.id}`}
+                          checked={selectedVariables.includes(variable.id)}
+                          onCheckedChange={() => toggleVariable(variable.id)}
+                          className="bg-[#3A4A3A] border-[#4A5A4A]"
+                        />
+                        <Label htmlFor={`variable-${variable.id}`} className="text-sm flex items-center">
+                          <div className="w-3 h-3 mr-1 rounded-sm" style={{ backgroundColor: variable.color }} />
+                          {variable.name}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
           
-          <div className="flex justify-center mt-8">
+          <div className="flex flex-col items-center mt-8">
+            <div className="bg-[#3A4A3A] px-4 py-2 rounded-md mb-4 w-full md:w-auto text-center">
+              <span className="font-medium">Current selection: </span>
+              <span className="text-white font-bold">{COUNTRY_NAMES[selectedCountry]}</span>
+            </div>
             <Button 
               onClick={handleDownload} 
               variant="outline"
@@ -325,15 +353,20 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
       </Card>
       
       <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
-        <CardHeader>
-          <CardTitle>Available Data Files</CardTitle>
-          <CardDescription>Sample files available for download</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Available Data Files</CardTitle>
+          </div>
+          <div className="bg-[#3A4A3A] px-3 py-1 rounded-md hidden md:block">
+            <span className="text-sm font-medium">Country: </span>
+            <span className="text-sm text-white font-bold">{COUNTRY_NAMES[selectedCountry]}</span>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Cost Data - {COUNTRY_NAMES[selectedCountry]} (All Variables)</h3>
+                <h3 className="font-medium">Stacked Cost Data - All Variables</h3>
                 <p className="text-sm text-muted-foreground">CSV, 18KB</p>
               </div>
               <Button 
@@ -354,7 +387,7 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
             
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Cost Data - {COUNTRY_NAMES[selectedCountry]} (Excel Format)</h3>
+                <h3 className="font-medium">Stacked Cost Data - Excel Format</h3>
                 <p className="text-sm text-muted-foreground">Excel, 22KB</p>
               </div>
               <Button 

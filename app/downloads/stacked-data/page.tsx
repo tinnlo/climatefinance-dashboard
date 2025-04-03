@@ -38,11 +38,6 @@ export default function StackedDataDownloadPage() {
           </Link>
         </div>
 
-        <div className="mb-4 text-white">
-          <span className="text-sm text-muted-foreground">Showing data for </span>
-          <span className="font-medium">{COUNTRY_NAMES[country]}</span>
-        </div>
-
         <div className="w-full">
           <Tabs
             value={currentTab}

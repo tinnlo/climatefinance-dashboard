@@ -38,10 +38,56 @@ function LoginContent() {
     clearSessionExpiredMessage
   } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Add counter for auth attempts and time tracking
+  const [authAttempts, setAuthAttempts] = useState(0)
+  const [lastAuthAttempt, setLastAuthAttempt] = useState(0)
+  const [forcingCleanLogin, setForcingCleanLogin] = useState(false)
+  // Add a state to track if there are login issues
+  const [hasLoginIssues, setHasLoginIssues] = useState(false)
+  // Enforce a page load delay before showing any help links
+  const [pageLoadTime] = useState(Date.now())
+  const [hasAttemptedLogin, setHasAttemptedLogin] = useState(false)
+  // Track last login click time to prevent showing help link too soon
+  const [lastLoginClickTime, setLastLoginClickTime] = useState(0)
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
     let mounted = true;
+
+    // Skip authentication check if forcing clean login
+    if (forcingCleanLogin) {
+      return;
+    }
+
+    // Don't count the first check as an attempt
+    if (authAttempts === 0) {
+      setAuthAttempts(1);
+      return;
+    }
+
+    // Track authentication attempts to detect potential infinite loops
+    if (authAttempts > 0) {
+      setAuthAttempts(prev => prev + 1);
+      setLastAuthAttempt(Date.now());
+      console.log("[Login Debug - Auth Check]", {
+        attempt: authAttempts + 1,
+        isAuthenticated,
+        hasUser: !!user,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // If too many auth attempts in short time, it might be stuck
+    if (authAttempts > 3 && Date.now() - lastAuthAttempt < 5000) {
+      console.log("[Login Debug - Potential Loop Detected]", {
+        authAttempts,
+        timeSinceLastAttempt: Date.now() - lastAuthAttempt,
+      });
+      // Force clean login by clearing local state
+      handleForceCleanLogin();
+      setHasLoginIssues(true);
+      return;
+    }
 
     // This effect should ONLY redirect if already authenticated.
     // Initialization and session refresh are handled by AuthProvider.
@@ -60,13 +106,10 @@ function LoginContent() {
       router.push(redirectPath)
     }
 
-    // No need for the complex async IIFE or the refreshSession call here.
-
     return () => {
       mounted = false;
     };
-  // Dependencies: Only need to re-run if auth state or user changes, or target path changes.
-  }, [isAuthenticated, user, returnTo, router]);
+  }, [isAuthenticated, user, returnTo, router, authAttempts, lastAuthAttempt, forcingCleanLogin]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
@@ -80,22 +123,61 @@ function LoginContent() {
 
   // Add a timeout to reset the loading state if it gets stuck
   useEffect(() => {
-    if (authLoading) {
+    if (authLoading && hasAttemptedLogin) {
       const timeoutId = setTimeout(() => {
         // Force refresh the page if loading state is stuck for too long
         console.log("[Login Debug - Timeout] Auth loading stuck for too long, forcing refresh");
+        setHasLoginIssues(true);
         window.location.reload();
       }, 10000); // 10 seconds timeout
 
       return () => clearTimeout(timeoutId);
     }
-  }, [authLoading]);
+  }, [authLoading, hasAttemptedLogin]);
+
+  // Add another effect to detect prolonged loading
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    // Only run for actual login attempts, not page load/autofill
+    if ((isSubmitting || authLoading) && hasAttemptedLogin) {
+      // Set a timeout to mark as having issues if loading takes too long
+      timeoutId = setTimeout(() => {
+        // Only show issues if we're still in loading state after delay
+        if (isSubmitting || authLoading) {
+          setHasLoginIssues(true);
+        }
+      }, 5000); // Show help link after 5 seconds of loading
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isSubmitting, authLoading, hasAttemptedLogin]);
+
+  // New function to force a clean login state by clearing all cached auth data
+  const handleForceCleanLogin = () => {
+    console.log("[Login Debug - Forcing Clean Login]");
+    setForcingCleanLogin(true);
+    setIsSubmitting(false);
+    setAuthAttempts(0);
+    setHasLoginIssues(false);
+    
+    // Clear any cached auth data from localStorage
+    if (typeof window !== 'undefined') {
+      // Clear auth-related localStorage items
+      localStorage.removeItem('auth_session_active');
+      // Suppress redirects temporarily
+      sessionStorage.setItem('suppress_auth_redirect', 'true');
+    }
+  };
 
   // Add a reset button for users
   const handleResetLoadingState = () => {
     setIsSubmitting(false);
     console.log("[Login Debug - Manual Reset] User manually reset loading state");
-    window.location.reload();
+    // Use the clean login approach instead of just reloading
+    handleForceCleanLogin();
   };
 
   // Function to clear expiry message when user interacts
@@ -105,6 +187,14 @@ function LoginContent() {
     }
   }
 
+  // Handle login button click
+  const handleLoginClick = () => {
+    setHasAttemptedLogin(true);
+    setLastLoginClickTime(Date.now());
+    // Immediately hide any previous login issues
+    setHasLoginIssues(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
@@ -113,11 +203,22 @@ function LoginContent() {
     setSuccess("")
     setInfo("")
     setIsSubmitting(true)
+    setHasAttemptedLogin(true)
+    // Reset login issues flag on new submit
+    setHasLoginIssues(false)
+    // Update last login click time
+    setLastLoginClickTime(Date.now())
+
+    // If we're forcing a clean login, clear that flag now that user is actively trying to log in
+    if (forcingCleanLogin) {
+      setForcingCleanLogin(false);
+    }
 
     console.log("[Login Debug - Submit]", {
       isLogin,
       email,
       returnTo,
+      forcingCleanLogin,
       timestamp: new Date().toISOString(),
     });
 
@@ -331,6 +432,7 @@ function LoginContent() {
                   type="submit"
                   className="w-full h-12 relative"
                   disabled={isSubmitting || authLoading}
+                  onClick={handleLoginClick}
                 >
                   <div className="flex items-center justify-center space-x-2">
                     {(isSubmitting || authLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -338,15 +440,18 @@ function LoginContent() {
                   </div>
                 </GradientButton>
                 
-                {/* Add reset button that appears when loading is taking too long */}
-                {(isSubmitting || authLoading) && (
+                {/* Only show help link when there are actual login issues AND user has attempted to login 
+                    AND enough time has passed since page load AND since the last login button click */}
+                {(hasLoginIssues && 
+                  hasAttemptedLogin && 
+                  Date.now() - pageLoadTime > 2000 && 
+                  Date.now() - lastLoginClickTime > 3000) && (
                   <Button
                     variant="link"
-                    onClick={handleResetLoadingState}
-                    className="w-full mt-2 text-sm"
-                    disabled={isSubmitting}
+                    onClick={handleForceCleanLogin}
+                    className="w-full mt-2 text-sm text-muted-foreground hover:text-primary"
                   >
-                    Login taking too long? Click to reset
+                    Having trouble? Try clean login
                   </Button>
                 )}
               </div>

@@ -3,13 +3,12 @@
 import { useState, useEffect } from "react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
 import { COUNTRY_NAMES } from "@/lib/constants"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { convertToIso3 } from "@/lib/utils"
+import { InfoDialog } from "@/components/ui/info-dialog"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
 
 // Color palette for benefit variables
 const BENEFIT_VARIABLES = [
@@ -31,7 +31,35 @@ const BENEFIT_VARIABLES = [
 // Default GDP value to use if data fetch fails
 const DEFAULT_GDP = 1.0; // Trillion USD
 
-const FIGURE_NOTES = `In this Figure, the breakdown of the decarbonization benefits of EMDEs as a whole and eight countries with large power sector emissions (i.e., India, USA, Indonesia, Vietnam, Türkiye, Germany, Poland, and Kazakhstan) are displayed, for both the time horizon to 2035 and the time horizon to 2050. Country benefits of decarbonization consist of (i) the benefits from reduced fossil fuel imports (Coal, Gas, and Oil); and (ii) the benefits from reduced air pollution. Here we assume that each country, and EMDEs as a whole, receives all its decarbonization benefits (i.e., no foreign climate finance offerings or private sector co-payment). For each country, and for EMDEs as a whole, we assume decarbonization occurs via a decarbonization pathway in line with the NGFS NZ2050-1.5°C-50% decarbonization scenario.`
+// Formatted notes with proper styling
+const FormattedNotes = () => (
+  <div className="prose prose-sm dark:prose-invert max-w-none">
+    <p>
+      This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Network for Greening the Financial System (NGFS)</a>.
+    </p>
+    
+    <h3 className="text-lg font-semibold mt-4 mb-2">Transition investment needs</h3>
+    <p>are categorized into three distinct components:</p>
+    
+    <ol className="list-decimal pl-5 my-2 space-y-1">
+      <li><strong>Phase-out costs</strong>: The costs associated with the early retirement of fossil fuel power plants, ahead of their initially planned lifetimes. The cost components are (i) the stranded asset value of the phased-out power plants (defined as the expected discounted value of future missed cashflows of power plants resulting from closing it down early relative to expected free cashflows earned if the plants would be left operational until the end of their lifetime), (ii) the compensation to power plant workers for missed wages and (iii) the retraining cost of said workers.</li>
+      <li><strong>Investments into renewables</strong>: The investments required to deploy renewable power generation capacity to replace the phased-out fossil fuel capacity. The relevant renewable technologies are solar, wind (offshore and onshore), hydropower and geothermal.</li>
+      <li><strong>Investments into infrastructure</strong>: The investments required to expanding grid infrastructure, developing electricity storage capacity, and deploying other supporting technologies necessary to integrate renewable generation. The relevant infrastructure technologies are (I )electricity grids, (ii) short-term batteries (i.e. Li-ion batteries), (iii) long-term batteries (i.e., green hydrogen produced through electrolysis powered by renewables) and (iv) power electrolyzers.</li>
+    </ol>
+    
+    <h3 className="text-lg font-semibold mt-4 mb-2">The reduced economic damages</h3>
+    <p>are categorized into two distinct components:</p>
+    
+    <ol className="list-decimal pl-5 my-2 space-y-1">
+      <li><strong>Economic damage reduction</strong>: Lower economic losses within the country and to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs. These components are further divided into the reduced damages from phasing out (i) coal, (ii) oil, and (iii) gas.</li>
+      <li><strong>Reduced air pollution damages</strong>: Economic benefits arising from improved air quality and associated health and productivity gains.</li>
+    </ol>
+    
+    <p className="mt-4">
+      The <strong>Social Cost of Carbon (SCC)</strong> represents the estimated monetary value of economic damages caused by emitting one metric ton of carbon dioxide. Results are presented using a SCC of <em><strong>190 USD/tCO2</strong></em>– yearly investment need and reduced damages values are undiscounted.
+    </p>
+  </div>
+);
 
 interface StackedBenefitChartProps {
   className?: string
@@ -49,7 +77,6 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   const [data, setData] = useState<YearData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [visibleVariables, setVisibleVariables] = useState<string[]>(BENEFIT_VARIABLES.map((v) => v.id))
   const [gdpValue, setGdpValue] = useState<number>(DEFAULT_GDP)
   const [useBillions, setUseBillions] = useState<boolean>(false)
   const { theme } = useTheme()
@@ -149,21 +176,9 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
           }
         })
         
-        // Determine if we should use billions instead of trillions for display
-        // Find maximum benefit across all years
-        const maxBenefit = Math.max(...transformedData.map((year: YearData) => year.totalBenefit));
-        setUseBillions(maxBenefit < 0.1);
+        // Always use billions for display
+        setUseBillions(true);
         
-        // Update visible variables to only show those that have data
-        const availableBenefitTypes = BENEFIT_VARIABLES.filter(variable =>
-          transformedData.some((yearData: YearData) => {
-            const value = yearData[variable.id]
-            return typeof value === 'number' && value > 0
-          })
-        ).map(v => v.id)
-        
-        setVisibleVariables(availableBenefitTypes)
-        console.log('Available benefit types:', availableBenefitTypes)
         console.log('Final transformed data:', transformedData)
         setData(transformedData)
       } catch (e: any) {
@@ -183,38 +198,36 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
     }
   }, [country, gdpValue])
 
-  // Format values based on whether using billions or trillions
+  // Format values based on billions (always)
   const formatValue = (value: number, detailed: boolean = false): string => {
     if (value === 0) return "0";
     
-    if (useBillions) {
-      // Convert to billions
-      const valueInBillions = value * 1000;
-      if (detailed) {
-        if (valueInBillions < 0.001) return valueInBillions.toExponential(1) + "B";
-        if (valueInBillions < 0.01) return valueInBillions.toFixed(3) + "B";
-        if (valueInBillions < 0.1) return valueInBillions.toFixed(2) + "B";
-        if (valueInBillions < 10) return valueInBillions.toFixed(1) + "B";
-        return Math.round(valueInBillions) + "B";
-      } else {
-        return valueInBillions.toFixed(2) + "B";
-      }
+    // Convert to billions
+    const valueInBillions = value * 1000;
+    if (detailed) {
+      if (valueInBillions < 0.001) return valueInBillions.toExponential(1) + "B";
+      if (valueInBillions < 0.01) return valueInBillions.toFixed(3) + "B";
+      if (valueInBillions < 0.1) return valueInBillions.toFixed(2) + "B";
+      if (valueInBillions < 10) return valueInBillions.toFixed(1) + "B";
+      return Math.round(valueInBillions) + "B";
     } else {
-      // Use trillions
-      if (detailed) {
-        if (value < 0.001) return value.toExponential(1) + "T";
-        if (value < 0.01) return value.toFixed(3) + "T";
-        if (value < 0.1) return value.toFixed(2) + "T";
-        if (value < 1) return value.toFixed(2) + "T";
-        if (value < 10) return value.toFixed(1) + "T";
-        return Math.round(value) + "T";
-      } else {
-        return value.toFixed(2) + "T";
-      }
+      return valueInBillions.toFixed(2) + "B";
     }
   };
 
-  // Custom tooltip that shows total benefit and GDP percentage
+  // Group benefit variables into categories for the tooltip
+  const BENEFIT_CATEGORIES = [
+    {
+      name: "Economic damage reduction",
+      variables: ["Coal", "Gas", "Oil"]
+    },
+    {
+      name: "Reduced air pollution damages",
+      variables: ["Reduced Air Pollution"]
+    }
+  ];
+
+  // Custom tooltip that shows categorized benefits with better formatting
   const CustomTooltip = (props: any) => {
     const { active, payload, label } = props;
   
@@ -227,23 +240,94 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
       const totalBenefitDisplay = formatValue(yearData.totalBenefit);
       const gdpPercentageDisplay = yearData.gdpPercentage.toFixed(2);
       
+      // Build a mapping of variable ID to payload entry for easier access
+      const variableMap = payload.reduce((map: any, entry: any) => {
+        if (entry.dataKey !== 'gdpPercentage') {
+          map[entry.dataKey] = entry;
+        }
+        return map;
+      }, {});
+
+      // Calculate totals for each category
+      const categoryTotals = BENEFIT_CATEGORIES.map(category => {
+        const total = category.variables.reduce((sum, varId) => {
+          const value = yearData[varId];
+          return sum + (typeof value === 'number' ? value : 0);
+        }, 0);
+        return {
+          name: category.name,
+          total: total,
+          percentage: yearData.totalBenefit > 0 ? (total / yearData.totalBenefit) * 100 : 0
+        };
+      });
+      
       return (
-        <div style={tooltipStyle}>
-          <p style={tooltipLabelStyle}>Year: {label}</p>
-          <p style={{ ...tooltipItemStyle, fontWeight: 'bold', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '4px' }}>
-            Total Benefit: {totalBenefitDisplay} USD ({gdpPercentageDisplay}% of GDP)
-          </p>
-          {payload.map((entry: any, index: number) => {
-            if (entry.dataKey === 'gdpPercentage') return null;
-            
-            // Calculate percentage of total benefit
-            const percentage = ((entry.value / yearData.totalBenefit) * 100).toFixed(1);
+        <div style={{
+          ...tooltipStyle,
+          maxWidth: '280px',
+          padding: '10px 15px'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '8px',
+            borderBottom: `1px solid ${theme === "dark" ? "#374151" : "#e5e7eb"}`,
+            paddingBottom: '8px'
+          }}>
+            <span style={{...tooltipLabelStyle, fontSize: '14px'}}>Year: {label}</span>
+            <span style={{...tooltipLabelStyle, fontSize: '14px'}}>{totalBenefitDisplay} ({gdpPercentageDisplay}% of GDP)</span>
+          </div>
+
+          {categoryTotals.map((category, categoryIndex) => {
+            if (category.total <= 0) return null;
             
             return (
-              <p key={`item-${index}`} style={tooltipItemStyle}>
-                <span style={{ display: 'inline-block', width: '10px', height: '10px', backgroundColor: entry.color, marginRight: '5px' }}></span>
-                {entry.name}: {formatValue(entry.value)} USD ({percentage}%)
-              </p>
+              <div key={`category-${categoryIndex}`} style={{marginBottom: '8px'}}>
+                <div style={{
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  marginBottom: '4px',
+                  display: 'flex',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>{category.name} {formatValue(category.total)} ({category.percentage.toFixed(1)}%)</span>
+                </div>
+                
+                {BENEFIT_CATEGORIES[categoryIndex].variables.map((varId, varIndex) => {
+                  const variable = BENEFIT_VARIABLES.find(v => v.id === varId);
+                  const entry = variableMap[varId];
+                  
+                  if (!variable || !entry || entry.value === 0) return null;
+                  
+                  // Calculate percentage within this category
+                  const percentage = category.total > 0 ? (entry.value / category.total) * 100 : 0;
+                  
+                  return (
+                    <div key={`var-${varId}`} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '12px',
+                      marginLeft: '12px',
+                      marginBottom: '2px'
+                    }}>
+                      <div style={{display: 'flex', alignItems: 'center'}}>
+                        <span style={{
+                          display: 'inline-block', 
+                          width: '8px', 
+                          height: '8px', 
+                          backgroundColor: variable.color, 
+                          marginRight: '6px'
+                        }}></span>
+                        <span>{variable.name}</span>
+                      </div>
+                      <div>
+                        {formatValue(entry.value)} ({percentage.toFixed(1)}%)
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
@@ -252,12 +336,6 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   
     return null;
   };
-
-  const toggleVariable = (variableId: string) => {
-    setVisibleVariables((prev) =>
-      prev.includes(variableId) ? prev.filter((id) => id !== variableId) : [...prev, variableId],
-    )
-  }
 
   const tooltipStyle = {
     backgroundColor: theme === "dark" ? "rgba(31, 41, 55, 0.95)" : "rgba(255, 255, 255, 0.95)",
@@ -314,32 +392,11 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
 
   return (
     <div className="w-full h-full flex flex-col px-2 sm:px-4 md:px-6">
-      <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-1 gap-y-0.5 sm:gap-2 mb-1 sm:mb-2 max-h-[120px] xs:max-h-none overflow-y-auto">
-        {BENEFIT_VARIABLES.filter(variable => 
-          data.some((yearData: YearData) => {
-            const value = yearData[variable.id]
-            return typeof value === 'number' && value > 0
-          })
-        ).map((variable) => (
-          <div key={variable.id} className="flex items-center space-x-1 min-h-[18px]">
-            <Checkbox
-              id={`variable-${variable.id}`}
-              checked={visibleVariables.includes(variable.id)}
-              onCheckedChange={() => toggleVariable(variable.id)}
-              className="h-3 w-3"
-            />
-            <Label htmlFor={`variable-${variable.id}`} className="text-[10px] xs:text-xs flex items-center truncate">
-              <div className="w-2 h-2 mr-1 rounded-sm flex-shrink-0" style={{ backgroundColor: variable.color }} />
-              {variable.name}
-            </Label>
-          </div>
-        ))}
-      </div>
-      <div className="w-full h-[calc(100%-4rem)]">
+      <div className="w-full h-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart 
             data={data} 
-            margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
             stackOffset="none"
           >
             <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -355,7 +412,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
             <YAxis
               yAxisId="left"
               label={{
-                value: useBillions ? "Benefit (Billion USD)" : "Benefit (Trillion USD)",
+                value: "Benefit (Billion USD)",
                 angle: -90,
                 position: "insideLeft",
                 fill: theme === "dark" ? "#ffffff" : "#000000",
@@ -370,22 +427,13 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
               allowDecimals={true}
               minTickGap={5}
               tickFormatter={(value) => {
-                if (useBillions) {
-                  // Convert to billions for display
-                  const valueInBillions = value * 1000;
-                  if (Math.abs(valueInBillions) < 0.0001) return "0";
-                  if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
-                  if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
-                  if (valueInBillions < 1) return valueInBillions.toFixed(2);
-                  return valueInBillions.toFixed(2);
-                } else {
-                  // Use trillions
-                  if (Math.abs(value) < 0.0001) return "0";
-                  if (value < 0.01) return value.toFixed(3);
-                  if (value < 0.1) return value.toFixed(2);
-                  if (value < 1) return value.toFixed(2);
-                  return value.toFixed(2);
-                }
+                // Convert to billions for display
+                const valueInBillions = value * 1000;
+                if (Math.abs(valueInBillions) < 0.0001) return "0";
+                if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
+                if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
+                if (valueInBillions < 1) return valueInBillions.toFixed(2);
+                return valueInBillions.toFixed(2);
               }}
               scale="linear"
             />
@@ -413,7 +461,12 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
               interval="preserveStartEnd"
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
-            {BENEFIT_VARIABLES.filter((v) => visibleVariables.includes(v.id)).map((variable) => (
+            {BENEFIT_VARIABLES.filter((v) => 
+              data.some((yearData: YearData) => {
+                const value = yearData[v.id]
+                return typeof value === 'number' && value > 0
+              })
+            ).map((variable) => (
               <Bar 
                 key={variable.id} 
                 dataKey={variable.id} 
