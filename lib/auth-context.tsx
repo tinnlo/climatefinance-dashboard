@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Create a session storage key to track login state
 const SESSION_STORAGE_KEY = 'auth_session_active'
 const AUTH_LAST_ERROR_KEY = 'auth_last_error'
-const AUTH_OPERATION_TIMEOUT = 15000 // 15 seconds timeout for auth operations
+const AUTH_OPERATION_TIMEOUT = 8000 // 8 seconds timeout for auth operations (was 15000)
 
 // Inner component that uses search params
 function AuthProviderContent({ children }: { children: ReactNode }) {
@@ -232,6 +232,23 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setIsAuthenticated(false)
         setSessionActive(false)
         setAuthState(AuthState.ERROR)
+        
+        // Force clear cookies and storage to prevent future issues
+        if (typeof window !== 'undefined') {
+          try {
+            // Clear auth-related items
+            localStorage.removeItem(SESSION_STORAGE_KEY)
+            localStorage.removeItem('supabase.auth.token')
+            sessionStorage.removeItem('supabase.auth.token')
+            
+            // Attempt to clear cookies
+            document.cookie.split(';').forEach(c => {
+              document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+            })
+          } catch (e) {
+            console.error("Error clearing storage during timeout:", e)
+          }
+        }
       }
     }, AUTH_OPERATION_TIMEOUT + 1000) // Add extra second to ensure timeout happens after operation timeout
     
@@ -456,17 +473,22 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     }
     
     try {
-      // Special user logging for debugging purposes
-      const isSpecificUser = email === 'tinnlo@proton.me'
-      if (isSpecificUser) {
-        console.log("Special user login attempt detected:", email)
-      }
+      console.log(`[DEBUG] Login attempt started for ${email}. Auth check: ${isAuthCheck}`)
       
       // For auth checks, verify session without password
       if (isAuthCheck) {
-        const { data: { session } } = await supabase.auth.getSession()
+        console.log("[DEBUG] Auth check flow - verifying session")
+        
+        // Add timeout for getSession request
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Session request timed out")), 5000)
+        )
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
         
         if (!session) {
+          console.log("[DEBUG] No session found during auth check")
           logAuthState('Auth Check - No Session', { elapsed: Date.now() - startTime })
           return { success: false, message: "No active session" }
         }
@@ -474,16 +496,27 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         // If we have a session but no email, try to use the session user's email
         if (!email && session.user.email) {
           email = session.user.email
+          console.log("[DEBUG] Using session email:", email)
           logAuthState('Auth Check - Using Session Email', { email })
         }
       } else {
         // Regular login with password
-        const { data, error } = await supabase.auth.signInWithPassword({
+        console.log("[DEBUG] Regular login flow - signing in with password")
+        
+        // Add timeout for signInWithPassword request
+        const loginPromise = supabase.auth.signInWithPassword({
           email,
           password,
         })
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Login request timed out")), 7000)
+        )
+        
+        const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any
 
         if (error) {
+          console.error("[DEBUG] Login error:", error.message || error)
           setLastAuthError(error)
           logAuthState('Login Error', { error: error?.message || error, elapsed: Date.now() - startTime })
           setAuthState(AuthState.ERROR)
@@ -491,17 +524,18 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         }
 
         if (!data?.user) {
-          console.error("No user returned from signInWithPassword")
+          console.error("[DEBUG] No user returned from signInWithPassword")
           setAuthState(AuthState.ERROR)
           return { success: false, message: "Login failed. Please try again." }
         }
       }
 
       // Get the user data from our database
+      console.log("[DEBUG] Getting user data from database")
       const userData = await getCurrentUser()
 
       if (!userData) {
-        console.error("User data not found after login")
+        console.error("[DEBUG] User data not found after login")
         
         // Special case for auth check - don't show error
         if (isAuthCheck) {
@@ -515,7 +549,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
 
       // Check if the user is verified
       if (!userData.is_verified) {
-        console.error("Unverified user attempted login:", userData.email)
+        console.error("[DEBUG] Unverified user attempted login:", userData.email)
         
         // Sign out unverified users
         await supabase.auth.signOut()
@@ -536,6 +570,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         isVerified: Boolean(userData.is_verified),
       }
 
+      console.log("[DEBUG] Login successful for:", userState.email)
       setUser(userState)
       setIsAuthenticated(true)
       setSessionActive(true)
@@ -557,12 +592,13 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         redirectTo: returnTo || redirectTo 
       }
     } catch (error: any) {
+      console.error("[DEBUG] Critical login error:", error?.message || error, error)
       setLastAuthError(error)
       logAuthState('Login Error', { error: error?.message || error, elapsed: Date.now() - startTime })
       setAuthState(AuthState.ERROR)
       return { 
         success: false, 
-        message: "An unexpected error occurred. Please try again." 
+        message: error?.message || "An unexpected error occurred. Please try again." 
       }
     } finally {
       // Don't change loading state if this was just an auth check

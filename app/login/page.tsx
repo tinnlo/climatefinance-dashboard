@@ -475,6 +475,29 @@ function LoginContent() {
                 }
               `}</style>
               
+              {/* Always show reset button at top when having auth errors */}
+              {authState === AuthState.ERROR && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Authentication system error detected. Please reset your login session.
+                  </AlertDescription>
+                  <Button 
+                    variant="destructive"
+                    className="w-full mt-2"
+                    onClick={handleForceCleanLogin}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Resetting...</span>
+                      </div>
+                    ) : "Reset Authentication"}
+                  </Button>
+                </Alert>
+              )}
+              
               {renderForm()}
               
               <div className="pt-6">
