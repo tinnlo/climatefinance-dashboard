@@ -5,6 +5,9 @@ import { getSupabaseClient, getCurrentUser } from "@/lib/supabase-client"
 import { useRouter, usePathname } from "next/navigation"
 import { useSearchParamsContext } from "@/app/components/SearchParamsProvider"
 
+// Import environmental variables for Supabase URL
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+
 export interface User {
   id: string
   name: string
@@ -43,7 +46,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Create a session storage key to track login state
 const SESSION_STORAGE_KEY = 'auth_session_active'
 const AUTH_LAST_ERROR_KEY = 'auth_last_error'
-const AUTH_OPERATION_TIMEOUT = 8000 // 8 seconds timeout for auth operations (was 15000)
+const AUTH_OPERATION_TIMEOUT = 20000 // 20 seconds timeout for auth operations (increased from 8s)
 
 // Inner component that uses search params
 function AuthProviderContent({ children }: { children: ReactNode }) {
@@ -122,35 +125,53 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     try {
       setAuthState(AuthState.LOGGING_OUT)
       
-      // First try the supabase signout
+      // First clear local state to ensure UI is updated immediately
+      setUser(null)
+      setIsAuthenticated(false)
+      setSessionActive(false)
+      
+      // Multiple approaches to sign out
       try {
+        // Try regular sign out first
         await supabase.auth.signOut()
+        
+        // Then kill session explicitly
+        await supabase.auth.setSession({ access_token: '', refresh_token: '' })
       } catch (err) {
         console.error("Error during supabase sign out:", err)
       }
       
-      // Then clear local state
-      setUser(null)
-      setIsAuthenticated(false)
-      setSessionActive(false)
-      setAuthState(AuthState.UNAUTHENTICATED)
-      
       // Clear localStorage/sessionStorage
       if (typeof window !== 'undefined') {
         try {
-          // Clear auth-related items
+          // Clear all auth-related items
           localStorage.removeItem(SESSION_STORAGE_KEY)
           localStorage.removeItem('supabase.auth.token')
+          localStorage.removeItem('sb-' + supabaseUrl.replace(/^https?:\/\//, '').replace(/\./, '-') + '-auth-token')
           sessionStorage.removeItem('supabase.auth.token')
           
-          // Attempt to clear cookies
+          // Attempt to clear all cookies
           document.cookie.split(';').forEach(c => {
-            document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+            const cookieName = c.trim().split('=')[0]
+            if (cookieName) {
+              document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+              document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
+            }
           })
+          
+          // Also clear any other Supabase-related items
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            if (key && (key.includes('supabase') || key.includes('sb-'))) {
+              localStorage.removeItem(key)
+            }
+          }
         } catch (e) {
           console.error("Error clearing storage:", e)
         }
       }
+      
+      setAuthState(AuthState.UNAUTHENTICATED)
     } catch (error) {
       setLastAuthError(error)
       logAuthState('Force Sign Out Error', error)
@@ -263,6 +284,27 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     const startTime = Date.now()
     setLastAuthActivity(startTime)
 
+    // Set up periodic session refresh to keep the session alive
+    let refreshIntervalId: NodeJS.Timeout | undefined = undefined;
+    
+    const setupRefreshInterval = () => {
+      // Clear any existing interval
+      if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+      }
+      
+      // Set up new interval to refresh session every 10 minutes
+      refreshIntervalId = setInterval(() => {
+        // Only refresh if we're authenticated to avoid unnecessary requests
+        if (isAuthenticated && authState === AuthState.AUTHENTICATED) {
+          console.log("[DEBUG] Performing scheduled session refresh");
+          refreshSession().catch(err => {
+            console.error("[DEBUG] Error in scheduled refresh:", err);
+          });
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+    };
+
     const initializeAuth = async () => {
       // Skip if already in a checking state to prevent multiple simultaneous checks
       if (authState === AuthState.CHECKING) return
@@ -319,6 +361,10 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             setAuthState(AuthState.AUTHENTICATED)
             logAuthState('User State Updated', { user: userState })
             clearSessionExpiredMessage()
+            
+            // Start session refresh interval when authenticated
+            setupRefreshInterval();
+            
             return
           } else {
             logAuthState('Session With No User Data', { 
@@ -375,12 +421,46 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
 
       if (!mounted) return
 
+      // Add a flag to track recent logout
+      const justLoggedOut = authState === AuthState.LOGGING_OUT || 
+                           localStorage.getItem('just_logged_out') === 'true';
+      
       if (event === 'SIGNED_OUT') {
+        // Set a flag in localStorage to prevent auto-relogin
+        localStorage.setItem('just_logged_out', 'true');
+        
+        // Clear the flag after 5 seconds
+        setTimeout(() => {
+          localStorage.removeItem('just_logged_out');
+        }, 5000);
+        
         setUser(null)
         setIsAuthenticated(false)
         setSessionActive(false)
         setAuthState(AuthState.UNAUTHENTICATED)
         return
+      }
+
+      // Skip token refreshes and other auth events right after logout
+      if (justLoggedOut && (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN')) {
+        console.log("[DEBUG] Ignoring auth event after logout:", event);
+        // Force sign out again to be sure
+        await forceSignOut();
+        return;
+      }
+
+      // Handle token refresh events to maintain session
+      if (event === 'TOKEN_REFRESHED') {
+        console.log("[DEBUG] Token refreshed event received");
+        // If we already have a user, just update the session active status
+        if (user && isAuthenticated) {
+          setSessionActive(true);
+          return;
+        }
+        
+        // Otherwise treat it like a normal session check
+        await refreshSession();
+        return;
       }
 
       if (session?.user) {
@@ -416,6 +496,9 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             setSessionActive(true)
             setAuthState(AuthState.AUTHENTICATED)
             logAuthState('Auth State Updated', { user: userState })
+            
+            // Start session refresh interval when authenticated
+            setupRefreshInterval();
             
             // Handle redirect after login if returnTo parameter exists
             const currentSearchParams = searchParams
@@ -454,9 +537,15 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     return () => {
       logAuthState('Cleanup', 'Unsubscribing from auth changes')
       mounted = false
+      
+      // Clear the refresh interval on cleanup
+      if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+      }
+      
       subscription.unsubscribe()
     }
-  }, [router, searchParams, refreshSession, clearSessionExpiredMessage, forceSignOut, authState, supabase.auth])
+  }, [router, searchParams, refreshSession, clearSessionExpiredMessage, forceSignOut, authState, supabase.auth, isAuthenticated])
 
   const login = async (email: string, password: string, isAuthCheck = false) => {
     if (typeof window === 'undefined') {
@@ -482,7 +571,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         // Add timeout for getSession request
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Session request timed out")), 5000)
+          setTimeout(() => reject(new Error("Session request timed out")), 15000)
         )
         
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any
@@ -510,7 +599,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         })
         
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Login request timed out")), 7000)
+          setTimeout(() => reject(new Error("Login request timed out")), 15000)
         )
         
         const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as any
@@ -706,31 +795,43 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       setIsAuthenticated(false)
       setSessionActive(false)
       
-      try {
-        // Try to sign out from Supabase - we wrap this in a try/catch so the logout process
-        // continues even if this part fails
-        await supabase.auth.signOut()
-        logAuthState('Logout - Supabase SignOut Success', { elapsed: Date.now() - startTime })
-      } catch (signOutError) {
-        setLastAuthError(signOutError)
-        logAuthState('Logout - Supabase SignOut Error', { error: signOutError, elapsed: Date.now() - startTime })
-        
-        // Even if signOut failed, try to clean up local state
+      // Clear session from Supabase using force sign out which is more thorough
+      await forceSignOut();
+      
+      // Additional cleanup to prevent automatic relogin
+      if (typeof window !== 'undefined') {
         try {
-          // Clear localStorage/sessionStorage as a backup plan
-          localStorage.removeItem(SESSION_STORAGE_KEY)
-          localStorage.removeItem('supabase.auth.token')
-          sessionStorage.removeItem('supabase.auth.token')
+          // More aggressive cookie clearing
+          for (const cookieName of Object.keys(document.cookie.split(';').reduce((acc, cookie) => {
+            const [key, _] = cookie.trim().split('=');
+            return { ...acc, [key]: true };
+          }, {}))) {
+            document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+            document.cookie = `${cookieName}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+          }
+          
+          // Clear all localStorage and sessionStorage
+          localStorage.clear();
+          sessionStorage.clear();
+          
+          // Clear specific Supabase items to be extra sure
+          localStorage.removeItem('supabase.auth.token');
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+          sessionStorage.removeItem('supabase.auth.token');
         } catch (e) {
-          console.error("Error clearing storage during logout:", e)
+          console.error("Error clearing storage during logout:", e);
         }
       }
       
       setAuthState(AuthState.UNAUTHENTICATED)
       logAuthState('Logout Complete', { elapsed: Date.now() - startTime })
       
-      // Redirect to login page
-      router.push("/login")
+      // Pause briefly to ensure state is updated before redirect
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Redirect to login page with cache-busting parameter
+      const loginPath = `/login?t=${Date.now()}`;
+      router.push(loginPath);
     } catch (error) {
       setLastAuthError(error)
       logAuthState('Logout Error', { error, elapsed: Date.now() - startTime })
@@ -739,7 +840,8 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       await forceSignOut()
       
       // Redirect to login page even if there was an error
-      router.push("/login")
+      const loginPath = `/login?t=${Date.now()}`;
+      router.push(loginPath);
     } finally {
       setIsLoading(false)
     }

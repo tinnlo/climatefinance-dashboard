@@ -21,7 +21,25 @@ export const getSupabaseClient = () => {
       autoRefreshToken: true,
       storageKey: 'supabase.auth.token',
       storage: typeof window !== 'undefined' ? localStorage : undefined,
+      detectSessionInUrl: true,
+      flowType: 'implicit',
     },
+    global: {
+      fetch: (url, options) => {
+        // Add request timeout of 30 seconds to all Supabase API calls
+        const controller = new AbortController();
+        const { signal } = controller;
+        
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 30000); // 30 second timeout
+        
+        return fetch(url, { ...options, signal })
+          .finally(() => {
+            clearTimeout(timeoutId);
+          });
+      }
+    }
   })
   
   return supabaseInstance
