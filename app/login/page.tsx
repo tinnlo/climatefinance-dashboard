@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/header"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, AuthState } from "@/lib/auth-context"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle, ShieldAlert } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { SearchParamsProvider, useSearchParamsContext } from "../components/SearchParamsProvider"
 
@@ -35,63 +35,35 @@ function LoginContent() {
     isAuthenticated, 
     refreshSession, 
     sessionExpiredMessage,
-    clearSessionExpiredMessage
+    clearSessionExpiredMessage,
+    forceSignOut,
+    authState
   } = useAuth()
+  
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // Add counter for auth attempts and time tracking
-  const [authAttempts, setAuthAttempts] = useState(0)
-  const [lastAuthAttempt, setLastAuthAttempt] = useState(0)
-  const [forcingCleanLogin, setForcingCleanLogin] = useState(false)
-  // Add a state to track if there are login issues
-  const [hasLoginIssues, setHasLoginIssues] = useState(false)
-  // Enforce a page load delay before showing any help links
+  const [showCleanLogin, setShowCleanLogin] = useState(false)
   const [pageLoadTime] = useState(Date.now())
-  const [hasAttemptedLogin, setHasAttemptedLogin] = useState(false)
-  // Track last login click time to prevent showing help link too soon
-  const [lastLoginClickTime, setLastLoginClickTime] = useState(0)
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
     let mounted = true;
 
-    // Skip authentication check if forcing clean login
-    if (forcingCleanLogin) {
-      return;
-    }
-
-    // Don't count the first check as an attempt
-    if (authAttempts === 0) {
-      setAuthAttempts(1);
-      return;
-    }
-
-    // Track authentication attempts to detect potential infinite loops
-    if (authAttempts > 0) {
-      setAuthAttempts(prev => prev + 1);
-      setLastAuthAttempt(Date.now());
-      console.log("[Login Debug - Auth Check]", {
-        attempt: authAttempts + 1,
+    const logAuthStatus = () => {
+      console.log("[Login Debug - Auth Status]", {
         isAuthenticated,
-        hasUser: !!user,
+        authState,
+        user: user?.email,
+        isLoading: authLoading,
+        isSubmitting,
         timestamp: new Date().toISOString(),
       });
-    }
+    };
 
-    // If too many auth attempts in short time, it might be stuck
-    if (authAttempts > 3 && Date.now() - lastAuthAttempt < 5000) {
-      console.log("[Login Debug - Potential Loop Detected]", {
-        authAttempts,
-        timeSinceLastAttempt: Date.now() - lastAuthAttempt,
-      });
-      // Force clean login by clearing local state
-      handleForceCleanLogin();
-      setHasLoginIssues(true);
-      return;
-    }
+    // Log auth status on mount and state changes
+    logAuthStatus();
 
-    // This effect should ONLY redirect if already authenticated.
-    // Initialization and session refresh are handled by AuthProvider.
-    if (isAuthenticated && user && mounted) {
+    // Only attempt redirects if we're in an authenticated state
+    if (isAuthenticated && user && mounted && authState === AuthState.AUTHENTICATED) {
       console.log("[Login Debug - Already Authenticated, Redirecting]", {
         user: user.email,
         role: user.role,
@@ -106,10 +78,18 @@ function LoginContent() {
       router.push(redirectPath)
     }
 
+    // Check if we should show clean login option
+    const shouldShowCleanLogin = authState === AuthState.ERROR || 
+      (authLoading && Date.now() - pageLoadTime > 5000);
+    
+    if (shouldShowCleanLogin !== showCleanLogin) {
+      setShowCleanLogin(shouldShowCleanLogin);
+    }
+
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, user, returnTo, router, authAttempts, lastAuthAttempt, forcingCleanLogin]);
+  }, [isAuthenticated, user, returnTo, router, authState, authLoading, showCleanLogin, pageLoadTime, isSubmitting]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
@@ -121,63 +101,48 @@ function LoginContent() {
     }
   }, [returnTo]);
 
-  // Add a timeout to reset the loading state if it gets stuck
+  // Add a timeout to detect stuck authentication 
   useEffect(() => {
-    if (authLoading && hasAttemptedLogin) {
-      const timeoutId = setTimeout(() => {
-        // Force refresh the page if loading state is stuck for too long
-        console.log("[Login Debug - Timeout] Auth loading stuck for too long, forcing refresh");
-        setHasLoginIssues(true);
-        window.location.reload();
-      }, 10000); // 10 seconds timeout
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [authLoading, hasAttemptedLogin]);
-
-  // Add another effect to detect prolonged loading
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
+    // Only set a timeout for auth loading states that take too long
+    if (!authLoading || isSubmitting) return;
     
-    // Only run for actual login attempts, not page load/autofill
-    if ((isSubmitting || authLoading) && hasAttemptedLogin) {
-      // Set a timeout to mark as having issues if loading takes too long
-      timeoutId = setTimeout(() => {
-        // Only show issues if we're still in loading state after delay
-        if (isSubmitting || authLoading) {
-          setHasLoginIssues(true);
-        }
-      }, 5000); // Show help link after 5 seconds of loading
-    }
+    const timeoutId = setTimeout(() => {
+      // Only proceed if we're still loading
+      if (authLoading) {
+        console.log("[Login Debug - Timeout] Auth loading stuck for too long");
+        setShowCleanLogin(true);
+      }
+    }, 8000); // 8 seconds timeout
     
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isSubmitting, authLoading, hasAttemptedLogin]);
+    return () => clearTimeout(timeoutId);
+  }, [authLoading, isSubmitting]);
 
-  // New function to force a clean login state by clearing all cached auth data
-  const handleForceCleanLogin = () => {
-    console.log("[Login Debug - Forcing Clean Login]");
-    setForcingCleanLogin(true);
-    setIsSubmitting(false);
-    setAuthAttempts(0);
-    setHasLoginIssues(false);
+  // Function to handle force clean login
+  const handleForceCleanLogin = async () => {
+    console.log("[Login Debug - Force Clean Login Requested]");
     
-    // Clear any cached auth data from localStorage
-    if (typeof window !== 'undefined') {
-      // Clear auth-related localStorage items
-      localStorage.removeItem('auth_session_active');
-      // Suppress redirects temporarily
-      sessionStorage.setItem('suppress_auth_redirect', 'true');
+    setError("");
+    setSuccess("");
+    setInfo("Resetting authentication state...");
+    setIsSubmitting(true);
+    
+    try {
+      // First, force sign out via auth context
+      await forceSignOut();
+      
+      // Clear form fields
+      setEmail("");
+      setPassword("");
+      
+      // Update UI
+      setInfo("Authentication has been reset. Please try logging in again.");
+      setShowCleanLogin(false);
+    } catch (err) {
+      console.error("[Login Debug - Force Clean Error]", err);
+      setError("Failed to reset authentication state. Please try refreshing the page.");
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  // Add a reset button for users
-  const handleResetLoadingState = () => {
-    setIsSubmitting(false);
-    console.log("[Login Debug - Manual Reset] User manually reset loading state");
-    // Use the clean login approach instead of just reloading
-    handleForceCleanLogin();
   };
 
   // Function to clear expiry message when user interacts
@@ -187,14 +152,6 @@ function LoginContent() {
     }
   }
 
-  // Handle login button click
-  const handleLoginClick = () => {
-    setHasAttemptedLogin(true);
-    setLastLoginClickTime(Date.now());
-    // Immediately hide any previous login issues
-    setHasLoginIssues(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
@@ -203,22 +160,12 @@ function LoginContent() {
     setSuccess("")
     setInfo("")
     setIsSubmitting(true)
-    setHasAttemptedLogin(true)
-    // Reset login issues flag on new submit
-    setHasLoginIssues(false)
-    // Update last login click time
-    setLastLoginClickTime(Date.now())
-
-    // If we're forcing a clean login, clear that flag now that user is actively trying to log in
-    if (forcingCleanLogin) {
-      setForcingCleanLogin(false);
-    }
+    setShowCleanLogin(false)
 
     console.log("[Login Debug - Submit]", {
       isLogin,
       email,
       returnTo,
-      forcingCleanLogin,
       timestamp: new Date().toISOString(),
     });
 
@@ -279,19 +226,24 @@ function LoginContent() {
             setError(result.message)
             setSuccess("")
             setInfo("")
+            // Show clean login option for unexpected errors
+            setShowCleanLogin(true)
           }
         }
       } else {
         if (!name) {
           setError("Name is required")
+          setIsSubmitting(false)
           return
         }
         if (password !== confirmPassword) {
           setError("Passwords do not match")
+          setIsSubmitting(false)
           return
         }
         if (password.length < 8) {
           setError("Password must be at least 8 characters long")
+          setIsSubmitting(false)
           return
         }
         const result = await register(name, email, password)
@@ -315,16 +267,135 @@ function LoginContent() {
             setConfirmPassword("")
           } else {
             setError(result.message)
+            // Show clean login option for registration errors
+            setShowCleanLogin(true)
           }
         }
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.")
       console.error(err)
+      // Show clean login option for unexpected errors
+      setShowCleanLogin(true)
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  // Show appropriate form fields and buttons based on current state
+  const renderForm = () => {
+    // Special state: System is in authentication error state
+    if (authState === AuthState.ERROR && !isSubmitting) {
+      return (
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              There was a problem with the authentication system. Please reset your login session.
+            </AlertDescription>
+          </Alert>
+          
+          <Button 
+            className="w-full"
+            onClick={handleForceCleanLogin}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <div className="flex items-center justify-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Resetting...</span>
+              </div>
+            ) : "Reset Authentication"}
+          </Button>
+        </div>
+      );
+    }
+    
+    // Normal login/signup form
+    return (
+      <div className="space-y-6">
+        {!isLogin && (
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="login-input bg-transparent"
+              required
+            />
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="Your email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              handleInputInteraction()
+            }}
+            onFocus={handleInputInteraction}
+            className="login-input bg-transparent"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Your password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              handleInputInteraction()
+            }}
+            onFocus={handleInputInteraction}
+            className="login-input bg-transparent"
+            required
+          />
+        </div>
+        {!isLogin && (
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm Password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="login-input bg-transparent"
+              required
+            />
+          </div>
+        )}
+        {sessionExpiredMessage && (
+          <Alert>
+            <AlertDescription>{sessionExpiredMessage}</AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+        {info && (
+          <Alert>
+            <AlertDescription>{info}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -340,99 +411,77 @@ function LoginContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6" id="login-form">
               <style jsx global>{`
-                input:-webkit-autofill,
+                /* Set consistent colors for all inputs */
+                input {
+                  color: rgb(20, 40, 30);
+                  background-color: rgb(240, 245, 243);
+                }
+                
+                .dark input {
+                  color: rgb(167, 243, 208);
+                  background-color: rgb(20, 33, 27);
+                }
+                
+                /* Light mode autofill styles */
+                input:-webkit-autofill {
+                  -webkit-box-shadow: 0 0 0 30px rgb(240, 245, 243) inset !important;
+                  -webkit-text-fill-color: rgb(20, 40, 30) !important;
+                  /* Extremely long transition to prevent browser from reverting styles */
+                  transition: background-color 500000s 0s, color 500000s 0s !important;
+                }
+                
+                /* Additional light mode styles to reinforce */
                 input:-webkit-autofill:hover,
-                input:-webkit-autofill:focus {
+                input:-webkit-autofill:focus,
+                input:-webkit-autofill:active {
+                  -webkit-box-shadow: 0 0 0 30px rgb(240, 245, 243) inset !important;
+                  -webkit-text-fill-color: rgb(20, 40, 30) !important;
+                }
+                
+                /* Dark mode autofill styles */
+                .dark input:-webkit-autofill {
                   -webkit-box-shadow: 0 0 0 30px rgb(20, 33, 27) inset !important;
                   -webkit-text-fill-color: rgb(167, 243, 208) !important;
-                  caret-color: rgb(167, 243, 208) !important;
+                  /* Extremely long transition to prevent browser from reverting styles */
+                  transition: background-color 500000s 0s, color 500000s 0s !important;
+                }
+                
+                /* Additional dark mode styles to reinforce */
+                .dark input:-webkit-autofill:hover,
+                .dark input:-webkit-autofill:focus,
+                .dark input:-webkit-autofill:active {
+                  -webkit-box-shadow: 0 0 0 30px rgb(20, 33, 27) inset !important;
+                  -webkit-text-fill-color: rgb(167, 243, 208) !important;
+                }
+                
+                /* Force identical appearance between normal and autofilled inputs */
+                input, input:-webkit-autofill {
+                  font-size: 1rem !important;
+                  line-height: 1.5 !important;
+                }
+                
+                /* Try to intercept browser reversion */
+                @keyframes autofillFix {
+                  from {}
+                  to {}
+                }
+                
+                input:-webkit-autofill {
+                  animation-name: autofillFix;
+                  animation-duration: 500000s;
+                  animation-iteration-count: 1;
                 }
               `}</style>
-              <div className="space-y-6">
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="Your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Your email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      handleInputInteraction()
-                    }}
-                    onFocus={handleInputInteraction}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Your password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-                      handleInputInteraction()
-                    }}
-                    onFocus={handleInputInteraction}
-                    required
-                  />
-                </div>
-                {!isLogin && (
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="Confirm your password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-                {sessionExpiredMessage && (
-                  <Alert>
-                    <AlertDescription>{sessionExpiredMessage}</AlertDescription>
-                  </Alert>
-                )}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {success && (
-                  <Alert>
-                    <AlertDescription>{success}</AlertDescription>
-                  </Alert>
-                )}
-                {info && (
-                  <Alert>
-                    <AlertDescription>{info}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
+              
+              {renderForm()}
+              
               <div className="pt-6">
                 <GradientButton
                   type="submit"
                   className="w-full h-12 relative"
-                  disabled={isSubmitting || authLoading}
-                  onClick={handleLoginClick}
+                  disabled={isSubmitting || authLoading || authState === AuthState.ERROR}
                 >
                   <div className="flex items-center justify-center space-x-2">
                     {(isSubmitting || authLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -440,18 +489,16 @@ function LoginContent() {
                   </div>
                 </GradientButton>
                 
-                {/* Only show help link when there are actual login issues AND user has attempted to login 
-                    AND enough time has passed since page load AND since the last login button click */}
-                {(hasLoginIssues && 
-                  hasAttemptedLogin && 
-                  Date.now() - pageLoadTime > 2000 && 
-                  Date.now() - lastLoginClickTime > 3000) && (
+                {/* Show clean login button in certain conditions */}
+                {showCleanLogin && authState !== AuthState.ERROR && (
                   <Button
                     variant="link"
                     onClick={handleForceCleanLogin}
                     className="w-full mt-2 text-sm text-muted-foreground hover:text-primary"
+                    disabled={isSubmitting}
                   >
-                    Having trouble? Try clean login
+                    <ShieldAlert className="mr-1 h-3 w-3" />
+                    Having trouble? Reset authentication
                   </Button>
                 )}
               </div>
@@ -465,7 +512,9 @@ function LoginContent() {
                 setIsLogin(!isLogin)
                 setError("")
                 setSuccess("")
+                setInfo("")
               }}
+              disabled={isSubmitting || authLoading || authState === AuthState.ERROR}
             >
               {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
             </Button>

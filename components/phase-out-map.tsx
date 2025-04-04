@@ -1285,7 +1285,7 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
             </div>
 
             {/* Phase Out Chart */}
-            <div className="h-[400px] bg-background dark:bg-[#2F3A2F] rounded-lg mt-8 border border-border">
+            <div className="h-[400px] bg-background dark:bg-[#2F3A2F] light:bg-emerald-50 rounded-lg mt-8 border border-border">
               <PhaseOutChart
                 country={country}
                 data={chartData}
@@ -1297,7 +1297,7 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
 
         {/* Right Column - Statistics Summary */}
         <div className="lg:col-span-3">
-          <Card className="h-full p-3 sm:p-4 lg:p-5 bg-background dark:bg-[#2F3A2F] border-border overflow-y-auto">
+          <Card className="h-full p-3 sm:p-4 lg:p-5 bg-background dark:bg-[#2F3A2F] light:bg-emerald-50 border-border overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">Statistics Summary</h3>
               <InfoDialog title="Statistics Summary">
@@ -1360,9 +1360,11 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                       href={`/company-details?country=${convertToIso3(country)}`}
                       passHref
                     >
-                      <GradientButton variant="secondary" className="h-7 text-xs">
+                      <Button 
+                        className="bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-black/90 text-forest dark:text-white border border-forest dark:border-0 h-7 text-xs rounded-full px-3"
+                      >
                         View All
-                      </GradientButton>
+                      </Button>
                     </Link>
                   </div>
                   <div className="space-y-2 max-h-[450px] overflow-y-auto pr-2 border border-border rounded-md p-2">

@@ -65,9 +65,7 @@ export default function LandingPage() {
               <div className="flex justify-center">
                 <Link href="/dashboard">
                   <Button 
-                    className={`border border-white rounded-full px-10 py-6 text-lg md:text-xl transition-colors duration-300 ${
-                      isHovered ? "bg-white text-black" : "bg-transparent text-white"
-                    }`}
+                    className="border border-white rounded-full px-10 py-6 text-lg md:text-xl transition-colors duration-300 bg-transparent text-white hover:bg-white hover:text-black"
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                   >

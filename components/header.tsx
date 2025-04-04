@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { Settings, LogOut, User } from "lucide-react"
+import { Settings, LogOut, User, RefreshCw } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import ClientOnly from "../app/components/ClientOnly"
+import { useState } from "react"
 
 // The actual header content component
 function HeaderContent({
@@ -29,12 +30,39 @@ function HeaderContent({
 }) {
   const pathname = usePathname()
   const { theme } = useTheme()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, forceSignOut, isAuthenticated } = useAuth()
   const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
-    await logout()
-    router.push("/login")
+    try {
+      setIsLoggingOut(true)
+      
+      // Attempt normal logout first
+      await logout()
+      console.log("[Header] Logout successful")
+      
+      // Router push happens inside logout function
+    } catch (err) {
+      console.error("[Header] Logout failed:", err)
+      
+      // If regular logout fails, try force sign out as fallback
+      try {
+        console.log("[Header] Attempting force sign out...")
+        await forceSignOut()
+        console.log("[Header] Force sign out successful")
+        
+        // Redirect after force sign out
+        router.push("/login")
+      } catch (forceErr) {
+        console.error("[Header] Force sign out failed:", forceErr)
+        
+        // Last resort: Reload the page
+        window.location.href = "/login"
+      }
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
@@ -104,9 +132,18 @@ function HeaderContent({
                         Account Management
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Logout
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer" disabled={isLoggingOut}>
+                      {isLoggingOut ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Logging out...
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Logout
+                        </>
+                      )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
