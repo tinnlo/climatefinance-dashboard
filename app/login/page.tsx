@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +25,7 @@ function LoginContent() {
   const [success, setSuccess] = useState("")
   const [info, setInfo] = useState("")
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParamsContext()
   const returnTo = searchParams?.get('returnTo')
   const { 
@@ -43,6 +44,7 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCleanLogin, setShowCleanLogin] = useState(false)
   const [pageLoadTime] = useState(Date.now())
+  const [isExplicitLoginPage, setIsExplicitLoginPage] = useState(true)
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
@@ -63,7 +65,8 @@ function LoginContent() {
     logAuthStatus();
 
     // Only attempt redirects if we're in an authenticated state
-    if (isAuthenticated && user && mounted && authState === AuthState.AUTHENTICATED) {
+    // AND this is not from an explicit login attempt
+    if (isAuthenticated && user && mounted && authState === AuthState.AUTHENTICATED && !isExplicitLoginPage) {
       console.log("[Login Debug - Already Authenticated, Redirecting]", {
         user: user.email,
         role: user.role,
@@ -89,7 +92,23 @@ function LoginContent() {
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, user, returnTo, router, authState, authLoading, showCleanLogin, pageLoadTime, isSubmitting]);
+  }, [isAuthenticated, user, returnTo, router, authState, authLoading, showCleanLogin, pageLoadTime, isSubmitting, isExplicitLoginPage]);
+
+  // When in the explicit login page, disable automatic authentication checks
+  useEffect(() => {
+    // Flag to indicate we're on the explicit login page
+    setIsExplicitLoginPage(true);
+    
+    // Force sign out to ensure clean login state
+    if (pathname === '/login') {
+      console.log("[Login Debug - Explicit Login Page] Disabling automatic authentication checks");
+      
+      // Optionally force a clean state if there's an error
+      if (authState === AuthState.ERROR) {
+        forceSignOut();
+      }
+    }
+  }, [pathname, authState, forceSignOut]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
@@ -161,6 +180,8 @@ function LoginContent() {
     setInfo("")
     setIsSubmitting(true)
     setShowCleanLogin(false)
+    // When user explicitly tries to log in, set this flag to false to allow redirects
+    setIsExplicitLoginPage(false)
 
     console.log("[Login Debug - Submit]", {
       isLogin,

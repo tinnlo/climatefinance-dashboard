@@ -274,14 +274,14 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
   const scenarios = [
     { value: "maturity", label: "By Power Plant Maturity" },
     { value: "emission_factor", label: "By Power Plant Emission Intensity" },
-    { value: "emissions_per_OC_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
+    { value: "benefits_cost_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
   ]
 
   // Scenario to data mapping
   const scenarioToDataKey = {
     "maturity": "maturity",
     "emission_factor": "emission_intensity",
-    "emissions_per_OC_maturity": "benefits_costs"
+    "benefits_cost_maturity": "benefits_costs"
   }
 
   // Fetch country data

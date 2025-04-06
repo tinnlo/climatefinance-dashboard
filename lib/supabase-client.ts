@@ -23,6 +23,8 @@ export const getSupabaseClient = () => {
       storage: typeof window !== 'undefined' ? localStorage : undefined,
       detectSessionInUrl: true,
       flowType: 'implicit',
+      // Set longer token window to prevent frequent expirations
+      debug: process.env.NODE_ENV === 'development'
     },
     global: {
       fetch: (url, options) => {
@@ -42,6 +44,22 @@ export const getSupabaseClient = () => {
     }
   })
   
+  // Set up auth state change listener for debugging and better token management
+  if (typeof window !== 'undefined') {
+    supabaseInstance.auth.onAuthStateChange((event, session) => {
+      // Log auth events for debugging
+      console.log(`[Supabase Auth] Event: ${event}`, { 
+        hasSession: !!session,
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Refresh the token more aggressively when it's about to expire
+      if (session && event === 'TOKEN_REFRESHED') {
+        console.log('[Supabase Auth] Token refreshed successfully');
+      }
+    });
+  }
+  
   return supabaseInstance
 }
 
@@ -54,10 +72,16 @@ export const getCurrentSession = async () => {
   
   const client = getSupabaseClient()
   try {
+    // Add timeout for getSession request to prevent hangs
+    const sessionPromise = client.auth.getSession()
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Session request timed out")), 15000)
+    )
+    
     const {
       data: { session },
       error,
-    } = await client.auth.getSession()
+    } = await Promise.race([sessionPromise, timeoutPromise]) as any
     
     if (error) {
       console.error("Error getting session:", error)

@@ -45,8 +45,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Create a session storage key to track login state
 const SESSION_STORAGE_KEY = 'auth_session_active'
+const SESSION_TIMESTAMP_KEY = 'auth_session_timestamp'
+const SESSION_EXPIRY_DURATION = 30 * 60 * 1000 // 30 minutes in milliseconds
 const AUTH_LAST_ERROR_KEY = 'auth_last_error'
 const AUTH_OPERATION_TIMEOUT = 20000 // 20 seconds timeout for auth operations (increased from 8s)
+const AUTH_OPERATION_LOCK_KEY = 'auth_operation_lock'
 
 // Inner component that uses search params
 function AuthProviderContent({ children }: { children: ReactNode }) {
@@ -86,14 +89,18 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     }
   }
 
-  // Helper to store session state in localStorage (changed from sessionStorage for persistence)
+  // Helper to store session state in localStorage with expiration timestamp
   const setSessionActive = (active: boolean) => {
     if (typeof window !== 'undefined') {
       try {
         if (active) {
+          // Set session active flag
           localStorage.setItem(SESSION_STORAGE_KEY, 'true')
+          // Set timestamp for when the session was activated
+          localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString())
         } else {
           localStorage.removeItem(SESSION_STORAGE_KEY)
+          localStorage.removeItem(SESSION_TIMESTAMP_KEY)
         }
       } catch (e) {
         console.error("Error accessing localStorage:", e)
@@ -101,17 +108,74 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     }
   }
 
-  // Helper to check if session is active in localStorage
+  // Helper to check if session is active and not expired in localStorage
   const isSessionActive = (): boolean => {
     if (typeof window !== 'undefined') {
       try {
-        return localStorage.getItem(SESSION_STORAGE_KEY) === 'true'
+        const isActive = localStorage.getItem(SESSION_STORAGE_KEY) === 'true'
+        if (!isActive) return false
+        
+        // Check if the session has expired
+        const timestamp = localStorage.getItem(SESSION_TIMESTAMP_KEY)
+        if (!timestamp) return false
+        
+        const sessionTime = parseInt(timestamp, 10)
+        const currentTime = Date.now()
+        
+        // If session is older than expiry duration, consider it expired
+        if (currentTime - sessionTime > SESSION_EXPIRY_DURATION) {
+          // Clear expired session
+          localStorage.removeItem(SESSION_STORAGE_KEY)
+          localStorage.removeItem(SESSION_TIMESTAMP_KEY)
+          return false
+        }
+        
+        return true
       } catch (e) {
         console.error("Error reading from localStorage:", e)
         return false
       }
     }
     return false
+  }
+
+  // Helper to set operation lock to prevent race conditions
+  const setAuthOperationLock = (locked: boolean): void => {
+    if (typeof window === 'undefined') return
+    
+    try {
+      if (locked) {
+        localStorage.setItem(AUTH_OPERATION_LOCK_KEY, Date.now().toString())
+      } else {
+        localStorage.removeItem(AUTH_OPERATION_LOCK_KEY)
+      }
+    } catch (e) {
+      console.error("Error setting auth operation lock:", e)
+    }
+  }
+  
+  // Helper to check if operation is locked
+  const isAuthOperationLocked = (): boolean => {
+    if (typeof window === 'undefined') return false
+    
+    try {
+      const lockTimestamp = localStorage.getItem(AUTH_OPERATION_LOCK_KEY)
+      if (!lockTimestamp) return false
+      
+      const lockTime = parseInt(lockTimestamp, 10)
+      const currentTime = Date.now()
+      
+      // If lock is older than 30 seconds, consider it stale and release it
+      if (currentTime - lockTime > 30000) {
+        localStorage.removeItem(AUTH_OPERATION_LOCK_KEY)
+        return false
+      }
+      
+      return true
+    } catch (e) {
+      console.error("Error checking auth operation lock:", e)
+      return false
+    }
   }
 
   const clearSessionExpiredMessage = useCallback(() => {
@@ -180,12 +244,13 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   }, [supabase.auth])
 
   const refreshSession = useCallback(async () => {
-    // Prevent multiple simultaneous refreshes
-    if (authState === AuthState.CHECKING) {
-      logAuthState('Refresh Session Skipped', 'Already checking authentication')
+    // Prevent multiple simultaneous refreshes using lock
+    if (isAuthOperationLocked() || authState === AuthState.CHECKING) {
+      logAuthState('Refresh Session Skipped', 'Operation locked or already checking authentication')
       return
     }
     
+    setAuthOperationLock(true)
     const startTime = Date.now()
     setLastAuthActivity(startTime)
     
@@ -193,7 +258,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       setAuthState(AuthState.CHECKING)
       setIsLoading(true)
       
-      // Get current session
+      // Always prioritize Supabase session as the source of truth
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError) {
@@ -216,6 +281,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
           setAuthState(AuthState.UNAUTHENTICATED)
         }
       } else {
+        // No valid Supabase session, clear local cache
         logAuthState('No Session', 'No active session found')
         setIsAuthenticated(false)
         setSessionActive(false)
@@ -229,6 +295,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       setAuthState(AuthState.ERROR)
     } finally {
       setIsLoading(false)
+      setAuthOperationLock(false)
     }
   }, [clearSessionExpiredMessage, authState])
 
@@ -293,7 +360,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         clearInterval(refreshIntervalId);
       }
       
-      // Set up new interval to refresh session every 10 minutes
+      // Set up new interval to refresh session every 20 minutes
       refreshIntervalId = setInterval(() => {
         // Only refresh if we're authenticated to avoid unnecessary requests
         if (isAuthenticated && authState === AuthState.AUTHENTICATED) {
@@ -302,22 +369,24 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             console.error("[DEBUG] Error in scheduled refresh:", err);
           });
         }
-      }, 10 * 60 * 1000); // 10 minutes
+      }, 20 * 60 * 1000); // 20 minutes (increased from 10)
     };
 
     const initializeAuth = async () => {
-      // Skip if already in a checking state to prevent multiple simultaneous checks
-      if (authState === AuthState.CHECKING) return
+      // Skip if operation is locked or already checking to prevent multiple simultaneous checks
+      if (isAuthOperationLocked() || authState === AuthState.CHECKING) return
+      
+      setAuthOperationLock(true)
       
       try {
         setAuthState(AuthState.CHECKING)
         logAuthState('Initialize', 'Starting auth initialization...')
         
-        // Check if we have an active session in localStorage
+        // Check if we have an active, non-expired session in localStorage
         const sessionActive = isSessionActive()
         logAuthState('Session Storage Check', { sessionActive })
         
-        // Get session from Supabase
+        // Supabase is the authoritative source of truth
         const { data: { session }, error } = await supabase.auth.getSession()
         logAuthState('Session Check', { 
           hasSession: !!session, 
@@ -327,7 +396,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
 
         if (error) throw error
 
-        // Case 1: We have a session with a user
+        // Case 1: We have a session with a user - this is the authoritative check
         if (session?.user && mounted) {
           const userData = await getCurrentUser()
           if (userData) {
@@ -344,6 +413,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
               setIsAuthenticated(false)
               setSessionActive(false)
               setAuthState(AuthState.UNAUTHENTICATED)
+              setAuthOperationLock(false)
               return
             }
             
@@ -365,6 +435,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             // Start session refresh interval when authenticated
             setupRefreshInterval();
             
+            setAuthOperationLock(false)
             return
           } else {
             logAuthState('Session With No User Data', { 
@@ -372,9 +443,9 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
               userFetchFailed: true,
             })
           }
-        } 
+        }
         
-        // Case 2: Session mismatch (localStorage thinks we're active but Supabase doesn't have a session)
+        // Case 2: Local cache thinks we're logged in but Supabase doesn't have a session
         if (sessionActive && !session && mounted) {
           logAuthState('Session Mismatch - Likely Expired', { sessionActive, hasSession: !!session })
           setSessionExpiredMessage("Your session has expired. Please log in again.")
@@ -384,6 +455,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
           setUser(null)
           setIsAuthenticated(false)
           setSessionActive(false)
+          setAuthOperationLock(false)
           return
         } 
         
@@ -409,6 +481,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       } finally {
         if (mounted) {
           setIsLoading(false)
+          setAuthOperationLock(false)
         }
       }
     }
@@ -552,6 +625,12 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       return { success: false, message: "Cannot login in server environment" }
     }
     
+    // Prevent multiple simultaneous login attempts
+    if (isAuthOperationLocked() && !isAuthCheck) {
+      return { success: false, message: "Another authentication operation is in progress" }
+    }
+    
+    setAuthOperationLock(true)
     const startTime = Date.now()
     setLastAuthActivity(startTime)
     setIsLoading(true)
@@ -694,6 +773,8 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       if (!isAuthCheck) {
         setIsLoading(false)
       }
+      setIsLoading(false)
+      setAuthOperationLock(false)
     }
   }
 
@@ -782,6 +863,13 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (typeof window === 'undefined') return
     
+    // Prevent multiple simultaneous logout attempts
+    if (isAuthOperationLocked()) {
+      logAuthState('Logout Skipped', 'Operation locked')
+      return
+    }
+    
+    setAuthOperationLock(true)
     const startTime = Date.now()
     setLastAuthActivity(startTime)
     
@@ -844,6 +932,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       router.push(loginPath);
     } finally {
       setIsLoading(false)
+      setAuthOperationLock(false)
     }
   }
 
