@@ -143,32 +143,44 @@ export const getCurrentUser = async () => {
         // Type assertion for userByEmail
         const typedUserByEmail = userByEmail as UserData
         
-        console.log(`Found user by email: ${typedUserByEmail?.id}, verification status:`, typedUserByEmail?.is_verified)
-        
-        // If the user is found but is_verified is missing, try to repair it
-        if (typedUserByEmail && (typedUserByEmail.is_verified === null || typedUserByEmail.is_verified === undefined)) {
-          console.log("Repairing missing is_verified field by setting it to true");
+        // Normalize is_verified to a consistent boolean value
+        if (typedUserByEmail) {
+          // Check the actual value and convert it to a proper boolean
+          const verificationValue = typedUserByEmail.is_verified;
+          console.log(`Raw verification value for user ${typedUserByEmail.email}:`, verificationValue, 
+            `(type: ${typeof verificationValue})`);
           
-          // Update user with is_verified=true
-          const { error: updateError } = await client
-            .from("users")
-            .update({ is_verified: true })
-            .eq("id", typedUserByEmail.id);
+          // Convert to boolean using multiple checks
+          let boolValue = false;
           
-          if (updateError) {
-            console.error("Error repairing is_verified field:", updateError);
-          } else {
-            // Fetch the updated user data
-            const { data: updatedUser } = await client
-              .from("users")
-              .select("*")
-              .eq("id", typedUserByEmail.id)
-              .single();
-              
-            if (updatedUser) {
-              return updatedUser as UserData;
+          if (verificationValue === true) {
+            boolValue = true;
+          } else if (typeof verificationValue === 'number' && verificationValue === 1) {
+            boolValue = true;
+          } else if (typeof verificationValue === 'string') {
+            const stringValue = verificationValue as string;
+            if (stringValue === '1' || stringValue.toLowerCase() === 'true') {
+              boolValue = true;
             }
           }
+          
+          console.log(`Converted verification value to: ${boolValue}`);
+          
+          // Set the normalized boolean value
+          typedUserByEmail.is_verified = boolValue;
+        }
+        
+        console.log(`Found user by email: ${typedUserByEmail?.id}, normalized verification status:`, 
+          typedUserByEmail?.is_verified);
+        
+        // Store the current user identity in local storage for verification consistency
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('current_user_email', session.user.email);
+            localStorage.setItem('current_user_id', typedUserByEmail.id);
+          }
+        } catch (e) {
+          console.error("Error storing user identity:", e);
         }
         
         return typedUserByEmail
@@ -180,34 +192,45 @@ export const getCurrentUser = async () => {
     // Type assertion for data
     const typedData = data as UserData
     
-    console.log(`Found user by ID: ${typedData?.id}, verification status:`, typedData?.is_verified)
-    
-    // If the user is found but is_verified is missing, try to repair it
-    if (typedData && (typedData.is_verified === null || typedData.is_verified === undefined)) {
-      console.log("Repairing missing is_verified field by setting it to true");
+    // Normalize is_verified to a consistent boolean value
+    if (typedData) {
+      // Check the actual value and convert it to a proper boolean
+      const verificationValue = typedData.is_verified;
+      console.log(`Raw verification value for user ${typedData.email}:`, verificationValue, 
+        `(type: ${typeof verificationValue})`);
       
-      // Update user with is_verified=true
-      const { error: updateError } = await client
-        .from("users")
-        .update({ is_verified: true })
-        .eq("id", typedData.id);
+      // Convert to boolean using multiple checks
+      let boolValue = false;
       
-      if (updateError) {
-        console.error("Error repairing is_verified field:", updateError);
-      } else {
-        // Fetch the updated user data
-        const { data: updatedUser } = await client
-          .from("users")
-          .select("*")
-          .eq("id", typedData.id)
-          .single();
-          
-        if (updatedUser) {
-          return updatedUser as UserData;
+      if (verificationValue === true) {
+        boolValue = true;
+      } else if (typeof verificationValue === 'number' && verificationValue === 1) {
+        boolValue = true;
+      } else if (typeof verificationValue === 'string') {
+        const stringValue = verificationValue as string;
+        if (stringValue === '1' || stringValue.toLowerCase() === 'true') {
+          boolValue = true;
         }
       }
+      
+      console.log(`Converted verification value to: ${boolValue}`);
+      
+      // Set the normalized boolean value
+      typedData.is_verified = boolValue;
     }
-
+    
+    console.log(`Found user by ID: ${typedData?.id}, normalized verification status:`, typedData?.is_verified)
+    
+    // Store the current user identity in local storage for verification consistency
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('current_user_email', session.user.email);
+        localStorage.setItem('current_user_id', typedData.id);
+      }
+    } catch (e) {
+      console.error("Error storing user identity:", e);
+    }
+    
     return typedData
   } catch (error) {
     console.error("Unexpected error in getCurrentUser:", error)

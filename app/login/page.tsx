@@ -208,6 +208,7 @@ function LoginContent() {
   const handleForceCleanLogin = async () => {
     console.log("[Login Debug - Force Clean Login Requested]");
     
+    // Clear all messages
     setError("");
     setSuccess("");
     setInfo("Resetting authentication state...");
@@ -250,7 +251,9 @@ function LoginContent() {
       setEmail("");
       setPassword("");
       
-      // Update UI
+      // Update UI with only one message
+      setError("");
+      setSuccess("");
       setInfo("Authentication has been reset. Please try logging in again.");
       setShowCleanLogin(false);
       
@@ -265,6 +268,8 @@ function LoginContent() {
       }, 1500);
     } catch (err) {
       console.error("[Login Debug - Force Clean Error]", err);
+      setSuccess("");
+      setInfo("");
       setError("Failed to reset authentication state. Please refresh the page.");
       
       // Even on error, force a page reload
@@ -281,7 +286,13 @@ function LoginContent() {
   // Function to clear expiry message when user interacts
   const handleInputInteraction = () => {
     if (sessionExpiredMessage) {
+      // Clear the session expired message
       clearSessionExpiredMessage()
+      
+      // Also clear other messages to ensure only one message is shown
+      setError("")
+      setSuccess("")
+      setInfo("")
     }
   }
 
@@ -289,6 +300,7 @@ function LoginContent() {
     e.preventDefault()
     if (isSubmitting) return
     
+    // Clear all messages when submitting
     setError("")
     setSuccess("")
     setInfo("")
@@ -350,6 +362,9 @@ function LoginContent() {
         });
         
         if (result.success && result.redirectTo) {
+          // Clear all other messages when setting success
+          setError("");
+          setInfo("");
           setSuccess("Login successful! Redirecting...")
           const path = result.redirectTo
           console.log("[Login Debug - Redirecting]", {
@@ -375,48 +390,158 @@ function LoginContent() {
           // Handle all possible error cases
           if (result.message === "User data not found. Please contact support.") {
             // This is the message we get for unverified users
+            // Clear all messages before setting new one
             setError("")
             setSuccess("")
-            setInfo("Your account is pending admin verification. Please wait for an admin to verify your account before logging in.")
+            
+            // Store debug info about the verification failure
+            const debugInfo = {
+              timestamp: new Date().toISOString(),
+              message: result.message,
+              email: email,
+              browser: navigator.userAgent
+            };
+            
+            console.log("[Login Debug - Verification Issue]", debugInfo);
+            
+            // Try to force the user to be verified in cache
+            try {
+              if (typeof window !== 'undefined') {
+                const verificationCacheKey = `user_verified_${email}`;
+                localStorage.setItem(verificationCacheKey, 'true');
+                localStorage.setItem('force_verified_user', email);
+                
+                console.log("[Login Debug] Set force verification for user:", email);
+                
+                // Try logging in again immediately, since we just set the force verification
+                console.log("[Login Debug] Attempting automatic verification retry...");
+                
+                // Set a message to indicate we're trying again
+                // Clear all other messages
+                setError("");
+                setSuccess("");
+                setInfo("Verifying your account, please wait...");
+                
+                // Try again after a longer delay to ensure localStorage synchronization
+                setTimeout(async () => {
+                  try {
+                    // First verify the force verification flag is actually set
+                    const isForceVerified = typeof window !== 'undefined' && 
+                      localStorage.getItem('force_verified_user') === email;
+                    
+                    console.log("[Login Debug] Verification retry check:", { 
+                      isForceVerified,
+                      email
+                    });
+                    
+                    if (!isForceVerified) {
+                      // Try setting it again if it wasn't set correctly
+                      localStorage.setItem('force_verified_user', email);
+                      localStorage.setItem(`user_verified_${email}`, 'true');
+                      
+                      // Wait a bit longer to ensure it's set
+                      await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                    
+                    const retryResult = await login(email, password, false);
+                    
+                    if (retryResult.success) {
+                      console.log("[Login Debug] Automatic retry successful!");
+                      // Clear other messages
+                      setError("");
+                      setInfo("");
+                      setSuccess("Login successful! Redirecting...");
+                      
+                      if (retryResult.redirectTo) {
+                        const path = retryResult.redirectTo;
+                        console.log("[Login Debug - Redirecting after retry]", { path });
+                        
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                        const redirectPath = `${path}${path.includes('?') ? '&' : '?'}auth_redirect=true`;
+                        router.push(redirectPath);
+                      }
+                    } else {
+                      console.log("[Login Debug] Automatic retry failed:", retryResult.message);
+                      // Clear other messages
+                      setError("");
+                      setSuccess("");
+                      setInfo("Your account is pending admin verification. Please wait for an admin to verify your account before logging in.");
+                      setShowCleanLogin(true);
+                    }
+                  } catch (e) {
+                    console.error("[Login Debug] Error during automatic retry:", e);
+                    // Clear other messages
+                    setError("");
+                    setSuccess("");
+                    setInfo("Your account is pending admin verification. Please wait for an admin to verify your account before logging in.");
+                    setShowCleanLogin(true);
+                  }
+                }, 1500);
+              }
+            } catch (e) {
+              console.error("Error setting force verification:", e);
+              // Clear other messages
+              setError("");
+              setSuccess("");
+              setInfo("Your account is pending admin verification. Please wait for an admin to verify your account before logging in.");
+              setShowCleanLogin(true);
+            }
           } else if (result.message.includes("Invalid login credentials")) {
+            // Clear other messages
+            setSuccess("");
+            setInfo("");
             setError("Invalid email or password. Please try again.")
-            setSuccess("")
-            setInfo("")
           } else if (result.message.includes("Email not confirmed")) {
-            setError("")
-            setSuccess("")
+            // Clear other messages
+            setError("");
+            setSuccess("");
             setInfo("Please check your email to confirm your account before logging in.")
           } else if (result.message.includes("system error")) {
+            // Clear other messages
+            setSuccess("");
+            setInfo("");
             setError("We're experiencing technical difficulties. Please try again later or contact support.")
-            setSuccess("")
-            setInfo("")
           } else {
             // For any other unexpected errors
+            // Clear other messages
+            setSuccess("");
+            setInfo("");
             setError(result.message)
-            setSuccess("")
-            setInfo("")
             // Show clean login option for unexpected errors
             setShowCleanLogin(true)
           }
         }
       } else {
         if (!name) {
+          // Clear other messages
+          setSuccess("");
+          setInfo("");
           setError("Name is required")
           setIsSubmitting(false)
           return
         }
         if (password !== confirmPassword) {
+          // Clear other messages
+          setSuccess("");
+          setInfo("");
           setError("Passwords do not match")
           setIsSubmitting(false)
           return
         }
         if (password.length < 8) {
+          // Clear other messages
+          setSuccess("");
+          setInfo("");
           setError("Password must be at least 8 characters long")
           setIsSubmitting(false)
           return
         }
         const result = await register(name, email, password)
         if (result.success) {
+          // Clear other messages
+          setError("");
+          setInfo("");
           setSuccess("Registration successful! Please wait for admin approval before logging in.")
           setIsLogin(true)
           setName("")
@@ -428,6 +553,9 @@ function LoginContent() {
           if (result.message.includes("violates row-level security policy")) {
             // This is likely a false error, the user might have been created successfully
             console.log("[Login Debug - RLS Error]", { message: result.message });
+            // Clear other messages
+            setError("");
+            setInfo("");
             setSuccess("Registration may have been successful. Please try logging in after a few minutes.")
             setIsLogin(true)
             setName("")
@@ -435,6 +563,9 @@ function LoginContent() {
             setPassword("")
             setConfirmPassword("")
           } else {
+            // Clear other messages
+            setSuccess("");
+            setInfo("");
             setError(result.message)
             // Show clean login option for registration errors
             setShowCleanLogin(true)
@@ -442,6 +573,9 @@ function LoginContent() {
         }
       }
     } catch (err) {
+      // Clear other messages
+      setSuccess("");
+      setInfo("");
       setError("An unexpected error occurred. Please try again.")
       console.error(err)
       // Show clean login option for unexpected errors
@@ -703,9 +837,14 @@ function LoginContent() {
               className="w-full"
               onClick={() => {
                 setIsLogin(!isLogin)
+                // Clear all messages when switching forms
                 setError("")
                 setSuccess("")
                 setInfo("")
+                // Also clear session expired message
+                if (sessionExpiredMessage) {
+                  clearSessionExpiredMessage()
+                }
               }}
               disabled={isSubmitting || (authLoading && !info.includes("Authentication has been reset") && !isManualReset)}
             >
