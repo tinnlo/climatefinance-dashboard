@@ -35,10 +35,23 @@ function HeaderContent({
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    // If already logging out, prevent duplicate attempts
+    if (isLoggingOut) return
+    
     try {
       setIsLoggingOut(true)
       
+      // Clear any existing auth operation locks
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('auth_operation_lock');
+        } catch (e) {
+          console.error("Error clearing auth operation lock:", e);
+        }
+      }
+      
       // Attempt normal logout first
+      console.log("[Header] Starting logout process")
       await logout()
       console.log("[Header] Logout successful")
       
@@ -49,19 +62,58 @@ function HeaderContent({
       // If regular logout fails, try force sign out as fallback
       try {
         console.log("[Header] Attempting force sign out...")
+        
+        // Clear any auth locks again
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('auth_operation_lock');
+          } catch (e) {
+            console.error("Error clearing auth operation lock:", e);
+          }
+        }
+        
         await forceSignOut()
         console.log("[Header] Force sign out successful")
         
         // Redirect after force sign out
-        router.push("/login")
+        setTimeout(() => {
+          router.push("/login")
+        }, 300)
       } catch (forceErr) {
         console.error("[Header] Force sign out failed:", forceErr)
         
-        // Last resort: Reload the page
-        window.location.href = "/login"
+        // Last resort: Clear localStorage manually and hard reload
+        try {
+          // More aggressive cleanup
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_session_active');
+            localStorage.removeItem('auth_session_timestamp');
+            localStorage.removeItem('auth_operation_lock');
+            
+            // Set logout flag
+            localStorage.setItem('just_logged_out', 'true');
+            
+            // Clear supabase tokens
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (key.includes('supabase') || key.includes('sb-'))) {
+                localStorage.removeItem(key);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[Header] Error clearing storage:", e);
+        }
+        
+        // Hard reload to login page
+        window.location.href = window.location.origin + "/login?forcedLogout=true"
       }
     } finally {
-      setIsLoggingOut(false)
+      // Make sure we always reset the logging out state after a delay
+      // This ensures the state is reset even if navigation occurs
+      setTimeout(() => {
+        setIsLoggingOut(false);
+      }, 1000);
     }
   }
 

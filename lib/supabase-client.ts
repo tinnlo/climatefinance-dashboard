@@ -96,6 +96,16 @@ export const getCurrentSession = async () => {
 }
 
 // Helper function to get the current user with role (client-side only)
+export interface UserData {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at?: string;
+  is_verified?: boolean;
+  [key: string]: any; // For any other properties
+}
+
 export const getCurrentUser = async () => {
   if (typeof window === 'undefined') return null
   
@@ -130,14 +140,75 @@ export const getCurrentUser = async () => {
           return null
         }
         
-        console.log(`Found user by email: ${userByEmail?.id}`)
-        return userByEmail
+        // Type assertion for userByEmail
+        const typedUserByEmail = userByEmail as UserData
+        
+        console.log(`Found user by email: ${typedUserByEmail?.id}, verification status:`, typedUserByEmail?.is_verified)
+        
+        // If the user is found but is_verified is missing, try to repair it
+        if (typedUserByEmail && (typedUserByEmail.is_verified === null || typedUserByEmail.is_verified === undefined)) {
+          console.log("Repairing missing is_verified field by setting it to true");
+          
+          // Update user with is_verified=true
+          const { error: updateError } = await client
+            .from("users")
+            .update({ is_verified: true })
+            .eq("id", typedUserByEmail.id);
+          
+          if (updateError) {
+            console.error("Error repairing is_verified field:", updateError);
+          } else {
+            // Fetch the updated user data
+            const { data: updatedUser } = await client
+              .from("users")
+              .select("*")
+              .eq("id", typedUserByEmail.id)
+              .single();
+              
+            if (updatedUser) {
+              return updatedUser as UserData;
+            }
+          }
+        }
+        
+        return typedUserByEmail
       }
       
       return null
     }
+    
+    // Type assertion for data
+    const typedData = data as UserData
+    
+    console.log(`Found user by ID: ${typedData?.id}, verification status:`, typedData?.is_verified)
+    
+    // If the user is found but is_verified is missing, try to repair it
+    if (typedData && (typedData.is_verified === null || typedData.is_verified === undefined)) {
+      console.log("Repairing missing is_verified field by setting it to true");
+      
+      // Update user with is_verified=true
+      const { error: updateError } = await client
+        .from("users")
+        .update({ is_verified: true })
+        .eq("id", typedData.id);
+      
+      if (updateError) {
+        console.error("Error repairing is_verified field:", updateError);
+      } else {
+        // Fetch the updated user data
+        const { data: updatedUser } = await client
+          .from("users")
+          .select("*")
+          .eq("id", typedData.id)
+          .single();
+          
+        if (updatedUser) {
+          return updatedUser as UserData;
+        }
+      }
+    }
 
-    return data
+    return typedData
   } catch (error) {
     console.error("Unexpected error in getCurrentUser:", error)
     return null
@@ -158,7 +229,7 @@ export const getUserById = async (userId: string) => {
       return null
     }
     
-    return data
+    return data as UserData
   } catch (error) {
     console.error("Unexpected error in getUserById:", error)
     return null

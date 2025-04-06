@@ -14,6 +14,33 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, ShieldAlert } from "lucide-react"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { SearchParamsProvider, useSearchParamsContext } from "../components/SearchParamsProvider"
+import dynamic from "next/dynamic"
+
+// Client-side only hook that safely checks for manual reset flag
+function useManualResetCheck() {
+  const [isReset, setIsReset] = useState(false);
+  
+  useEffect(() => {
+    // Only run in browser
+    if (typeof window === 'undefined') return;
+    
+    try {
+      // Initial check
+      setIsReset(localStorage.getItem('auth_manual_reset') !== null);
+      
+      // Setup interval to keep checking (helps with race conditions)
+      const intervalId = setInterval(() => {
+        setIsReset(localStorage.getItem('auth_manual_reset') !== null);
+      }, 500);
+      
+      return () => clearInterval(intervalId);
+    } catch (e) {
+      console.error("Error in manual reset check:", e);
+    }
+  }, []);
+  
+  return isReset;
+}
 
 function LoginContent() {
   const [isLogin, setIsLogin] = useState(true)
@@ -45,6 +72,7 @@ function LoginContent() {
   const [showCleanLogin, setShowCleanLogin] = useState(false)
   const [pageLoadTime] = useState(Date.now())
   const [isExplicitLoginPage, setIsExplicitLoginPage] = useState(true)
+  const isManualReset = useManualResetCheck();
 
   // Check if user is already authenticated and redirect if needed
   useEffect(() => {
@@ -95,15 +123,25 @@ function LoginContent() {
   }, [isAuthenticated, user, returnTo, router, authState, authLoading, showCleanLogin, pageLoadTime, isSubmitting, isExplicitLoginPage]);
 
   // When in the explicit login page, disable automatic authentication checks
+  // and clear any existing auth operations
   useEffect(() => {
     // Flag to indicate we're on the explicit login page
     setIsExplicitLoginPage(true);
+    
+    // Clear any existing auth operation locks immediately when on login page
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('auth_operation_lock');
+      } catch (e) {
+        console.error("Error clearing auth operation lock:", e);
+      }
+    }
     
     // Force sign out to ensure clean login state
     if (pathname === '/login') {
       console.log("[Login Debug - Explicit Login Page] Disabling automatic authentication checks");
       
-      // Optionally force a clean state if there's an error
+      // Either clear auth errors or perform full sign out if in error state
       if (authState === AuthState.ERROR) {
         forceSignOut();
       }
@@ -136,6 +174,36 @@ function LoginContent() {
     return () => clearTimeout(timeoutId);
   }, [authLoading, isSubmitting]);
 
+  // Clear auth locks on visibility change (when user returns to tab)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && pathname === '/login') {
+        console.log("[Login Debug - Visibility Change] Clearing auth locks on tab focus");
+        try {
+          localStorage.removeItem('auth_operation_lock');
+        } catch (e) {
+          console.error("Error clearing auth operation lock:", e);
+        }
+      }
+    };
+    
+    // Clear locks on initial page load
+    try {
+      localStorage.removeItem('auth_operation_lock');
+    } catch (e) {
+      console.error("Error clearing auth operation lock:", e);
+    }
+    
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [pathname]);
+
   // Function to handle force clean login
   const handleForceCleanLogin = async () => {
     console.log("[Login Debug - Force Clean Login Requested]");
@@ -145,8 +213,37 @@ function LoginContent() {
     setInfo("Resetting authentication state...");
     setIsSubmitting(true);
     
+    // Mark that we're in a manual reset state - this will be used to prevent other auth processes
+    const resetFlag = `auth_manual_reset_${Date.now()}`;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('auth_manual_reset', resetFlag);
+      } catch (e) {
+        console.error("Error setting manual reset flag:", e);
+      }
+    }
+    
+    // Clear any existing auth operation locks immediately
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('auth_operation_lock');
+        localStorage.removeItem('auth_session_active');
+        localStorage.removeItem('auth_session_timestamp');
+        
+        // Clear any Supabase tokens to force a clean slate
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('supabase') || key.includes('sb-'))) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {
+        console.error("Error clearing auth operation lock:", e);
+      }
+    }
+    
     try {
-      // First, force sign out via auth context
+      // Force sign out via auth context
       await forceSignOut();
       
       // Clear form fields
@@ -156,9 +253,26 @@ function LoginContent() {
       // Update UI
       setInfo("Authentication has been reset. Please try logging in again.");
       setShowCleanLogin(false);
+      
+      // Instead of waiting for authLoading to clear, force a page reload after a brief delay
+      // This ensures a completely fresh start
+      setTimeout(() => {
+        console.log("[Login Debug - Forcing page reload after reset]");
+        if (typeof window !== 'undefined') {
+          // Add cache-busting query param
+          window.location.href = window.location.pathname + "?reset=" + Date.now();
+        }
+      }, 1500);
     } catch (err) {
       console.error("[Login Debug - Force Clean Error]", err);
-      setError("Failed to reset authentication state. Please try refreshing the page.");
+      setError("Failed to reset authentication state. Please refresh the page.");
+      
+      // Even on error, force a page reload
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }, 2000);
     } finally {
       setIsSubmitting(false);
     }
@@ -183,6 +297,15 @@ function LoginContent() {
     // When user explicitly tries to log in, set this flag to false to allow redirects
     setIsExplicitLoginPage(false)
 
+    // Clear any authentication locks before attempting login
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('auth_operation_lock');
+      } catch (e) {
+        console.error("Error clearing auth operation lock:", e);
+      }
+    }
+
     console.log("[Login Debug - Submit]", {
       isLogin,
       email,
@@ -193,6 +316,31 @@ function LoginContent() {
     try {
       if (isLogin) {
         const result = await login(email, password, false)
+        
+        // If we get an auth operation in progress error, try again after clearing locks
+        if (!result.success && result.message === "Another authentication operation is in progress") {
+          console.log("[Login Debug - Auth Operation Conflict] Clearing locks and retrying");
+          
+          // Wait a moment for any existing operations to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Retry the login
+          const retryResult = await login(email, password, false);
+          if (retryResult.success) {
+            // Use the retry result instead
+            console.log("[Login Debug - Retry Successful]");
+            result.success = retryResult.success;
+            result.message = retryResult.message;
+            result.redirectTo = retryResult.redirectTo;
+          } else {
+            // If still failing, force a clean login instead of showing error
+            console.log("[Login Debug - Retry Failed] Forcing clean login");
+            await handleForceCleanLogin();
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
         console.log("[Login Debug - Result]", {
           success: result.success,
           message: result.message,
@@ -525,21 +673,22 @@ function LoginContent() {
                 <GradientButton
                   type="submit"
                   className="w-full h-12 relative"
-                  disabled={isSubmitting || authLoading || authState === AuthState.ERROR}
+                  disabled={isSubmitting || (authLoading && !info.includes("Authentication has been reset") && !isManualReset)}
                 >
                   <div className="flex items-center justify-center space-x-2">
-                    {(isSubmitting || authLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {(isSubmitting || (authLoading && !info.includes("Authentication has been reset") && !isManualReset)) && 
+                      <Loader2 className="h-4 w-4 animate-spin" />}
                     <span>{isLogin ? "Login" : "Create Account"}</span>
                   </div>
                 </GradientButton>
                 
                 {/* Show clean login button in certain conditions */}
-                {showCleanLogin && authState !== AuthState.ERROR && (
+                {(showCleanLogin || authLoading) && authState !== AuthState.ERROR && (
                   <Button
                     variant="link"
                     onClick={handleForceCleanLogin}
                     className="w-full mt-2 text-sm text-muted-foreground hover:text-primary"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isManualReset}
                   >
                     <ShieldAlert className="mr-1 h-3 w-3" />
                     Having trouble? Reset authentication
@@ -558,7 +707,7 @@ function LoginContent() {
                 setSuccess("")
                 setInfo("")
               }}
-              disabled={isSubmitting || authLoading || authState === AuthState.ERROR}
+              disabled={isSubmitting || (authLoading && !info.includes("Authentication has been reset") && !isManualReset)}
             >
               {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
             </Button>
@@ -569,10 +718,34 @@ function LoginContent() {
   )
 }
 
+// Create a component that only renders on the client side
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  if (!mounted) {
+    return <div className="flex min-h-screen items-center justify-center">Loading authentication...</div>;
+  }
+  
+  return <>{children}</>;
+};
+
+// Wrap LoginContent with ClientOnly
+function LoginContentWrapper() {
+  return (
+    <ClientOnly>
+      <LoginContent />
+    </ClientOnly>
+  );
+}
+
 export default function LoginPage() {
   return (
     <SearchParamsProvider>
-      <LoginContent />
+      <LoginContentWrapper />
     </SearchParamsProvider>
   )
 }
