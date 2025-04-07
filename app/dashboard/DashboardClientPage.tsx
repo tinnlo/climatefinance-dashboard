@@ -110,10 +110,9 @@ export default function DashboardClientPage() {
         h(
           "div",
           { className: "text-center space-y-4" },
-          h("h3", { className: "text-lg md:text-xl font-semibold" }, "Sign in to view detailed phase-out data"),
+          h("h3", { className: "text-lg md:text-xl font-semibold" }, "Sign in to view more detailed analytics"),
           h("p", { className: "text-gray-700 dark:text-gray-300 max-w-2xl mx-auto text-sm" }, 
-            "The phase-out chart and map visualizations provide valuable insights into power plant retirement schedules. " +
-            "Please sign in or create an account to access these premium features."
+            "Please sign in or create an account to access the underlying data and analytical outputs on the country, firm and asset-level."
           ),
           h(
             Link,
@@ -124,7 +123,7 @@ export default function DashboardClientPage() {
                 className: "bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-black/90 text-forest dark:text-white border border-forest dark:border-0 px-5 py-2 text-sm rounded-full transition-all duration-300 shadow-lg hover:shadow-xl mt-2"
               },
               h(LogIn, { className: "mr-2 h-4 w-4" }),
-              "Sign in to access phase-out data"
+              "Sign in or create account"
             )
           )
         )

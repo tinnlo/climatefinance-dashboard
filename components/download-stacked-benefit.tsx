@@ -16,23 +16,28 @@ import { convertToIso3 } from "@/lib/utils"
 // Group benefit variables into categories to match the chart display
 const BENEFIT_CATEGORIES = [
   {
+    name: "Reduced air pollution damages",
+    variables: [
+      { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
+    ]
+  },
+  {
     name: "Economic damage reduction",
     variables: [
       { id: "Coal", name: "Coal", color: "#ff7c43" },
       { id: "Gas", name: "Gas", color: "#ffa600" },
       { id: "Oil", name: "Oil", color: "#ffd29c" }
     ]
-  },
-  {
-    name: "Reduced air pollution damages",
-    variables: [
-      { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
-    ]
   }
 ];
 
-// Flatten benefit variables for API use
-const BENEFIT_VARIABLES = BENEFIT_CATEGORIES.flatMap(category => category.variables);
+// Flatten benefit variables for API use - define in the same order as stacked-benefit-chart.tsx
+const BENEFIT_VARIABLES = [
+  { id: "Coal", name: "Coal", color: "#ff7c43" },
+  { id: "Gas", name: "Gas", color: "#ffa600" },
+  { id: "Oil", name: "Oil", color: "#ffd29c" },
+  { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
+];
 
 // Define an interface for the year data
 interface YearData {
@@ -51,9 +56,65 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
   const [selectedVariables, setSelectedVariables] = useState<string[]>([])
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
   const [gdpValue, setGdpValue] = useState<number>(1.0)
   const [availableVariables, setAvailableVariables] = useState<string[]>([])
+  
+  // Debug auth state
+  useEffect(() => {
+    console.log("[Benefit Download] Auth State:", { isAuthenticated, isLoading })
+  }, [isAuthenticated, isLoading])
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log("[Benefit Download] Not authenticated, redirecting to login")
+      const returnPath = `/downloads/stacked-data?type=benefit&country=${country}`;
+      router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
+    }
+  }, [isAuthenticated, isLoading, router, country])
+
+  // If loading, show content with overlay
+  if (isLoading) {
+    console.log("[Benefit Download] Still loading authentication")
+    return (
+      <div>
+        {/* Content with loading overlay */}
+        <div className="relative">
+          {/* Semi-transparent overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center justify-center p-4 rounded-md bg-black bg-opacity-70">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="mt-2">Authenticating...</span>
+            </div>
+          </div>
+          
+          {/* Always render the actual content here */}
+          <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
+            <CardHeader>
+              <CardTitle>Select Data Parameters</CardTitle>
+              <CardDescription>Choose the country and benefit variables for the data you want to download</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center h-40">
+                <p>Content will be available after authentication</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // If not authenticated, show basic content
+  if (!isAuthenticated) {
+    console.log("[Benefit Download] Rendering placeholder while redirecting")
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <p className="mb-4">You need to be logged in to view this content.</p>
+        <p>Redirecting to login page...</p>
+      </div>
+    )
+  }
 
   // Initialize available variables and fetch GDP data
   useEffect(() => {
@@ -87,16 +148,6 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
     
     fetchData()
   }, [selectedCountry])
-
-  // Check authentication status
-  useEffect(() => {
-    if (!isLoading) {
-      setAuthChecked(true)
-      if (!isAuthenticated) {
-        router.push(`/login?returnTo=/downloads/stacked-data?type=benefit&country=${country}`)
-      }
-    }
-  }, [isAuthenticated, isLoading, router, country])
 
   const toggleVariable = (variableId: string) => {
     setSelectedVariables((prev) =>
@@ -232,20 +283,6 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
     }
   }
 
-  // Show loading state while checking authentication
-  if (isLoading || !authChecked) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
-  }
-
   return (
     <div>
       <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
@@ -271,7 +308,7 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Benefit Variables</label>
+              <label className="text-sm font-medium">Reduced Damages</label>
               
               {BENEFIT_CATEGORIES.map((category, categoryIndex) => (
                 <div key={`category-${categoryIndex}`} className="mt-4">

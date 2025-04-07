@@ -18,18 +18,18 @@ const COST_CATEGORIES = [
   {
     name: "Phase-out costs",
     variables: [
-      { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
-      { id: "worker_compensation_cost", name: "Worker Compensation", color: "#b3de69" },
-      { id: "worker_retraining_cost", name: "Worker Retraining", color: "#d4e79e" }
+      { id: "opportunity_cost", name: "Missed Cashflows", color: "#ff7c43" },
+      { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ff9e6d" },
+      { id: "worker_compensation_cost", name: "Worker Compensation", color: "#d9bc83" }
     ]
   },
   {
     name: "Investments into infrastructure",
     variables: [
-      { id: "cost_battery_grid", name: "Grid Battery", color: "#e65c1a" },
-      { id: "cost_battery_long", name: "Long-term Battery", color: "#ff7c43" },
-      { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
-      { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" }
+      { id: "cost_battery_grid", name: "Grid Extension", color: "#cccd74" },
+      { id: "cost_battery_pe", name: "Polyethylene", color: "#c2d470" },
+      { id: "cost_battery_long", name: "Long-term Battery", color: "#d0ec9a" },
+      { id: "cost_battery_short", name: "Short-term Battery", color: "#e4f8c2" }
     ]
   },
   {
@@ -44,8 +44,26 @@ const COST_CATEGORIES = [
   }
 ];
 
-// Flatten cost variables for API use
-const COST_VARIABLES = COST_CATEGORIES.flatMap(category => category.variables);
+// Define cost variables directly in the same order as stacked-cost-chart.tsx
+const COST_VARIABLES = [
+  // Renewable investments (bottom) - light blue to dark blue
+  { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" },
+  { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
+  { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
+  { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
+  { id: "solar_cost", name: "Solar", color: "#80d3e8" },
+  
+  // Grid investments (middle) - green
+  { id: "cost_battery_short", name: "Short-term Battery", color: "#e8f5c4" },
+  { id: "cost_battery_long", name: "Long-term Battery", color: "#d4e79e" },
+  { id: "cost_battery_pe", name: "Polyethylene", color: "#b3de69" },
+  { id: "cost_battery_grid", name: "Grid Extension", color: "#c6cd76" },
+  
+  // Phase-out costs (top) - dark red to light red
+  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#d9bc83" },
+  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ff9e6d" },
+  { id: "opportunity_cost", name: "Missed Cashflows", color: "#ff7c43" }
+];
 
 // Define an interface for the year data
 interface YearData {
@@ -64,8 +82,65 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
   const [selectedVariables, setSelectedVariables] = useState<string[]>(COST_VARIABLES.map(v => v.id))
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
   const [gdpValue, setGdpValue] = useState<number>(1.0) // Default GDP value
+  
+  // Debug auth state
+  useEffect(() => {
+    console.log("[Download Component] Auth State:", { isAuthenticated, isLoading })
+  }, [isAuthenticated, isLoading])
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log("[Download Component] Not authenticated, redirecting to login")
+      const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
+      router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
+    }
+  }, [isAuthenticated, isLoading, router, country])
+
+  // If loading or not authenticated, render content with transparent overlay
+  if (isLoading) {
+    console.log("[Download Component] Still loading authentication")
+    // Always render content, even during loading
+    return (
+      <div>
+        {/* Content with loading overlay */}
+        <div className="relative">
+          {/* Semi-transparent overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center justify-center p-4 rounded-md bg-black bg-opacity-70">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="mt-2">Authenticating...</span>
+            </div>
+          </div>
+          
+          {/* Always render the actual content here */}
+          <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
+            <CardHeader>
+              <CardTitle>Select Data Parameters</CardTitle>
+              <CardDescription>Choose the country and cost variables for the data you want to download</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center h-40">
+                <p>Content will be available after authentication</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // If not authenticated, show basic content
+  if (!isAuthenticated) {
+    console.log("[Download Component] Rendering placeholder while redirecting")
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <p className="mb-4">You need to be logged in to view this content.</p>
+        <p>Redirecting to login page...</p>
+      </div>
+    )
+  }
 
   // Fetch GDP data when country changes
   useEffect(() => {
@@ -106,16 +181,6 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     
     fetchGdpData()
   }, [selectedCountry])
-
-  // Check authentication status
-  useEffect(() => {
-    if (!isLoading) {
-      setAuthChecked(true)
-      if (!isAuthenticated) {
-        router.push(`/login?returnTo=/downloads/stacked-data?type=cost&country=${country}`)
-      }
-    }
-  }, [isAuthenticated, isLoading, router, country])
 
   const toggleVariable = (variableId: string) => {
     setSelectedVariables((prev) =>
@@ -260,20 +325,6 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     }
   }
 
-  // Show loading state while checking authentication
-  if (isLoading || !authChecked) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading...</span>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
-  }
-
   return (
     <div>
       <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
@@ -299,7 +350,7 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Cost Variables</label>
+              <label className="text-sm font-medium">Investment Needs</label>
               
               {COST_CATEGORIES.map((category, categoryIndex) => (
                 <div key={`category-${categoryIndex}`} className="mt-4">

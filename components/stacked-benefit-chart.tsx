@@ -218,12 +218,12 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   // Group benefit variables into categories for the tooltip
   const BENEFIT_CATEGORIES = [
     {
-      name: "Economic damage reduction",
-      variables: ["Coal", "Gas", "Oil"]
-    },
-    {
       name: "Reduced air pollution damages",
       variables: ["Reduced Air Pollution"]
+    },
+    {
+      name: "Economic damage reduction",
+      variables: ["Oil", "Gas", "Coal"]
     }
   ];
 
@@ -302,6 +302,9 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                   // Calculate percentage within this category
                   const percentage = category.total > 0 ? (entry.value / category.total) * 100 : 0;
                   
+                  // Skip showing percentage for Reduced Air Pollution as it's always 100%
+                  const isReducedAirPollution = varId === "Reduced Air Pollution";
+                  
                   return (
                     <div key={`var-${varId}`} style={{
                       display: 'flex',
@@ -322,7 +325,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                         <span>{variable.name}</span>
                       </div>
                       <div>
-                        {formatValue(entry.value)} ({percentage.toFixed(1)}%)
+                        {formatValue(entry.value)} {!isReducedAirPollution && `(${percentage.toFixed(1)}%)`}
                       </div>
                     </div>
                   );
@@ -416,7 +419,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                 angle: -90,
                 position: "insideLeft",
                 fill: theme === "dark" ? "#ffffff" : "#000000",
-                offset: 0,
+                offset: -10,
                 fontSize: 11
               }}
               tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
@@ -430,10 +433,18 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
                 // Convert to billions for display
                 const valueInBillions = value * 1000;
                 if (Math.abs(valueInBillions) < 0.0001) return "0";
-                if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
-                if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
-                if (valueInBillions < 1) return valueInBillions.toFixed(2);
-                return valueInBillions.toFixed(2);
+                
+                // Check if all data values are very small
+                const maxValue = Math.max(...data.map(d => d.totalBenefit || 0)) * 1000;
+                
+                // For very small datasets (max < 1 billion), use appropriate decimal places
+                if (maxValue < 0.01) return valueInBillions.toFixed(3);
+                if (maxValue < 0.1) return valueInBillions.toFixed(2);
+                if (maxValue < 1) return valueInBillions.toFixed(1);
+                
+                // For regular-sized datasets, use fewer decimal places
+                if (valueInBillions < 0.1) return valueInBillions.toFixed(1);
+                return Math.round(valueInBillions).toString();
               }}
               scale="linear"
             />
@@ -450,7 +461,18 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
               }}
               tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
               tickMargin={10}
-              tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
+              tickFormatter={(value) => {
+                // Find max GDP percentage to determine format
+                const maxPercentage = Math.max(...data.map(d => d.gdpPercentage || 0));
+                
+                // For very small percentages, use more decimal places
+                if (maxPercentage < 0.01) return `${value.toFixed(3)}%`;
+                if (maxPercentage < 0.1) return `${value.toFixed(2)}%`;
+                if (maxPercentage < 1) return `${value.toFixed(1)}%`;
+                
+                // Standard formatting for normal ranges
+                return `${value < 10 ? value.toFixed(1) : Math.round(value)}%`;
+              }}
               dataKey="gdpPercentage"
               domain={[0, 'dataMax']}
               allowDataOverflow={false}

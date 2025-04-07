@@ -26,23 +26,23 @@ import { StackedBenefitChart } from "./stacked-benefit-chart"
 // Color palette harmonized based on system-cost-benefits colors
 // Creates a spectrum from warm oranges to cool blues
 const COST_VARIABLES = [
-  // Warm tones from the "costs" palette (oranges/reds)
-  { id: "cost_battery_grid", name: "Grid Battery", color: "#e65c1a" },
-  { id: "cost_battery_long", name: "Long-term Battery", color: "#ff7c43" },
-  { id: "cost_battery_pe", name: "PE Battery", color: "#ff9e6d" },
-  { id: "cost_battery_short", name: "Short-term Battery", color: "#ffbd59" },
-  { id: "opportunity_cost", name: "Opportunity", color: "#ffd29c" },
-  
-  // Worker-related costs using greenish colors
-  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#b3de69" },
-  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#d4e79e" },
-  
-  // Cool tones from the "benefits" palette (blues)
-  { id: "solar_cost", name: "Solar", color: "#80d3e8" },
-  { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
-  { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
-  { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
+  // Renewable investments (bottom) - light blue to dark blue
   { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" },
+  { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
+  { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
+  { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
+  { id: "solar_cost", name: "Solar", color: "#80d3e8" },
+  
+  // Grid investments (middle) - green
+  { id: "cost_battery_short", name: "Short-term Battery", color: "#e4f8c2" },
+  { id: "cost_battery_long", name: "Long-term Battery", color: "#d0ec9a" },
+  { id: "cost_battery_pe", name: "Polyethylene", color: "#c2d470" },
+  { id: "cost_battery_grid", name: "Grid Extension", color: "#cccd74" },
+  
+  // Phase-out costs (top) - dark red to light red
+  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#d9bc83" },
+  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ff9e6d" },
+  { id: "opportunity_cost", name: "Missed Cashflows", color: "#ff7c43" },
 ]
 
 // Default GDP value to use if data fetch fails
@@ -228,11 +228,11 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
   const COST_CATEGORIES = [
     {
       name: "Phase-out costs",
-      variables: ["opportunity_cost", "worker_compensation_cost", "worker_retraining_cost"]
+      variables: ["opportunity_cost", "worker_retraining_cost", "worker_compensation_cost"]
     },
     {
       name: "Investments into infrastructure",
-      variables: ["cost_battery_grid", "cost_battery_long", "cost_battery_pe", "cost_battery_short"]
+      variables: ["cost_battery_grid", "cost_battery_pe", "cost_battery_long", "cost_battery_short"]
     },
     {
       name: "Investments into renewables",
@@ -445,8 +445,8 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
           <Tabs defaultValue="cost" className="w-full h-full flex flex-col">
             <div className="px-2 sm:px-4 md:px-6">
               <TabsList className="w-full sm:w-[300px] md:w-[400px] grid grid-cols-2 mb-2">
-                <TabsTrigger value="cost">Cost Variables</TabsTrigger>
-                <TabsTrigger value="benefit">Benefit Variables</TabsTrigger>
+                <TabsTrigger value="cost">Investment Needs</TabsTrigger>
+                <TabsTrigger value="benefit">Reduced Damages</TabsTrigger>
               </TabsList>
             </div>
             <TabsContent value="cost" className="flex-1 min-h-0">
@@ -489,13 +489,26 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                           // Convert to billions for display
                           const valueInBillions = value * 1000;
                           if (valueInBillions === 0) return "0";
-                          if (valueInBillions < 0.001) return valueInBillions.toExponential(1);
-                          if (valueInBillions < 0.01) return valueInBillions.toFixed(3);
-                          if (valueInBillions < 0.1) return valueInBillions.toFixed(2);
-                          if (valueInBillions < 1) return valueInBillions.toFixed(2);
-                          if (valueInBillions < 10) return valueInBillions.toFixed(1);
+                          
+                          // Check if all data values are very small
+                          const maxValue = Math.max(...data.map(d => {
+                            // Calculate total cost for this year
+                            return COST_VARIABLES.reduce((sum, variable) => {
+                              return sum + Math.max(0, d[variable.id] || 0);
+                            }, 0);
+                          })) * 1000;
+                          
+                          // For very small datasets (max < 1 billion), use appropriate decimal places
+                          if (maxValue < 0.01) return valueInBillions.toFixed(3);
+                          if (maxValue < 0.1) return valueInBillions.toFixed(2);
+                          if (maxValue < 1) return valueInBillions.toFixed(1);
+                          
+                          // For regular-sized datasets, use fewer decimal places
+                          if (valueInBillions < 0.1) return valueInBillions.toFixed(1);
                           return Math.round(valueInBillions).toString();
                         }}
+                        scale="linear"
+                        interval="preserveStartEnd"
                       />
                       <YAxis
                         yAxisId="right"
@@ -510,13 +523,26 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
                         }}
                         tick={{ fill: theme === "dark" ? "#ffffff" : "#000000", fontSize: 10 }}
                         tickMargin={10}
-                        tickFormatter={(value) => `${value < 10 ? value.toFixed(1) : Math.round(value)}%`}
+                        tickFormatter={(value) => {
+                          // Find max GDP percentage to determine format
+                          const maxPercentage = Math.max(...data.map(d => d.gdpPercentage || 0));
+                          
+                          // For very small percentages, use more decimal places
+                          if (maxPercentage < 0.01) return `${value.toFixed(3)}%`;
+                          if (maxPercentage < 0.1) return `${value.toFixed(2)}%`;
+                          if (maxPercentage < 1) return `${value.toFixed(1)}%`;
+                          
+                          // Standard formatting for normal ranges
+                          return `${value < 10 ? value.toFixed(1) : Math.round(value)}%`;
+                        }}
                         dataKey="gdpPercentage"
                         domain={[0, 'dataMax']}
                         allowDataOverflow={false}
                         allowDecimals={true}
                         minTickGap={5}
                         width={60}
+                        scale="linear"
+                        interval="preserveStartEnd"
                       />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: theme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)" }} />
                       {COST_VARIABLES.map((variable) => (
