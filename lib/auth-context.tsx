@@ -112,14 +112,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
           return false
         }
         
-        // Verify with Supabase
-        const { data: { session }, error } = await supabase.auth.getSession()
-        if (error || !session) {
-          localStorage.removeItem(SESSION_STORAGE_KEY)
-          localStorage.removeItem(SESSION_TIMESTAMP_KEY)
-          return false
-        }
-        
+        // If session is valid in localStorage, return true without checking Supabase
         return true
       } catch (e) {
         console.error("Error reading from localStorage:", e)
@@ -191,32 +184,45 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         const hasActiveSession = await isSessionActive()
         
         if (hasActiveSession) {
-          // If we have a valid session, get the current session
-          const { data: { session }, error } = await supabase.auth.getSession()
-          
-          if (error) {
-            setAuthState(AuthState.ERROR)
-            throw error
+          // If we have a valid local session, use cached user data
+          const cachedUserData = localStorage.getItem('cached_user')
+          if (cachedUserData) {
+            const userData = JSON.parse(cachedUserData)
+            setUser(userData)
+            setIsAuthenticated(true)
+            setAuthState(AuthState.AUTHENTICATED)
+            setIsInitialized(true)
+            return
           }
+        }
 
-          if (session?.user) {
-            const userData = await getCurrentUser()
-            if (userData) {
-              const userState: User = {
-                id: String(userData.id),
-                name: String(userData.name),
-                email: String(userData.email),
-                role: userData.role as "user" | "admin",
-                created_at: userData.created_at ? String(userData.created_at) : undefined,
-                isVerified: true
-              }
-              setUser(userState)
-              setIsAuthenticated(true)
-              setSessionActive(true)
-              setAuthState(AuthState.AUTHENTICATED)
-              setIsInitialized(true)
-              return
+        // If no valid local session or no cached user data, check with Supabase
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          setAuthState(AuthState.ERROR)
+          throw error
+        }
+
+        if (session?.user) {
+          const userData = await getCurrentUser()
+          if (userData) {
+            const userState: User = {
+              id: String(userData.id),
+              name: String(userData.name),
+              email: String(userData.email),
+              role: userData.role as "user" | "admin",
+              created_at: userData.created_at ? String(userData.created_at) : undefined,
+              isVerified: true
             }
+            // Cache the user data
+            localStorage.setItem('cached_user', JSON.stringify(userState))
+            setUser(userState)
+            setIsAuthenticated(true)
+            setSessionActive(true)
+            setAuthState(AuthState.AUTHENTICATED)
+            setIsInitialized(true)
+            return
           }
         }
         
@@ -245,6 +251,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setIsAuthenticated(false)
         setSessionActive(false)
         setAuthState(AuthState.UNAUTHENTICATED)
+        localStorage.removeItem('cached_user')
         return
       }
 
@@ -260,6 +267,8 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
               created_at: userData.created_at ? String(userData.created_at) : undefined,
               isVerified: true
             }
+            // Cache the user data
+            localStorage.setItem('cached_user', JSON.stringify(userState))
             setUser(userState)
             setIsAuthenticated(true)
             setSessionActive(true)
@@ -320,6 +329,8 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         isVerified: true
       }
 
+      // Cache the user data
+      localStorage.setItem('cached_user', JSON.stringify(userState))
       setUser(userState)
       setIsAuthenticated(true)
       setSessionActive(true)
@@ -411,6 +422,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       setIsAuthenticated(false)
       setSessionActive(false)
       setAuthState(AuthState.UNAUTHENTICATED)
+      localStorage.removeItem('cached_user')
       router.push('/login')
     } catch (error) {
       console.error("Logout error:", error)
