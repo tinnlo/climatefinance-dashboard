@@ -38,6 +38,7 @@ interface AuthContextType {
   sessionExpiredMessage: string | null
   clearSessionExpiredMessage: () => void
   authState: AuthState
+  isInitialized: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -65,6 +66,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null)
   const [authState, setAuthState] = useState<AuthState>(AuthState.INITIAL)
+  const [isInitialized, setIsInitialized] = useState(false)
   const isBrowser = useIsBrowser();
   
   const router = useRouter()
@@ -212,6 +214,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
               setIsAuthenticated(true)
               setSessionActive(true)
               setAuthState(AuthState.AUTHENTICATED)
+              setIsInitialized(true)
               return
             }
           }
@@ -221,11 +224,13 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setIsAuthenticated(false)
         setSessionActive(false)
         setAuthState(AuthState.UNAUTHENTICATED)
+        setIsInitialized(true)
       } catch (error) {
         console.error("Error initializing auth:", error)
         setIsAuthenticated(false)
         setSessionActive(false)
         setAuthState(AuthState.ERROR)
+        setIsInitialized(true)
       } finally {
         setIsLoading(false)
       }
@@ -239,6 +244,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setUser(null)
         setIsAuthenticated(false)
         setSessionActive(false)
+        setAuthState(AuthState.UNAUTHENTICATED)
         return
       }
 
@@ -257,6 +263,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             setUser(userState)
             setIsAuthenticated(true)
             setSessionActive(true)
+            setAuthState(AuthState.AUTHENTICATED)
             
             if (event === 'SIGNED_IN' && searchParams) {
               const returnTo = searchParams.get('returnTo')
@@ -426,6 +433,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         sessionExpiredMessage,
         clearSessionExpiredMessage,
         authState,
+        isInitialized,
       }}
     >
       {children}
