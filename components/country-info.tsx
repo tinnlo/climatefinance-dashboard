@@ -176,7 +176,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     
     return (
       <div className="space-y-2 mt-2">
-        <p className="text-sm text-muted-foreground">Capacity Split by Electricity Generating Technology</p>
+        <p className="text-sm text-muted-foreground">Capacity Split by Technology</p>
         
         <div className="flex h-[5px] w-full rounded-sm overflow-hidden">
           {sortedTechnologies.map((tech) => {
