@@ -41,6 +41,7 @@ Together, these data sources give users a complete snapshot of each country's cu
 interface AssetTechnology {
   technology: string
   asset_count: number
+  capacity?: number
 }
 
 interface AssetAmountOperating {
@@ -158,22 +159,24 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     const assetData = coverageData.Asset_Amount_operating;
     if (!assetData || typeof assetData === 'number') return null;
     
-    // Sort technologies by asset_count descending to make the chart more readable
+    // Sort technologies by capacity descending to make the chart more readable
     const sortedTechnologies = [...assetData.technologies]
-      .sort((a, b) => b.asset_count - a.asset_count)
+      .sort((a, b) => (b.capacity || 0) - (a.capacity || 0))
       .map(tech => {
+        // Calculate total capacity across all technologies
+        const totalCapacity = assetData.technologies.reduce((sum, t) => sum + (t.capacity || 0), 0);
         // Pre-calculate the percentage for each technology
-        const percentage = (tech.asset_count / assetData.total_assets) * 100;
+        const percentage = totalCapacity > 0 ? ((tech.capacity || 0) / totalCapacity) * 100 : 0;
         return {
           ...tech,
           percentage,
-          tooltipText: `${tech.technology}: ${tech.asset_count} (${percentage.toFixed(1)}%)`
+          tooltipText: `${tech.technology}: ${(tech.capacity || 0).toLocaleString()} MW (${percentage.toFixed(1)}%)`
         };
       });
     
     return (
       <div className="space-y-2 mt-2">
-        <p className="text-sm text-muted-foreground">Technology Distribution</p>
+        <p className="text-sm text-muted-foreground">Capacity Split by Electricity Generating Technology</p>
         
         <div className="flex h-[5px] w-full rounded-sm overflow-hidden">
           {sortedTechnologies.map((tech) => {
@@ -201,7 +204,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
                 className="w-3 h-3 rounded-sm" 
                 style={{ backgroundColor: technologyColors[tech.technology] || technologyColors.default }}
               />
-              <span>{tech.technology}: {tech.asset_count}</span>
+              <span>{tech.technology}: {(tech.capacity || 0).toLocaleString()} MW</span>
             </div>
           ))}
         </div>

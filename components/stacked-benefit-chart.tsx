@@ -29,7 +29,7 @@ const BENEFIT_VARIABLES = [
 ]
 
 // Default GDP value to use if data fetch fails
-const DEFAULT_GDP = 1.0; // Trillion USD
+const DEFAULT_GDP = 1.0; // Trillion USD (fallback value)
 
 // Formatted notes with proper styling
 const FormattedNotes = () => (
@@ -87,31 +87,46 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
   useEffect(() => {
     const fetchGdpData = async () => {
       try {
-        console.log(`Fetching GDP data for country code: ${country}`)
-        const response = await fetch(`/api/system-cost-benefits?country=${country}`)
+        const iso3Code = convertToIso3(country)
+        console.log(`Fetching GDP data for country code: ${country} (ISO3: ${iso3Code})`)
+        const gdpResponse = await fetch(`/api/country-info?country=${country}`)
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
+        if (!gdpResponse.ok) {
+          throw new Error(`HTTP error! status: ${gdpResponse.status}`)
         }
         
-        const result = await response.json()
-        console.log('Raw data from API:', result)
+        const countryData = await gdpResponse.json()
         
-        if (!result || !result.costs || !Array.isArray(result.costs)) {
-          throw new Error('Invalid data format received from API')
+        if (countryData.error) {
+          console.error('API error:', countryData.error)
+          throw new Error(countryData.error)
         }
-
-        // Calculate total cost and GDP percentage
-        const totalCost = result.totalCost || 0
-        const costGdpPercentage = result.costGdpPercentage || 0
-
-        // Calculate GDP value from total cost and GDP percentage
-        const calculatedGdp = totalCost / (costGdpPercentage / 100)
-        console.log('Calculated GDP value:', calculatedGdp)
         
-        setGdpValue(calculatedGdp || DEFAULT_GDP)
+        console.log('Found country data:', countryData ? 
+          { 
+            country: countryData.Country, 
+            iso3: countryData.Country_ISO3,
+            gdp: countryData.GDP_2023,
+            gdpShare: countryData.GDP_Share_2023
+          } : 'Not found')
+        
+        if (countryData && countryData.GDP_2023) {
+          // Looking at the country-info component, GDP is displayed as:
+          // ${data.GDP_2023 ? `${(data.GDP_2023 / 1000000000).toFixed(2)}B` : 'N/A'}
+          // This means GDP_2023 is likely in dollars, not billions
+          
+          // Convert GDP from dollars to trillions
+          const gdpInTrillions = countryData.GDP_2023 / 1000000000000;
+          
+          console.log(`GDP for ${countryData.Country} (${iso3Code}): $${gdpInTrillions.toFixed(2)}T`)
+          setGdpValue(gdpInTrillions)
+        } else {
+          console.warn(`No GDP data found for ${country}, using default value`)
+          setGdpValue(DEFAULT_GDP)
+        }
       } catch (error) {
         console.error('Error fetching GDP data:', error)
+        // Use default GDP value if there's an error
         setGdpValue(DEFAULT_GDP)
       }
     }
@@ -144,6 +159,8 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
         if (!result.data || !Array.isArray(result.data)) {
           throw new Error(`Invalid data format received from API`)
         }
+
+        console.log(`Using GDP value of $${gdpValue.toFixed(2)}T for benefit calculations`)
 
         // Add GDP percentages to each year's data
         const transformedData = result.data.map((yearData: YearData) => {

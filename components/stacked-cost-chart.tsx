@@ -46,7 +46,7 @@ const COST_VARIABLES = [
 ]
 
 // Default GDP value to use if data fetch fails
-const DEFAULT_GDP = 1.0; // Trillion USD
+const DEFAULT_GDP = 1.0; // Trillion USD (fallback value)
 
 // Formatted notes with proper styling
 const FormattedNotes = () => (
@@ -99,20 +99,19 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
       try {
         const iso3Code = convertToIso3(country)
         console.log(`Fetching GDP data for country code: ${country} (ISO3: ${iso3Code})`)
-        const response = await fetch('/api/country-info')
+        const gdpResponse = await fetch(`/api/country-info?country=${country}`)
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
+        if (!gdpResponse.ok) {
+          throw new Error(`HTTP error! status: ${gdpResponse.status}`)
         }
         
-        const allCountryData = await response.json()
+        const countryData = await gdpResponse.json()
         
-        if (!Array.isArray(allCountryData)) {
-          console.error('Unexpected data format:', allCountryData)
-          throw new Error('Received invalid data format from API')
+        if (countryData.error) {
+          console.error('API error:', countryData.error)
+          throw new Error(countryData.error)
         }
         
-        const countryData = allCountryData.find((c: any) => c.Country_ISO3 === iso3Code)
         console.log('Found country data:', countryData ? 
           { 
             country: countryData.Country, 
@@ -162,6 +161,8 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
         if (result.error) {
           throw new Error(result.error)
         }
+        
+        console.log(`Using GDP value of $${gdpValue.toFixed(2)}T for calculations`)
         
         // Add GDP percentage data to each year
         const dataWithGdp = result.data.map((yearData: any) => {
