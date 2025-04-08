@@ -83,23 +83,29 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
   const [gdpValue, setGdpValue] = useState<number>(1.0) // Default GDP value
+  const [authChecked, setAuthChecked] = useState(false) // Add flag to track if auth has been checked
   
   // Debug auth state
   useEffect(() => {
-    console.log("[Download Component] Auth State:", { isAuthenticated, isLoading })
-  }, [isAuthenticated, isLoading])
+    console.log("[Download Component] Auth State:", { isAuthenticated, isLoading, authChecked })
+  }, [isAuthenticated, isLoading, authChecked])
 
   // Check authentication status
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      console.log("[Download Component] Not authenticated, redirecting to login")
-      const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
-      router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
+    // Only redirect if not authenticated and not loading
+    if (!isLoading) {
+      setAuthChecked(true) // Mark that we've checked authentication
+      
+      if (!isAuthenticated) {
+        console.log("[Download Component] Not authenticated, redirecting to login")
+        const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
+        router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
+      }
     }
   }, [isAuthenticated, isLoading, router, country])
 
-  // If loading or not authenticated, render content with transparent overlay
-  if (isLoading) {
+  // If still checking authentication and not confirmed authenticated yet, render content with transparent overlay
+  if (isLoading && !authChecked) {
     console.log("[Download Component] Still loading authentication")
     // Always render content, even during loading
     return (
@@ -131,8 +137,8 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     )
   }
 
-  // If not authenticated, show basic content
-  if (!isAuthenticated) {
+  // If authentication has been checked and user is not authenticated, show basic content
+  if (authChecked && !isAuthenticated) {
     console.log("[Download Component] Rendering placeholder while redirecting")
     return (
       <div className="flex flex-col items-center justify-center py-8">

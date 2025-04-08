@@ -38,14 +38,15 @@ export function DownloadSystemCostBenefits() {
   const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams?.get("timeHorizon") || "2035")
   const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState("investment-needs")
+  const [authChecked, setAuthChecked] = useState(false)
 
   // Check if UI is initialized and country is selected
   const [uiReady, setUiReady] = useState(false)
   
   // Debug auth state
   useEffect(() => {
-    console.log("[System Cost Benefits] Auth State:", { isAuthenticated, isLoading, country: selectedCountry })
-  }, [isAuthenticated, isLoading, selectedCountry])
+    console.log("[System Cost Benefits] Auth State:", { isAuthenticated, isLoading, authChecked, country: selectedCountry })
+  }, [isAuthenticated, isLoading, authChecked, selectedCountry])
 
   useEffect(() => {
     // Log the current state
@@ -63,10 +64,15 @@ export function DownloadSystemCostBenefits() {
 
   // Check authentication status
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      console.log("[System Cost Benefits] Not authenticated, redirecting to login")
-      const currentPath = window.location.pathname + window.location.search;
-      router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`);
+    // Only redirect if not authenticated and not loading
+    if (!isLoading) {
+      setAuthChecked(true)
+      
+      if (!isAuthenticated) {
+        console.log("[System Cost Benefits] Not authenticated, redirecting to login")
+        const currentPath = window.location.pathname + window.location.search;
+        router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`);
+      }
     }
   }, [isAuthenticated, isLoading, router])
 
@@ -250,8 +256,8 @@ ${countryName},${selectedTimeHorizon},Publicly Financed,${(data.totalCost * (1/3
     }
   };
 
-  // If loading, show content with overlay
-  if (isLoading) {
+  // If still checking authentication and not confirmed authenticated yet, render content with transparent overlay
+  if (isLoading && !authChecked) {
     console.log("[System Cost Benefits] Still loading authentication")
     return (
       <div className="min-h-screen bg-[#1A2A1A]">
@@ -283,8 +289,8 @@ ${countryName},${selectedTimeHorizon},Publicly Financed,${(data.totalCost * (1/3
     )
   }
 
-  // If not authenticated, show basic content
-  if (!isAuthenticated) {
+  // If authentication has been checked and user is not authenticated, show basic content
+  if (authChecked && !isAuthenticated) {
     console.log("[System Cost Benefits] Rendering placeholder while redirecting")
     return (
       <div className="min-h-screen bg-[#1A2A1A] flex flex-col items-center justify-center">
