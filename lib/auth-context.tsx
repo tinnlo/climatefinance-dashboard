@@ -45,7 +45,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // Create a session storage key to track login state
 const SESSION_STORAGE_KEY = 'auth_session_active'
 const SESSION_TIMESTAMP_KEY = 'auth_session_timestamp'
-const SESSION_EXPIRY_DURATION = 30 * 60 * 1000 // 30 minutes in milliseconds
+const SESSION_EXPIRY_DURATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
 // Add this hook near the top of the file after imports
 function useIsBrowser() {
@@ -90,9 +90,10 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   }
 
   // Helper to check if session is active and not expired in localStorage
-  const isSessionActive = (): boolean => {
+  const isSessionActive = async (): Promise<boolean> => {
     if (typeof window !== 'undefined') {
       try {
+        // First check localStorage
         const isActive = localStorage.getItem(SESSION_STORAGE_KEY) === 'true'
         if (!isActive) return false
         
@@ -102,7 +103,16 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         const sessionTime = parseInt(timestamp, 10)
         const currentTime = Date.now()
         
+        // Check if session is expired
         if (currentTime - sessionTime > SESSION_EXPIRY_DURATION) {
+          localStorage.removeItem(SESSION_STORAGE_KEY)
+          localStorage.removeItem(SESSION_TIMESTAMP_KEY)
+          return false
+        }
+        
+        // Verify with Supabase
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error || !session) {
           localStorage.removeItem(SESSION_STORAGE_KEY)
           localStorage.removeItem(SESSION_TIMESTAMP_KEY)
           return false
@@ -175,38 +185,42 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         setIsLoading(true)
         setAuthState(AuthState.CHECKING)
         
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Check if we have a valid session in localStorage first
+        const hasActiveSession = await isSessionActive()
         
-        if (error) {
-          setAuthState(AuthState.ERROR)
-          throw error
-        }
-
-        if (session?.user) {
-          const userData = await getCurrentUser()
-          if (userData) {
-            const userState: User = {
-              id: String(userData.id),
-              name: String(userData.name),
-              email: String(userData.email),
-              role: userData.role as "user" | "admin",
-              created_at: userData.created_at ? String(userData.created_at) : undefined,
-              isVerified: true
-            }
-            setUser(userState)
-            setIsAuthenticated(true)
-            setSessionActive(true)
-            setAuthState(AuthState.AUTHENTICATED)
-          } else {
-            setIsAuthenticated(false)
-            setSessionActive(false)
-            setAuthState(AuthState.UNAUTHENTICATED)
+        if (hasActiveSession) {
+          // If we have a valid session, get the current session
+          const { data: { session }, error } = await supabase.auth.getSession()
+          
+          if (error) {
+            setAuthState(AuthState.ERROR)
+            throw error
           }
-        } else {
-          setIsAuthenticated(false)
-          setSessionActive(false)
-          setAuthState(AuthState.UNAUTHENTICATED)
+
+          if (session?.user) {
+            const userData = await getCurrentUser()
+            if (userData) {
+              const userState: User = {
+                id: String(userData.id),
+                name: String(userData.name),
+                email: String(userData.email),
+                role: userData.role as "user" | "admin",
+                created_at: userData.created_at ? String(userData.created_at) : undefined,
+                isVerified: true
+              }
+              setUser(userState)
+              setIsAuthenticated(true)
+              setSessionActive(true)
+              setAuthState(AuthState.AUTHENTICATED)
+              return
+            }
+          }
         }
+        
+        // If we get here, either no session or invalid session
+        setIsAuthenticated(false)
+        setSessionActive(false)
+        setAuthState(AuthState.UNAUTHENTICATED)
       } catch (error) {
         console.error("Error initializing auth:", error)
         setIsAuthenticated(false)
