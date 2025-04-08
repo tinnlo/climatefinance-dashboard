@@ -64,7 +64,7 @@ function LoginContent() {
     refreshSession, 
     sessionExpiredMessage,
     clearSessionExpiredMessage,
-    forceSignOut,
+    logout,
     authState
   } = useAuth()
   
@@ -92,22 +92,8 @@ function LoginContent() {
     // Log auth status on mount and state changes
     logAuthStatus();
 
-    // Only attempt redirects if we're in an authenticated state
-    // AND this is not from an explicit login attempt
-    if (isAuthenticated && user && mounted && authState === AuthState.AUTHENTICATED && !isExplicitLoginPage) {
-      console.log("[Login Debug - Already Authenticated, Redirecting]", {
-        user: user.email,
-        role: user.role,
-        returnTo,
-        timestamp: new Date().toISOString(),
-      });
-      
-      const targetPath = returnTo || (user.role === "admin" ? "/admin/users" : "/dashboard")
-      const redirectPath = `${targetPath}${targetPath.includes('?') ? '&' : '?'}auth_redirect=true`
-      
-      console.log("[Login Debug - Auto Redirecting]", { redirectPath });
-      router.push(redirectPath)
-    }
+    // Disable auto-redirects
+    // We won't redirect automatically anymore
 
     // Check if we should show clean login option
     const shouldShowCleanLogin = authState === AuthState.ERROR || 
@@ -143,10 +129,10 @@ function LoginContent() {
       
       // Either clear auth errors or perform full sign out if in error state
       if (authState === AuthState.ERROR) {
-        forceSignOut();
+        logout();
       }
     }
-  }, [pathname, authState, forceSignOut]);
+  }, [pathname, authState, logout]);
 
   useEffect(() => {
     // Log the returnTo parameter for debugging
@@ -245,7 +231,7 @@ function LoginContent() {
     
     try {
       // Force sign out via auth context
-      await forceSignOut();
+      await logout();
       
       // Clear form fields
       setEmail("");
@@ -327,7 +313,7 @@ function LoginContent() {
 
     try {
       if (isLogin) {
-        const result = await login(email, password, false)
+        const result = await login(email, password)
         
         // If we get an auth operation in progress error, try again after clearing locks
         if (!result.success && result.message === "Another authentication operation is in progress") {
@@ -337,7 +323,7 @@ function LoginContent() {
           await new Promise(resolve => setTimeout(resolve, 500));
           
           // Retry the login
-          const retryResult = await login(email, password, false);
+          const retryResult = await login(email, password);
           if (retryResult.success) {
             // Use the retry result instead
             console.log("[Login Debug - Retry Successful]");
@@ -361,29 +347,23 @@ function LoginContent() {
           timestamp: new Date().toISOString(),
         });
         
-        if (result.success && result.redirectTo) {
+        if (result.success) {
           // Clear all other messages when setting success
           setError("");
-          setInfo("");
-          setSuccess("Login successful! Redirecting...")
-          const path = result.redirectTo
+          setSuccess("");
+          setInfo("Login successful");
+          
+          // Redirect based on path returned from auth context
+          const targetPath = returnTo || result.redirectTo || "/dashboard";
           console.log("[Login Debug - Redirecting]", {
-            path,
+            targetPath,
             timestamp: new Date().toISOString(),
-          })
+          });
           
-          await new Promise(resolve => setTimeout(resolve, 500))
-          
-          try {
-            const redirectPath = `${path}${path.includes('?') ? '&' : '?'}auth_redirect=true`
-            console.log("[Login Debug - Adding auth_redirect]", { redirectPath });
-            router.push(redirectPath)
-          } catch (err) {
-            console.error("[Login Debug - Router Error]", err)
-            const baseUrl = window.location.origin
-            const fullPath = path.startsWith('/') ? path : `/${path}`
-            window.location.href = `${baseUrl}${fullPath}${fullPath.includes('?') ? '&' : '?'}auth_redirect=true`
-          }
+          // Add a small delay before redirecting
+          setTimeout(() => {
+            router.push(targetPath);
+          }, 500);
         } else {
           console.log("[Login Debug - Failure]", { message: result.message });
           
@@ -443,24 +423,26 @@ function LoginContent() {
                       await new Promise(resolve => setTimeout(resolve, 200));
                     }
                     
-                    const retryResult = await login(email, password, false);
+                    const retryResult = await login(email, password);
                     
                     if (retryResult.success) {
                       console.log("[Login Debug] Automatic retry successful!");
                       // Clear other messages
                       setError("");
-                      setInfo("");
-                      setSuccess("Login successful! Redirecting...");
+                      setSuccess("");
+                      setInfo("Login successful");
                       
-                      if (retryResult.redirectTo) {
-                        const path = retryResult.redirectTo;
-                        console.log("[Login Debug - Redirecting after retry]", { path });
-                        
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        
-                        const redirectPath = `${path}${path.includes('?') ? '&' : '?'}auth_redirect=true`;
-                        router.push(redirectPath);
-                      }
+                      // Redirect based on path returned from auth context
+                      const targetPath = returnTo || retryResult.redirectTo || "/dashboard";
+                      console.log("[Login Debug - Redirecting after retry]", {
+                        targetPath,
+                        timestamp: new Date().toISOString(),
+                      });
+                      
+                      // Add a small delay before redirecting
+                      setTimeout(() => {
+                        router.push(targetPath);
+                      }, 500);
                     } else {
                       console.log("[Login Debug] Automatic retry failed:", retryResult.message);
                       // Clear other messages
@@ -676,26 +658,6 @@ function LoginContent() {
             />
           </div>
         )}
-        {sessionExpiredMessage && (
-          <Alert>
-            <AlertDescription>{sessionExpiredMessage}</AlertDescription>
-          </Alert>
-        )}
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {success && (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        )}
-        {info && (
-          <Alert>
-            <AlertDescription>{info}</AlertDescription>
-          </Alert>
-        )}
       </div>
     );
   };
@@ -714,7 +676,7 @@ function LoginContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6" id="login-form">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4" id="login-form">
               <style jsx global>{`
                 /* Set consistent colors for all inputs */
                 input {
@@ -803,7 +765,31 @@ function LoginContent() {
               
               {renderForm()}
               
-              <div className="pt-6">
+              {/* Unified message container */}
+              <div className="relative min-h-[24px]">
+                {sessionExpiredMessage && (
+                  <div className="absolute inset-0 text-foreground">
+                    {sessionExpiredMessage}
+                  </div>
+                )}
+                {error && (
+                  <div className="absolute inset-0 text-destructive">
+                    {error}
+                  </div>
+                )}
+                {success && (
+                  <div className="absolute inset-0 text-foreground">
+                    {success}
+                  </div>
+                )}
+                {info && (
+                  <div className="absolute inset-0 text-foreground">
+                    {info}
+                  </div>
+                )}
+              </div>
+              
+              <div className="pt-2">
                 <GradientButton
                   type="submit"
                   className="w-full h-12 relative"

@@ -37,6 +37,7 @@ interface AuthContextType {
   refreshSession: () => Promise<void>
   sessionExpiredMessage: string | null
   clearSessionExpiredMessage: () => void
+  authState: AuthState
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -63,6 +64,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null)
+  const [authState, setAuthState] = useState<AuthState>(AuthState.INITIAL)
   const isBrowser = useIsBrowser();
   
   const router = useRouter()
@@ -171,10 +173,14 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         setIsLoading(true)
+        setAuthState(AuthState.CHECKING)
         
         const { data: { session }, error } = await supabase.auth.getSession()
         
-        if (error) throw error
+        if (error) {
+          setAuthState(AuthState.ERROR)
+          throw error
+        }
 
         if (session?.user) {
           const userData = await getCurrentUser()
@@ -190,18 +196,22 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
             setUser(userState)
             setIsAuthenticated(true)
             setSessionActive(true)
+            setAuthState(AuthState.AUTHENTICATED)
           } else {
             setIsAuthenticated(false)
             setSessionActive(false)
+            setAuthState(AuthState.UNAUTHENTICATED)
           }
         } else {
           setIsAuthenticated(false)
           setSessionActive(false)
+          setAuthState(AuthState.UNAUTHENTICATED)
         }
       } catch (error) {
         console.error("Error initializing auth:", error)
         setIsAuthenticated(false)
         setSessionActive(false)
+        setAuthState(AuthState.ERROR)
       } finally {
         setIsLoading(false)
       }
@@ -257,6 +267,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
     
     try {
       setIsLoading(true)
+      setAuthState(AuthState.CHECKING)
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -264,15 +275,18 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       })
 
       if (error) {
+        setAuthState(AuthState.UNAUTHENTICATED)
         return { success: false, message: error.message }
       }
 
       if (!data?.user) {
+        setAuthState(AuthState.UNAUTHENTICATED)
         return { success: false, message: "Login failed. Please try again." }
       }
 
       const userData = await getCurrentUser()
       if (!userData) {
+        setAuthState(AuthState.UNAUTHENTICATED)
         return { success: false, message: "Failed to fetch user data" }
       }
 
@@ -288,10 +302,20 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
       setUser(userState)
       setIsAuthenticated(true)
       setSessionActive(true)
+      setAuthState(AuthState.AUTHENTICATED)
 
-      return { success: true, message: "Login successful" }
+      // Determine redirect path based on user role
+      const redirectTo = userState.role === "admin" ? "/admin/users" : "/dashboard";
+
+      // Return success with redirect path
+      return { 
+        success: true, 
+        message: "Login successful", 
+        redirectTo 
+      }
     } catch (error) {
       console.error("Login error:", error)
+      setAuthState(AuthState.ERROR)
       return { success: false, message: "An unexpected error occurred" }
     } finally {
       setIsLoading(false)
@@ -360,13 +384,16 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true)
+      setAuthState(AuthState.LOGGING_OUT)
       await supabase.auth.signOut()
       setUser(null)
       setIsAuthenticated(false)
       setSessionActive(false)
+      setAuthState(AuthState.UNAUTHENTICATED)
       router.push('/login')
     } catch (error) {
       console.error("Logout error:", error)
+      setAuthState(AuthState.ERROR)
     } finally {
       setIsLoading(false)
     }
@@ -384,6 +411,7 @@ function AuthProviderContent({ children }: { children: ReactNode }) {
         refreshSession,
         sessionExpiredMessage,
         clearSessionExpiredMessage,
+        authState,
       }}
     >
       {children}
