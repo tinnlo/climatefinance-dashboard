@@ -52,7 +52,7 @@ const DEFAULT_GDP = 1.0; // Trillion USD (fallback value)
 const FormattedNotes = () => (
   <div className="prose prose-sm dark:prose-invert max-w-none">
     <p>
-      This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Network for Greening the Financial System (NGFS)</a>.
+      This figure illustrates the estimated <strong>transition investment needs</strong> and the <strong>implied reduction in economic damages</strong> for countries to achieve alignment with their respective net-zero transition plans and targets, as stipulated in the scenario pathways provided by the <a href="https://www.ngfs.net/ngfs-scenarios-portal/explore/" target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">Network for Greening the Financial System (NGFS)</a>. Numbers in the middle of the pie chart represent total Investment Needs (Reduced Damages) and the associated percentage of 2023 GDP that would have to be committed (would be saved) yearly over the relevant timeframe.
     </p>
     
     <h3 className="text-lg font-semibold mt-4 mb-2">Transition investment needs</h3>
@@ -439,7 +439,7 @@ export function StackedCostChart({ className, country = "in" }: StackedCostChart
             </InfoDialog>
           </div>
         </div>
-        <CardDescription>Transition investment needs and implied reduced damages from 2025 to 2050 (SCC 190 USD) - {COUNTRY_NAMES[country]}</CardDescription>
+        <CardDescription>Transition Investment Needs and Implied Reduced Damages from 2025 to 2050 (SCC 190 USD) - {COUNTRY_NAMES[country]}</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 p-0 flex flex-col">
         <div className="flex-1 min-h-0">

@@ -82,70 +82,28 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
   const [selectedVariables, setSelectedVariables] = useState<string[]>(COST_VARIABLES.map(v => v.id))
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
-  const [gdpValue, setGdpValue] = useState<number>(1.0) // Default GDP value
-  const [authChecked, setAuthChecked] = useState(false) // Add flag to track if auth has been checked
+  const [gdpValue, setGdpValue] = useState<number>(1.0)
   
-  // Debug auth state
-  useEffect(() => {
-    console.log("[Download Component] Auth State:", { isAuthenticated, isLoading, authChecked })
-  }, [isAuthenticated, isLoading, authChecked])
-
   // Check authentication status
   useEffect(() => {
-    // Only redirect if not authenticated and not loading
-    if (!isLoading) {
-      setAuthChecked(true) // Mark that we've checked authentication
-      
-      if (!isAuthenticated) {
-        console.log("[Download Component] Not authenticated, redirecting to login")
-        const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
-        router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
-      }
+    if (!isLoading && !isAuthenticated) {
+      const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
+      router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
     }
   }, [isAuthenticated, isLoading, router, country])
 
-  // If still checking authentication and not confirmed authenticated yet, render content with transparent overlay
-  if (isLoading && !authChecked) {
-    console.log("[Download Component] Still loading authentication")
-    // Always render content, even during loading
+  // If still loading auth state, show loading state
+  if (isLoading) {
     return (
-      <div>
-        {/* Content with loading overlay */}
-        <div className="relative">
-          {/* Semi-transparent overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center justify-center p-4 rounded-md bg-black bg-opacity-70">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="mt-2">Authenticating...</span>
-            </div>
-          </div>
-          
-          {/* Always render the actual content here */}
-          <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
-            <CardHeader>
-              <CardTitle>Select Data Parameters</CardTitle>
-              <CardDescription>Choose the country and cost variables for the data you want to download</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-40">
-                <p>Content will be available after authentication</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
-  // If authentication has been checked and user is not authenticated, show basic content
-  if (authChecked && !isAuthenticated) {
-    console.log("[Download Component] Rendering placeholder while redirecting")
-    return (
-      <div className="flex flex-col items-center justify-center py-8">
-        <p className="mb-4">You need to be logged in to view this content.</p>
-        <p>Redirecting to login page...</p>
-      </div>
-    )
+  // If not authenticated, show nothing (will be redirected)
+  if (!isAuthenticated) {
+    return null
   }
 
   // Fetch GDP data when country changes
@@ -153,7 +111,6 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     const fetchGdpData = async () => {
       try {
         const iso3Code = convertToIso3(selectedCountry)
-        console.log(`Fetching GDP data for country code: ${selectedCountry} (ISO3: ${iso3Code})`)
         const response = await fetch('/api/country-info')
         
         if (!response.ok) {
@@ -161,26 +118,16 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
         }
         
         const allCountryData = await response.json()
-        
-        if (!Array.isArray(allCountryData)) {
-          console.error('Unexpected data format:', allCountryData)
-          throw new Error('Received invalid data format from API')
-        }
-        
         const countryData = allCountryData.find((c: any) => c.Country_ISO3 === iso3Code)
         
         if (countryData && countryData.GDP_2023) {
-          // Convert GDP from dollars to trillions
           const gdpInTrillions = countryData.GDP_2023 / 1000000000000
-          console.log(`GDP for ${countryData.Country} (${iso3Code}): $${gdpInTrillions.toFixed(2)}T`)
           setGdpValue(gdpInTrillions)
         } else {
-          console.warn(`No GDP data found for ${selectedCountry}, using default value`)
           setGdpValue(1.0)
         }
       } catch (error) {
         console.error('Error fetching GDP data:', error)
-        // Use default GDP value if there's an error
         setGdpValue(1.0)
       }
     }

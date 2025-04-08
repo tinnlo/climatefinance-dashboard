@@ -24,6 +24,7 @@ import { deleteUser } from "@/lib/user-management"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchParamsProvider } from "../../components/SearchParamsProvider"
+import { useRouter } from "next/navigation"
 
 // Define the User interface to match what comes from Supabase
 interface User {
@@ -37,9 +38,9 @@ interface User {
 }
 
 function AdminUsersContent() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
   const [users, setUsers] = useState<User[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState("")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -52,9 +53,44 @@ function AdminUsersContent() {
     role: "user" as "user" | "admin",
     password: "",
   })
+  const router = useRouter()
+
+  // Check authentication status
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`);
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  // If still loading auth state, show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  // If not authenticated, show nothing (will be redirected)
+  if (!isAuthenticated) {
+    return null
+  }
+
+  // If user is not an admin, show unauthorized message
+  if (user?.role !== "admin") {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Unauthorized</h2>
+          <p>You do not have permission to access this page.</p>
+        </div>
+      </div>
+    )
+  }
 
   const fetchUsers = async () => {
-    setIsLoading(true)
+    setIsLoadingUsers(true)
     setError(null)
     
     try {
@@ -78,7 +114,7 @@ function AdminUsersContent() {
       setError("An unexpected error occurred")
       toast.error("Failed to load users")
     } finally {
-      setIsLoading(false)
+      setIsLoadingUsers(false)
     }
   }
 
@@ -323,7 +359,7 @@ function AdminUsersContent() {
             <CardDescription>Manage user accounts and permissions</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoadingUsers ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-4 animate-spin" />
               </div>

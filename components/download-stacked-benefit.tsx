@@ -58,68 +58,27 @@ export function DownloadStackedBenefit({ country }: DownloadStackedBenefitProps)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
   const [gdpValue, setGdpValue] = useState<number>(1.0)
   const [availableVariables, setAvailableVariables] = useState<string[]>([])
-  const [authChecked, setAuthChecked] = useState(false)
   
-  // Debug auth state
-  useEffect(() => {
-    console.log("[Benefit Download] Auth State:", { isAuthenticated, isLoading, authChecked })
-  }, [isAuthenticated, isLoading, authChecked])
-
   // Check authentication status
   useEffect(() => {
-    // Only redirect if not authenticated and not loading
-    if (!isLoading) {
-      setAuthChecked(true) // Mark that we've checked authentication
-      
-      if (!isAuthenticated) {
-        console.log("[Benefit Download] Not authenticated, redirecting to login")
-        const returnPath = `/downloads/stacked-data?type=benefit&country=${country}`;
-        router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
-      }
+    if (!isLoading && !isAuthenticated) {
+      const returnPath = `/downloads/stacked-data?type=benefit&country=${country}`;
+      router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
     }
   }, [isAuthenticated, isLoading, router, country])
 
-  // If still checking authentication and not confirmed authenticated yet, render content with transparent overlay
-  if (isLoading && !authChecked) {
-    console.log("[Benefit Download] Still loading authentication")
+  // If still loading auth state, show loading state
+  if (isLoading) {
     return (
-      <div>
-        {/* Content with loading overlay */}
-        <div className="relative">
-          {/* Semi-transparent overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center justify-center p-4 rounded-md bg-black bg-opacity-70">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="mt-2">Authenticating...</span>
-            </div>
-          </div>
-          
-          {/* Always render the actual content here */}
-          <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
-            <CardHeader>
-              <CardTitle>Select Data Parameters</CardTitle>
-              <CardDescription>Choose the country and benefit variables for the data you want to download</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-40">
-                <p>Content will be available after authentication</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
-  // If authentication has been checked and user is not authenticated, show basic content
-  if (authChecked && !isAuthenticated) {
-    console.log("[Benefit Download] Rendering placeholder while redirecting")
-    return (
-      <div className="flex flex-col items-center justify-center py-8">
-        <p className="mb-4">You need to be logged in to view this content.</p>
-        <p>Redirecting to login page...</p>
-      </div>
-    )
+  // If not authenticated, show nothing (will be redirected)
+  if (!isAuthenticated) {
+    return null
   }
 
   // Initialize available variables and fetch GDP data

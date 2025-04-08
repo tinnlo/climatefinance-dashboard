@@ -38,43 +38,28 @@ export function DownloadSystemCostBenefits() {
   const [selectedTimeHorizon, setSelectedTimeHorizon] = useState(searchParams?.get("timeHorizon") || "2035")
   const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState("investment-needs")
-  const [authChecked, setAuthChecked] = useState(false)
-
-  // Check if UI is initialized and country is selected
-  const [uiReady, setUiReady] = useState(false)
   
-  // Debug auth state
-  useEffect(() => {
-    console.log("[System Cost Benefits] Auth State:", { isAuthenticated, isLoading, authChecked, country: selectedCountry })
-  }, [isAuthenticated, isLoading, authChecked, selectedCountry])
-
-  useEffect(() => {
-    // Log the current state
-    console.log('Country state:', {
-      initialCountry,
-      selectedCountry,
-      uiReady
-    })
-    
-    // Mark UI as ready to ensure country displays properly
-    if (!uiReady) {
-      setUiReady(true)
-    }
-  }, [initialCountry, selectedCountry, uiReady])
-
   // Check authentication status
   useEffect(() => {
-    // Only redirect if not authenticated and not loading
-    if (!isLoading) {
-      setAuthChecked(true)
-      
-      if (!isAuthenticated) {
-        console.log("[System Cost Benefits] Not authenticated, redirecting to login")
-        const currentPath = window.location.pathname + window.location.search;
-        router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`);
-      }
+    if (!isLoading && !isAuthenticated) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/login?returnTo=${encodeURIComponent(currentPath)}`);
     }
   }, [isAuthenticated, isLoading, router])
+
+  // If still loading auth state, show loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  // If not authenticated, show nothing (will be redirected)
+  if (!isAuthenticated) {
+    return null
+  }
 
   // SCC options for the dropdown
   const sccOptions = [
@@ -255,52 +240,6 @@ ${countryName},${selectedTimeHorizon},Publicly Financed,${(data.totalCost * (1/3
       setIsDownloading(false);
     }
   };
-
-  // If still checking authentication and not confirmed authenticated yet, render content with transparent overlay
-  if (isLoading && !authChecked) {
-    console.log("[System Cost Benefits] Still loading authentication")
-    return (
-      <div className="min-h-screen bg-[#1A2A1A]">
-        <div className="container max-w-4xl mx-auto py-8 px-4 relative">
-          {/* Semi-transparent overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center justify-center p-6 rounded-lg bg-black bg-opacity-70">
-              <Loader2 className="h-10 w-10 animate-spin" />
-              <span className="mt-3 text-lg">Authenticating...</span>
-            </div>
-          </div>
-          
-          {/* Always render basic layout */}
-          <h1 className="text-3xl font-bold mb-8 text-white">Investment Needs & Reduced Damages Data</h1>
-          
-          <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
-            <CardHeader>
-              <CardTitle>Select Data Parameters</CardTitle>
-              <CardDescription>Choose the country and time horizon for the data you want to download</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-40">
-                <p>Content will be available after authentication</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  // If authentication has been checked and user is not authenticated, show basic content
-  if (authChecked && !isAuthenticated) {
-    console.log("[System Cost Benefits] Rendering placeholder while redirecting")
-    return (
-      <div className="min-h-screen bg-[#1A2A1A] flex flex-col items-center justify-center">
-        <div className="text-center p-8 rounded-lg bg-[#2A3A2A] border border-[#4A5A4A]">
-          <p className="mb-4 text-lg">You need to be logged in to view this content.</p>
-          <p>Redirecting to login page...</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-[#1A2A1A]">
