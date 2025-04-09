@@ -17,8 +17,8 @@ const PHASE_IN_VARIABLES = [
   // Renewable technologies 
   { id: "solar", name: "Solar", color: "#e2918f" },  // Pink
   { id: "onshore_wind", name: "Onshore Wind", color: "#e8aa77" },  // Orange
-  { id: "offshore_wind", name: "Offshore Wind", color: "#aaaae0" },  // Purple
-  { id: "hydropower", name: "Hydropower", color: "#f4d471" },  // Ivory
+  { id: "offshore_wind", name: "Offshore Wind", color: "#ccd992" },  // LightGreen
+  { id: "hydropower", name: "Hydropower", color: "#f4d471" },  // Yellow
   { id: "geothermal", name: "Geothermal", color: "#a4bf7f" },  // Green
   
   // Storage technologies 
@@ -113,21 +113,41 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
     fetchData()
   }, [country])
 
-  // Format values with appropriate unit (GW)
+  // Format values with appropriate unit (GW or MW based on size)
   const formatValue = (value: number, detailed: boolean = false): string => {
-    // Convert from MW to GW
-    const valueInGW = value / 1000;
+    // Convert from kW to GW (divide by 10^6)
+    const valueInGW = value / 1000000;
+    
+    // Check if all values are very small (less than 0.5 GW) to determine unit
+    const maxValue = Math.max(...data.map(d => d.totalValue || 0)) / 1000000;
+    const useMW = maxValue < 0.5; // Use MW if max is less than 0.5 GW (500 MW)
     
     if (valueInGW === 0) return "0";
     
-    if (detailed) {
-      if (valueInGW < 0.001) return valueInGW.toExponential(1) + " GW";
-      if (valueInGW < 0.01) return valueInGW.toFixed(3) + " GW";
-      if (valueInGW < 0.1) return valueInGW.toFixed(2) + " GW";
-      if (valueInGW < 10) return valueInGW.toFixed(1) + " GW";
-      return Math.round(valueInGW) + " GW";
+    if (useMW) {
+      // Display in MW (1 GW = 1000 MW)
+      const valueInMW = valueInGW * 1000;
+      
+      if (detailed) {
+        if (valueInMW < 0.001) return valueInMW.toExponential(1) + " MW";
+        if (valueInMW < 0.01) return valueInMW.toFixed(3) + " MW";
+        if (valueInMW < 0.1) return valueInMW.toFixed(2) + " MW";
+        if (valueInMW < 10) return valueInMW.toFixed(1) + " MW";
+        return Math.round(valueInMW) + " MW";
+      } else {
+        return valueInMW.toLocaleString(undefined, {maximumFractionDigits: 1}) + " MW";
+      }
     } else {
-      return valueInGW.toLocaleString(undefined, {maximumFractionDigits: 1}) + " GW";
+      // Display in GW
+      if (detailed) {
+        if (valueInGW < 0.001) return valueInGW.toExponential(1) + " GW";
+        if (valueInGW < 0.01) return valueInGW.toFixed(3) + " GW";
+        if (valueInGW < 0.1) return valueInGW.toFixed(2) + " GW";
+        if (valueInGW < 10) return valueInGW.toFixed(1) + " GW";
+        return Math.round(valueInGW) + " GW";
+      } else {
+        return valueInGW.toLocaleString(undefined, {maximumFractionDigits: 1}) + " GW";
+      }
     }
   };
 
@@ -153,8 +173,21 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
       
       if (!yearData) return null;
       
+      // Check if all values are very small to determine unit
+      const maxValue = Math.max(...data.map(d => d.totalValue || 0)) / 1000000;
+      const useMW = maxValue < 0.5; // Use MW if max is less than 0.5 GW
+      
       const totalValue = yearData.totalValue;
-      const totalFormatted = (totalValue / 1000).toLocaleString(undefined, {maximumFractionDigits: 1});
+      let totalFormatted;
+      
+      if (useMW) {
+        // Display in MW
+        const totalValueInMW = (totalValue / 1000000) * 1000; // Convert to MW
+        totalFormatted = totalValueInMW.toLocaleString(undefined, {maximumFractionDigits: 1});
+      } else {
+        // Display in GW
+        totalFormatted = (totalValue / 1000000).toLocaleString(undefined, {maximumFractionDigits: 1});
+      }
       
       // Calculate totals for each category
       const categoryTotals = PHASE_IN_CATEGORIES.map(category => {
@@ -191,12 +224,21 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
             paddingBottom: '12px'
           }}>
             <span style={{fontSize: '16px', fontWeight: 'bold'}}>Year: {label}</span>
-            <span style={{fontSize: '16px', fontWeight: 'bold'}}>{totalFormatted} GW</span>
+            <span style={{fontSize: '16px', fontWeight: 'bold'}}>{totalFormatted} {useMW ? 'MW' : 'GW'}</span>
           </div>
 
           {categoryTotals.map((category, categoryIndex) => {
-            // Format the total with commas and convert to GW
-            const categoryTotalFormatted = (category.total / 1000).toLocaleString(undefined, {maximumFractionDigits: 1});
+            // Format the total with appropriate unit
+            let categoryTotalFormatted;
+            
+            if (useMW) {
+              // Display in MW
+              const categoryTotalInMW = (category.total / 1000000) * 1000; // Convert to MW
+              categoryTotalFormatted = categoryTotalInMW.toLocaleString(undefined, {maximumFractionDigits: 1});
+            } else {
+              // Display in GW
+              categoryTotalFormatted = (category.total / 1000000).toLocaleString(undefined, {maximumFractionDigits: 1});
+            }
             
             return (
               <div key={`category-${categoryIndex}`} style={{marginBottom: '12px'}}>
@@ -208,7 +250,7 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
                   justifyContent: 'space-between'
                 }}>
                   <span>{category.name}</span>
-                  <span>{categoryTotalFormatted} GW ({category.percentage.toFixed(1)}%)</span>
+                  <span>{categoryTotalFormatted} {useMW ? 'MW' : 'GW'} ({category.percentage.toFixed(1)}%)</span>
                 </div>
                 
                 {PHASE_IN_CATEGORIES[categoryIndex].variables.map((varId) => {
@@ -219,8 +261,17 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
                   
                   // Calculate percentage within this category and format the value with commas
                   const percentage = (entry.value / category.total) * 100;
-                  const valueInGW = entry.value / 1000;
-                  const valueFormatted = valueInGW.toLocaleString(undefined, {maximumFractionDigits: 1});
+                  
+                  let valueFormatted;
+                  if (useMW) {
+                    // Display in MW
+                    const valueInMW = (entry.value / 1000000) * 1000; // Convert to MW
+                    valueFormatted = valueInMW.toLocaleString(undefined, {maximumFractionDigits: 1});
+                  } else {
+                    // Display in GW
+                    const valueInGW = entry.value / 1000000;
+                    valueFormatted = valueInGW.toLocaleString(undefined, {maximumFractionDigits: 1});
+                  }
                   
                   return (
                     <div key={`var-${varId}`} style={{
@@ -242,7 +293,7 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
                         <span>{variable.name}</span>
                       </div>
                       <div>
-                        {valueFormatted} GW ({percentage.toFixed(1)}%)
+                        {valueFormatted} {useMW ? 'MW' : 'GW'} ({percentage.toFixed(1)}%)
                       </div>
                     </div>
                   );
@@ -374,7 +425,12 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
                   />
                   <YAxis
                     label={{
-                      value: "Capacity (GW)",
+                      value: (() => {
+                        // Determine Y-axis label based on data scale
+                        const maxValue = Math.max(...data.map(d => d.totalValue || 0)) / 1000000;
+                        const useMW = maxValue < 0.5; // Use MW if max is less than 0.5 GW
+                        return `Capacity (${useMW ? 'MW' : 'GW'})`;
+                      })(),
                       angle: -90,
                       position: "insideLeft",
                       fill: theme === "dark" ? "#ffffff" : "#000000",
@@ -391,31 +447,46 @@ export function StackedPhaseInChart({ className, country = "in" }: StackedPhaseI
                     tickFormatter={(value) => {
                       if (value === 0) return "0";
                       
-                      // Convert MW to GW for display
-                      const valueInGW = value / 1000;
-                      
-                      // Check if all data values are very small
+                      // Check if all values are very small to determine unit
                       const maxValue = Math.max(...data.map(d => {
-                        // Calculate total for this year
                         return PHASE_IN_VARIABLES.reduce((sum, variable) => {
                           return sum + Math.max(0, d[variable.id] || 0);
                         }, 0);
                       }));
                       
-                      const maxValueInGW = maxValue / 1000;
+                      const maxValueInGW = maxValue / 1000000;
+                      const useMW = maxValueInGW < 0.5; // Use MW if max is less than 0.5 GW
                       
-                      // For very small datasets, use appropriate decimal places
-                      if (maxValueInGW < 0.01) return valueInGW.toFixed(3);
-                      if (maxValueInGW < 0.1) return valueInGW.toFixed(2);
-                      if (maxValueInGW < 1) return valueInGW.toFixed(1);
-                      
-                      // For regular-sized datasets, use fewer decimal places
-                      if (valueInGW < 0.1) return valueInGW.toFixed(1);
-                      
-                      // Format large numbers with commas
-                      return valueInGW >= 1000 
-                        ? (valueInGW / 1000).toFixed(0) + 'k'
-                        : valueInGW.toFixed(0);
+                      if (useMW) {
+                        // Convert kW to MW for display (divide by 1000)
+                        const valueInMW = (value / 1000000) * 1000;
+                        
+                        // For very small datasets, use appropriate decimal places
+                        if (valueInMW < 0.01) return valueInMW.toFixed(3);
+                        if (valueInMW < 0.1) return valueInMW.toFixed(2);
+                        if (valueInMW < 1) return valueInMW.toFixed(1);
+                        
+                        // For regular-sized datasets in MW, use fewer decimal places
+                        if (valueInMW < 10) return valueInMW.toFixed(1);
+                        
+                        return Math.round(valueInMW).toString();
+                      } else {
+                        // Convert kW to GW for display (divide by 10^6)
+                        const valueInGW = value / 1000000;
+                        
+                        // For very small datasets, use appropriate decimal places
+                        if (maxValueInGW < 0.01) return valueInGW.toFixed(3);
+                        if (maxValueInGW < 0.1) return valueInGW.toFixed(2);
+                        if (maxValueInGW < 1) return valueInGW.toFixed(1);
+                        
+                        // For regular-sized datasets, use fewer decimal places
+                        if (valueInGW < 0.1) return valueInGW.toFixed(1);
+                        
+                        // Format large numbers with commas
+                        return valueInGW >= 1000 
+                          ? (valueInGW / 1000).toFixed(0) + 'k'
+                          : valueInGW.toFixed(0);
+                      }
                     }}
                     scale="linear"
                     interval="preserveStartEnd"

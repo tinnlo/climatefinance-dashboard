@@ -18,13 +18,13 @@ const BENEFIT_CATEGORIES = [
   {
     name: "Reduced air pollution damages",
     variables: [
-      { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
+      { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#49cae4" }
     ]
   },
   {
     name: "Economic damage reduction",
     variables: [
-      { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" }
+      { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#0296c8" }
     ]
   }
 ];

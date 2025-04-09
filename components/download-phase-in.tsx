@@ -14,15 +14,15 @@ import { Label } from "@/components/ui/label"
 // Define the phase-in variables as defined in the API
 const PHASE_IN_VARIABLES = [
   // Renewable technologies - blues to greens
-  { id: "solar", name: "Solar", color: "#82ca9d" },
-  { id: "onshore_wind", name: "Onshore Wind", color: "#4caf50" },
-  { id: "offshore_wind", name: "Offshore Wind", color: "#00b4d8" },
-  { id: "hydropower", name: "Hydropower", color: "#0077b6" },
-  { id: "geothermal", name: "Geothermal", color: "#0096c7" },
+  { id: "solar", name: "Solar", color: "#e2918f" },
+  { id: "onshore_wind", name: "Onshore Wind", color: "#e8aa77" },
+  { id: "offshore_wind", name: "Offshore Wind", color: "#ccd992" },
+  { id: "hydropower", name: "Hydropower", color: "#f4d471" },
+  { id: "geothermal", name: "Geothermal", color: "#a4bf7f" },
   
   // Storage technologies - oranges to yellows
-  { id: "battery_short", name: "Short-term Battery", color: "#ffbd59" },
-  { id: "battery_long", name: "Long-term Battery", color: "#ff7c43" },
+  { id: "battery_short", name: "Short-term Battery", color: "#a5d7d8" },
+  { id: "battery_long", name: "Long-term Battery", color: "#629ddd" },
 ];
 
 // Group variables into categories for display
@@ -30,18 +30,18 @@ const PHASE_IN_CATEGORIES = [
   {
     name: "Renewable Technologies",
     variables: [
-      { id: "solar", name: "Solar", color: "#82ca9d" },
-      { id: "onshore_wind", name: "Onshore Wind", color: "#4caf50" },
-      { id: "offshore_wind", name: "Offshore Wind", color: "#00b4d8" },
-      { id: "hydropower", name: "Hydropower", color: "#0077b6" },
-      { id: "geothermal", name: "Geothermal", color: "#0096c7" },
+      { id: "solar", name: "Solar", color: "#e2918f" },
+      { id: "onshore_wind", name: "Onshore Wind", color: "#e8aa77" },
+      { id: "offshore_wind", name: "Offshore Wind", color: "#ccd992" },
+      { id: "hydropower", name: "Hydropower", color: "#f4d471" },
+      { id: "geothermal", name: "Geothermal", color: "#a4bf7f" },
     ]
   },
   {
     name: "Storage Technologies",
     variables: [
-      { id: "battery_short", name: "Short-term Battery", color: "#ffbd59" },
-      { id: "battery_long", name: "Long-term Battery", color: "#ff7c43" },
+      { id: "battery_short", name: "Short-term Battery", color: "#a5d7d8" },
+      { id: "battery_long", name: "Long-term Battery", color: "#629ddd" },
     ]
   }
 ];

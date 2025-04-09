@@ -22,8 +22,8 @@ import { Download } from "lucide-react"
 
 // Color palette for benefit variables
 const BENEFIT_VARIABLES = [
-  { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" },
-  { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" },
+  { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#0296c8" },
+  { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#49cae4" },
 ]
 
 // Default GDP value to use if data fetch fails
@@ -243,6 +243,9 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
       const totalBenefitDisplay = formatValue(yearData.totalBenefit);
       const gdpPercentageDisplay = yearData.gdpPercentage.toFixed(2);
       
+      // Reverse the payload array to match the stacking order in the chart
+      const reversedPayload = [...payload].reverse();
+      
       return (
         <div style={{
           ...tooltipStyle,
@@ -263,7 +266,7 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
             </div>
           </div>
 
-          {payload.map((entry: any, index: number) => {
+          {reversedPayload.map((entry: any, index: number) => {
             if (entry.value === 0) return null;
             
             const variable = BENEFIT_VARIABLES.find(v => v.id === entry.dataKey);
