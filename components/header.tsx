@@ -30,7 +30,7 @@ function HeaderContent({
 }) {
   const pathname = usePathname()
   const { theme } = useTheme()
-  const { user, logout, forceSignOut, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
@@ -59,9 +59,9 @@ function HeaderContent({
     } catch (err) {
       console.error("[Header] Logout failed:", err)
       
-      // If regular logout fails, try force sign out as fallback
+      // If regular logout fails, use manual cleanup as fallback
       try {
-        console.log("[Header] Attempting force sign out...")
+        console.log("[Header] Attempting manual cleanup...")
         
         // Clear any auth locks again
         if (typeof window !== 'undefined') {
@@ -72,17 +72,7 @@ function HeaderContent({
           }
         }
         
-        await forceSignOut()
-        console.log("[Header] Force sign out successful")
-        
-        // Redirect after force sign out
-        setTimeout(() => {
-          router.push("/login")
-        }, 300)
-      } catch (forceErr) {
-        console.error("[Header] Force sign out failed:", forceErr)
-        
-        // Last resort: Clear localStorage manually and hard reload
+        // Manual cleanup
         try {
           // More aggressive cleanup
           if (typeof window !== 'undefined') {
@@ -105,7 +95,14 @@ function HeaderContent({
           console.error("[Header] Error clearing storage:", e);
         }
         
-        // Hard reload to login page
+        // Redirect to login page
+        setTimeout(() => {
+          router.push("/login")
+        }, 300)
+      } catch (cleanupErr) {
+        console.error("[Header] Manual cleanup failed:", cleanupErr)
+        
+        // Last resort: Hard reload to login page
         window.location.href = window.location.origin + "/login?forcedLogout=true"
       }
     } finally {
@@ -143,6 +140,14 @@ function HeaderContent({
               }`}
             >
               Dashboard
+            </Link>
+            <Link
+              href="/downloads"
+              className={`transition-colors hover:text-foreground/80 ${
+                pathname?.startsWith("/downloads") ? "font-bold text-foreground" : "text-foreground/60"
+              }`}
+            >
+              Downloads
             </Link>
             <Link
               href="/contact"

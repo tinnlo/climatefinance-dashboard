@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Info, LogIn } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StackedCostChart } from "@/components/stacked-cost-chart"
+import { StackedPhaseInChart } from "@/components/stacked-phase-in-chart"
 import { Button } from "@/components/ui/button"
 import { convertToIso3 } from "@/lib/utils"
 import { COUNTRY_NAMES } from "@/lib/constants"
@@ -230,6 +231,12 @@ export default function DashboardClientPage() {
             { className: "lg:col-span-6 h-[650px]" },
             h(StackedCostChart, { className: "h-full", country: selectedCountry }),
           ),
+        ),
+        // Phase-In Chart - now outside the auth check
+        h(
+          "div",
+          { className: "w-full h-[600px] mb-6" },
+          h(StackedPhaseInChart, { className: "h-full", country: selectedCountry })
         ),
         // Conditionally render either phase-out components or auth CTA
         isAuthenticated ? renderPhaseOutComponents() : renderAuthCTA()

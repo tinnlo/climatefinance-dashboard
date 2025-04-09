@@ -1259,7 +1259,7 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
         {/* Left Column - Map and Chart Container */}
         <div className="lg:col-span-7">
           {/* Map Container with dropdown inside */}
-          <div className="space-y-4">
+          <div>
             <div className="h-[500px] relative bg-background dark:bg-[#2F3A2F] rounded-lg border border-border">
               {/* Scenario Selector - Inside map container */}
               <div className="absolute top-4 left-4 z-10 w-[300px]">
@@ -1320,18 +1320,20 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
               </div>
             </div>
 
-            {/* Timeline controls - Restored to original style */}
-            <div className="h-[40px] bg-transparent mt-2 mb-8">
-              <TimelineSlider
-                minYear={2025}
-                maxYear={2050}
-                currentYear={currentYear}
-                onChange={handleYearChange}
-              />
+            {/* Timeline controls - Added padding for better spacing */}
+            <div className="bg-transparent -mt-3 rounded-b-lg">
+              <div className="pt-2">
+                <TimelineSlider
+                  minYear={2025}
+                  maxYear={2050}
+                  currentYear={currentYear}
+                  onChange={handleYearChange}
+                />
+              </div>
             </div>
 
-            {/* Phase Out Chart */}
-            <div className="h-[400px] bg-background dark:bg-[#2F3A2F] light:bg-emerald-50 rounded-lg mt-8 border border-border">
+            {/* Phase Out Chart - Remove margin top */}
+            <div className="h-[400px] bg-background dark:bg-[#2F3A2F] light:bg-emerald-50 rounded-lg border border-border">
               <PhaseOutChart
                 country={country}
                 data={chartData}

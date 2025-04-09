@@ -5,64 +5,45 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { COUNTRY_NAMES } from "@/lib/constants"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, ArrowLeft, Loader2 } from "lucide-react"
+import { Download, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { convertToIso3 } from "@/lib/utils"
 
-// Group cost variables into categories to match the chart display
-const COST_CATEGORIES = [
-  {
-    name: "Phase-out costs",
-    variables: [
-      { id: "opportunity_cost", name: "Missed Cashflows", color: "#ff7c43" },
-      { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ff9e6d" },
-      { id: "worker_compensation_cost", name: "Worker Compensation", color: "#d9bc83" }
-    ]
-  },
-  {
-    name: "Investments into infrastructure",
-    variables: [
-      { id: "cost_battery_grid", name: "Grid Extension", color: "#cccd74" },
-      { id: "cost_battery_pe", name: "Power Electrolyzers", color: "#c2d470" },
-      { id: "cost_battery_long", name: "Long-term Battery", color: "#d0ec9a" },
-      { id: "cost_battery_short", name: "Short-term Battery", color: "#e4f8c2" }
-    ]
-  },
-  {
-    name: "Investments into renewables",
-    variables: [
-      { id: "solar_cost", name: "Solar", color: "#80d3e8" },
-      { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
-      { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
-      { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
-      { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" }
-    ]
-  }
+// Define the phase-in variables as defined in the API
+const PHASE_IN_VARIABLES = [
+  // Renewable technologies - blues to greens
+  { id: "solar", name: "Solar", color: "#82ca9d" },
+  { id: "onshore_wind", name: "Onshore Wind", color: "#4caf50" },
+  { id: "offshore_wind", name: "Offshore Wind", color: "#00b4d8" },
+  { id: "hydropower", name: "Hydropower", color: "#0077b6" },
+  { id: "geothermal", name: "Geothermal", color: "#0096c7" },
+  
+  // Storage technologies - oranges to yellows
+  { id: "battery_short", name: "Short-term Battery", color: "#ffbd59" },
+  { id: "battery_long", name: "Long-term Battery", color: "#ff7c43" },
 ];
 
-// Define cost variables directly in the same order as stacked-cost-chart.tsx
-const COST_VARIABLES = [
-  // Renewable investments (bottom) - light blue to dark blue
-  { id: "hydropower_cost", name: "Hydropower", color: "#0077b6" },
-  { id: "geothermal_cost", name: "Geothermal", color: "#0096c7" },
-  { id: "wind_onshore_cost", name: "Wind Onshore", color: "#00b4d8" },
-  { id: "wind_offshore_cost", name: "Wind Offshore", color: "#48cae4" },
-  { id: "solar_cost", name: "Solar", color: "#80d3e8" },
-  
-  // Grid investments (middle) - green
-  { id: "cost_battery_short", name: "Short-term Battery", color: "#e8f5c4" },
-  { id: "cost_battery_long", name: "Long-term Battery", color: "#d4e79e" },
-  { id: "cost_battery_pe", name: "Polyethylene", color: "#b3de69" },
-  { id: "cost_battery_grid", name: "Grid Extension", color: "#c6cd76" },
-  
-  // Phase-out costs (top) - dark red to light red
-  { id: "worker_compensation_cost", name: "Worker Compensation", color: "#d9bc83" },
-  { id: "worker_retraining_cost", name: "Worker Retraining", color: "#ff9e6d" },
-  { id: "opportunity_cost", name: "Missed Cashflows", color: "#ff7c43" }
+// Group variables into categories for display
+const PHASE_IN_CATEGORIES = [
+  {
+    name: "Renewable Technologies",
+    variables: [
+      { id: "solar", name: "Solar", color: "#82ca9d" },
+      { id: "onshore_wind", name: "Onshore Wind", color: "#4caf50" },
+      { id: "offshore_wind", name: "Offshore Wind", color: "#00b4d8" },
+      { id: "hydropower", name: "Hydropower", color: "#0077b6" },
+      { id: "geothermal", name: "Geothermal", color: "#0096c7" },
+    ]
+  },
+  {
+    name: "Storage Technologies",
+    variables: [
+      { id: "battery_short", name: "Short-term Battery", color: "#ffbd59" },
+      { id: "battery_long", name: "Long-term Battery", color: "#ff7c43" },
+    ]
+  }
 ];
 
 // Define an interface for the year data
@@ -71,23 +52,22 @@ interface YearData {
   [key: string]: any; // This allows for any property names
 }
 
-interface DownloadStackedCostProps {
+interface DownloadPhaseInProps {
   country: string;
 }
 
-export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
+export function DownloadPhaseIn({ country }: DownloadPhaseInProps) {
   const router = useRouter()
   const { isAuthenticated, isLoading } = useAuth()
   const [selectedCountry, setSelectedCountry] = useState(country)
-  const [selectedVariables, setSelectedVariables] = useState<string[]>(COST_VARIABLES.map(v => v.id))
+  const [selectedVariables, setSelectedVariables] = useState<string[]>(PHASE_IN_VARIABLES.map(v => v.id))
   const [isDownloading, setIsDownloading] = useState(false)
   const [isDownloadingPreset, setIsDownloadingPreset] = useState(false)
-  const [gdpValue, setGdpValue] = useState<number>(1.0)
   
   // Check authentication status
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      const returnPath = `/downloads/stacked-data?type=cost&country=${country}`;
+      const returnPath = `/downloads/phase-in-data?country=${country}`;
       router.push(`/login?returnTo=${encodeURIComponent(returnPath)}`);
     }
   }, [isAuthenticated, isLoading, router, country])
@@ -106,35 +86,6 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     return null
   }
 
-  // Fetch GDP data when country changes
-  useEffect(() => {
-    const fetchGdpData = async () => {
-      try {
-        const iso3Code = convertToIso3(selectedCountry)
-        const response = await fetch('/api/country-info')
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        
-        const allCountryData = await response.json()
-        const countryData = allCountryData.find((c: any) => c.Country_ISO3 === iso3Code)
-        
-        if (countryData && countryData.GDP_2023) {
-          const gdpInTrillions = countryData.GDP_2023 / 1000000000000
-          setGdpValue(gdpInTrillions)
-        } else {
-          setGdpValue(1.0)
-        }
-      } catch (error) {
-        console.error('Error fetching GDP data:', error)
-        setGdpValue(1.0)
-      }
-    }
-    
-    fetchGdpData()
-  }, [selectedCountry])
-
   const toggleVariable = (variableId: string) => {
     setSelectedVariables((prev) =>
       prev.includes(variableId) ? prev.filter((id) => id !== variableId) : [...prev, variableId]
@@ -146,7 +97,7 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
     setIsDownloading(true)
     try {
       // Fetch real data from the API
-      const response = await fetch(`/api/cost-variables?country=${selectedCountry}`)
+      const response = await fetch(`/api/phase-in-data?country=${selectedCountry}`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -158,35 +109,28 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
       }
       
       // Create header row with selected variables
-      const selectedVarNames = COST_VARIABLES
+      const selectedVarNames = PHASE_IN_VARIABLES
         .filter(v => selectedVariables.includes(v.id))
         .map(v => v.name)
       
-      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Cost (Billion)", "GDP Percentage"].join(",")
+      const headerRow = ["Year", "Country", ...selectedVarNames, "Total Capacity (GW)"].join(",")
       
       // Create data rows from the API response
       const dataRows = result.data.map((yearData: YearData) => {
         const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
         
-        // Add values for each selected variable (converting to billions)
-        let totalCost = 0
-        for (const variable of COST_VARIABLES) {
+        // Add values for each selected variable
+        let totalCapacity = 0
+        for (const variable of PHASE_IN_VARIABLES) {
           if (selectedVariables.includes(variable.id)) {
             const value = yearData[variable.id] || 0
-            // Convert trillion to billion
-            const valueInBillions = value * 1000
-            rowValues.push(valueInBillions.toFixed(4))
-            totalCost += value
+            rowValues.push(value.toFixed(4))
+            totalCapacity += value
           }
         }
         
-        // Add total cost in billions and GDP percentage
-        const totalCostInBillions = totalCost * 1000
-        rowValues.push(totalCostInBillions.toFixed(4))
-        
-        // Calculate GDP percentage using the actual GDP value
-        const gdpPercentage = (totalCost / gdpValue) * 100
-        rowValues.push(gdpPercentage.toFixed(2))
+        // Add total capacity
+        rowValues.push(totalCapacity.toFixed(4))
         
         return rowValues.join(",")
       })
@@ -199,7 +143,7 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.setAttribute("href", url)
-      link.setAttribute("download", `stacked_cost_data_${selectedCountry}_custom.csv`)
+      link.setAttribute("download", `phase_in_data_${selectedCountry}_custom.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -212,11 +156,11 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
   }
 
   // Function to download preset data with all variables
-  const handleDownloadPreset = async (format: 'csv' | 'excel') => {
+  const handleDownloadPreset = async (format: 'csv' | 'json') => {
     setIsDownloadingPreset(true)
     try {
       // Fetch real data from the API
-      const response = await fetch(`/api/cost-variables?country=${selectedCountry}`)
+      const response = await fetch(`/api/phase-in-data?country=${selectedCountry}`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -227,49 +171,60 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
         throw new Error(result.error)
       }
       
-      // Always include all variables for preset downloads
-      const allVarNames = COST_VARIABLES.map(v => v.name)
-      
-      // Create header row with all variables
-      const headerRow = ["Year", "Country", ...allVarNames, "Total Cost (Billion)", "GDP Percentage"].join(",")
-      
-      // Create data rows from the API response
-      const dataRows = result.data.map((yearData: YearData) => {
-        const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
+      if (format === 'json') {
+        // Create JSON blob
+        const jsonContent = JSON.stringify({
+          country: COUNTRY_NAMES[selectedCountry],
+          variables: PHASE_IN_VARIABLES,
+          data: result.data
+        }, null, 2)
         
-        // Add values for all variables (converting to billions)
-        let totalCost = 0
-        for (const variable of COST_VARIABLES) {
-          const value = yearData[variable.id] || 0
-          // Convert trillion to billion
-          const valueInBillions = value * 1000
-          rowValues.push(valueInBillions.toFixed(4))
-          totalCost += value
-        }
+        const blob = new Blob([jsonContent], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.setAttribute("href", url)
+        link.setAttribute("download", `phase_in_data_${selectedCountry}_all_variables.json`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        // Create CSV
+        const allVarNames = PHASE_IN_VARIABLES.map(v => v.name)
         
-        // Add total cost in billions and GDP percentage
-        const totalCostInBillions = totalCost * 1000
-        rowValues.push(totalCostInBillions.toFixed(4))
+        // Create header row with all variables
+        const headerRow = ["Year", "Country", ...allVarNames, "Total Capacity (GW)"].join(",")
         
-        // Calculate GDP percentage using the actual GDP value
-        const gdpPercentage = (totalCost / gdpValue) * 100
-        rowValues.push(gdpPercentage.toFixed(2))
+        // Create data rows from the API response
+        const dataRows = result.data.map((yearData: YearData) => {
+          const rowValues = [yearData.year, COUNTRY_NAMES[selectedCountry]]
+          
+          // Add values for all variables
+          let totalCapacity = 0
+          for (const variable of PHASE_IN_VARIABLES) {
+            const value = yearData[variable.id] || 0
+            rowValues.push(value.toFixed(4))
+            totalCapacity += value
+          }
+          
+          // Add total capacity
+          rowValues.push(totalCapacity.toFixed(4))
+          
+          return rowValues.join(",")
+        })
         
-        return rowValues.join(",")
-      })
-      
-      // Combine header and data rows
-      const csvContent = [headerRow, ...dataRows].join("\n")
+        // Combine header and data rows
+        const csvContent = [headerRow, ...dataRows].join("\n")
 
-      // Create a blob and download it
-      const blob = new Blob([csvContent], { type: format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.setAttribute("href", url)
-      link.setAttribute("download", `stacked_cost_data_${selectedCountry}_all_variables.${format === 'csv' ? 'csv' : 'xlsx'}`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+        // Create a blob and download it
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.setAttribute("href", url)
+        link.setAttribute("download", `phase_in_data_${selectedCountry}_all_variables.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
     } catch (error) {
       console.error("Error downloading file:", error)
       // Handle error here
@@ -283,7 +238,7 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
       <Card className="mb-8 bg-[#2A3A2A] border-[#4A5A4A]">
         <CardHeader>
           <CardTitle>Select Data Parameters</CardTitle>
-          <CardDescription>Choose the country and cost variables for the data you want to download</CardDescription>
+          <CardDescription>Choose the country and capacity variables for the data you want to download</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
@@ -303,9 +258,9 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Investment Needs</label>
+              <label className="text-sm font-medium">Capacity Variables</label>
               
-              {COST_CATEGORIES.map((category, categoryIndex) => (
+              {PHASE_IN_CATEGORIES.map((category, categoryIndex) => (
                 <div key={`category-${categoryIndex}`} className="mt-4">
                   <h3 className="text-sm font-medium mb-2">{category.name}</h3>
                   <div className="flex flex-wrap gap-4 ml-4">
@@ -370,8 +325,8 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Cost Data - All Variables</h3>
-                <p className="text-sm text-muted-foreground">CSV, 18KB</p>
+                <h3 className="font-medium">Phase-In Capacity Data - All Variables</h3>
+                <p className="text-sm text-muted-foreground">CSV, 15KB</p>
               </div>
               <Button 
                 variant="outline" 
@@ -391,13 +346,13 @@ export function DownloadStackedCost({ country }: DownloadStackedCostProps) {
             
             <div className="flex items-center justify-between p-4 border rounded-lg border-[#4A5A4A] bg-[#3A4A3A]">
               <div>
-                <h3 className="font-medium">Stacked Cost Data - Excel Format</h3>
-                <p className="text-sm text-muted-foreground">Excel, 22KB</p>
+                <h3 className="font-medium">Phase-In Capacity Data - JSON Format</h3>
+                <p className="text-sm text-muted-foreground">JSON, 20KB</p>
               </div>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => handleDownloadPreset('excel')}
+                onClick={() => handleDownloadPreset('json')}
                 disabled={isDownloadingPreset}
                 className="border-[#4A5A4A] hover:bg-[#4A5A4A]"
               >

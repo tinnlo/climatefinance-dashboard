@@ -36,7 +36,7 @@ const COST_VARIABLES = [
   // Grid investments (middle) - green
   { id: "cost_battery_short", name: "Short-term Battery", color: "#e4f8c2" },
   { id: "cost_battery_long", name: "Long-term Battery", color: "#d0ec9a" },
-  { id: "cost_battery_pe", name: "Power Electroayzers", color: "#c2d470" },
+  { id: "cost_battery_pe", name: "Power Electrolyzers", color: "#c2d470" },
   { id: "cost_battery_grid", name: "Grid Extension", color: "#cccd74" },
   
   // Phase-out costs (top) - dark red to light red
@@ -68,7 +68,7 @@ const FormattedNotes = () => (
     <p>are categorized into two distinct components:</p>
     
     <ol className="list-decimal pl-5 my-2 space-y-1">
-      <li><strong>Economic damage reduction</strong>: Lower economic losses within the country and to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs. These components are further divided into the reduced damages from phasing out (i) coal, (ii) oil, and (iii) gas.</li>
+      <li><strong>Economic damage reduction</strong>: Lower economic losses within the country and to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs. </li>
       <li><strong>Reduced air pollution damages</strong>: Economic benefits arising from improved air quality and associated health and productivity gains.</li>
     </ol>
     
