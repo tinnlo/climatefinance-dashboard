@@ -609,7 +609,7 @@ export default function AssetsDetailsPage() {
                 <div key={`emissions-${item.fuelType}`}>
                   <div className="flex justify-between items-center text-sm">
                     <span className="capitalize">{item.fuelType}</span>
-                    <span className="font-medium">{item.allocatedEmissions.toFixed(2)} MtCO2</span>
+                    <span className="font-medium">{item.allocatedEmissions.toFixed(2)} MtCO2 ({((item.allocatedEmissions / totalAllocatedEmissions) * 100).toFixed(1)}%)</span>
                   </div>
                   <div className="w-full bg-[#4A5A4A] h-2 rounded-full mt-1">
                     <div 

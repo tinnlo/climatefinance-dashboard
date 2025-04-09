@@ -22,9 +22,7 @@ import { Download } from "lucide-react"
 
 // Color palette for benefit variables
 const BENEFIT_VARIABLES = [
-  { id: "Coal", name: "Coal", color: "#ff7c43" },
-  { id: "Gas", name: "Gas", color: "#ffa600" },
-  { id: "Oil", name: "Oil", color: "#ffd29c" },
+  { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" },
   { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" },
 ]
 
@@ -51,7 +49,7 @@ const FormattedNotes = () => (
     <p>are categorized into two distinct components:</p>
     
     <ol className="list-decimal pl-5 my-2 space-y-1">
-      <li><strong>Economic damage reduction</strong>: Lower economic losses within the country and to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs. These components are further divided into the reduced damages from phasing out (i) coal, (ii) oil, and (iii) gas.</li>
+      <li><strong>Reduced economic damages</strong>: Lower economic losses within the country and to the rest of the world, stemming from avoided climate-related damages, productivity losses, and adaptation costs resulting from the phase-out of fossil fuels.</li>
       <li><strong>Reduced air pollution damages</strong>: Economic benefits arising from improved air quality and associated health and productivity gains.</li>
     </ol>
     
@@ -232,18 +230,6 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
     }
   };
 
-  // Group benefit variables into categories for the tooltip
-  const BENEFIT_CATEGORIES = [
-    {
-      name: "Reduced air pollution damages",
-      variables: ["Reduced Air Pollution"]
-    },
-    {
-      name: "Economic damage reduction",
-      variables: ["Oil", "Gas", "Coal"]
-    }
-  ];
-
   // Custom tooltip that shows categorized benefits with better formatting
   const CustomTooltip = (props: any) => {
     const { active, payload, label } = props;
@@ -256,27 +242,6 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
       
       const totalBenefitDisplay = formatValue(yearData.totalBenefit);
       const gdpPercentageDisplay = yearData.gdpPercentage.toFixed(2);
-      
-      // Build a mapping of variable ID to payload entry for easier access
-      const variableMap = payload.reduce((map: any, entry: any) => {
-        if (entry.dataKey !== 'gdpPercentage') {
-          map[entry.dataKey] = entry;
-        }
-        return map;
-      }, {});
-
-      // Calculate totals for each category
-      const categoryTotals = BENEFIT_CATEGORIES.map(category => {
-        const total = category.variables.reduce((sum, varId) => {
-          const value = yearData[varId];
-          return sum + (typeof value === 'number' ? value : 0);
-        }, 0);
-        return {
-          name: category.name,
-          total: total,
-          percentage: yearData.totalBenefit > 0 ? (total / yearData.totalBenefit) * 100 : 0
-        };
-      });
       
       return (
         <div style={{
@@ -292,61 +257,44 @@ export function StackedBenefitChart({ className, country = "in" }: StackedBenefi
             paddingBottom: '8px'
           }}>
             <span style={{...tooltipLabelStyle, fontSize: '14px'}}>Year: {label}</span>
-            <span style={{...tooltipLabelStyle, fontSize: '14px'}}>{totalBenefitDisplay} ({gdpPercentageDisplay}% of GDP)</span>
+            <div style={{textAlign: 'right'}}>
+              <div style={{...tooltipLabelStyle, fontSize: '14px'}}>{totalBenefitDisplay}</div>
+              <div style={{fontSize: '12px', opacity: 0.9}}>({gdpPercentageDisplay}% of GDP)</div>
+            </div>
           </div>
 
-          {categoryTotals.map((category, categoryIndex) => {
-            if (category.total <= 0) return null;
+          {payload.map((entry: any, index: number) => {
+            if (entry.value === 0) return null;
             
+            const variable = BENEFIT_VARIABLES.find(v => v.id === entry.dataKey);
+            if (!variable) return null;
+
+            // Calculate percentage of total benefit
+            const percentage = yearData.totalBenefit > 0 ? (entry.value / yearData.totalBenefit) * 100 : 0;
+
             return (
-              <div key={`category-${categoryIndex}`} style={{marginBottom: '8px'}}>
-                <div style={{
-                  fontWeight: 'bold',
-                  fontSize: '13px',
-                  marginBottom: '4px',
-                  display: 'flex',
-                  justifyContent: 'space-between'
-                }}>
-                  <span>{category.name} {formatValue(category.total)} ({category.percentage.toFixed(1)}%)</span>
+              <div key={`var-${index}`} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                fontSize: '12px',
+                marginBottom: '8px'
+              }}>
+                <div style={{display: 'flex', alignItems: 'center'}}>
+                  <span style={{
+                    display: 'inline-block', 
+                    width: '8px', 
+                    height: '8px', 
+                    backgroundColor: variable.color, 
+                    marginRight: '6px',
+                    marginTop: '4px'
+                  }}></span>
+                  <span>{variable.name}</span>
                 </div>
-                
-                {BENEFIT_CATEGORIES[categoryIndex].variables.map((varId, varIndex) => {
-                  const variable = BENEFIT_VARIABLES.find(v => v.id === varId);
-                  const entry = variableMap[varId];
-                  
-                  if (!variable || !entry || entry.value === 0) return null;
-                  
-                  // Calculate percentage within this category
-                  const percentage = category.total > 0 ? (entry.value / category.total) * 100 : 0;
-                  
-                  // Skip showing percentage for Reduced Air Pollution as it's always 100%
-                  const isReducedAirPollution = varId === "Reduced Air Pollution";
-                  
-                  return (
-                    <div key={`var-${varId}`} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '12px',
-                      marginLeft: '12px',
-                      marginBottom: '2px'
-                    }}>
-                      <div style={{display: 'flex', alignItems: 'center'}}>
-                        <span style={{
-                          display: 'inline-block', 
-                          width: '8px', 
-                          height: '8px', 
-                          backgroundColor: variable.color, 
-                          marginRight: '6px'
-                        }}></span>
-                        <span>{variable.name}</span>
-                      </div>
-                      <div>
-                        {formatValue(entry.value)} {!isReducedAirPollution && `(${percentage.toFixed(1)}%)`}
-                      </div>
-                    </div>
-                  );
-                })}
+                <div style={{textAlign: 'right'}}>
+                  <div>{formatValue(entry.value)} </div>
+                  <div style={{opacity: 0.9}}> ({percentage.toFixed(1)}%)</div>
+                </div>
               </div>
             );
           })}

@@ -36,7 +36,7 @@ const COST_VARIABLES = [
   // Grid investments (middle) - green
   { id: "cost_battery_short", name: "Short-term Battery", color: "#e4f8c2" },
   { id: "cost_battery_long", name: "Long-term Battery", color: "#d0ec9a" },
-  { id: "cost_battery_pe", name: "Polyethylene", color: "#c2d470" },
+  { id: "cost_battery_pe", name: "Power Electroayzers", color: "#c2d470" },
   { id: "cost_battery_grid", name: "Grid Extension", color: "#cccd74" },
   
   // Phase-out costs (top) - dark red to light red

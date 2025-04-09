@@ -93,7 +93,7 @@ const technologyColors: Record<string, string> = {
   "Bioenergy": "#8FBC8F",
   "Nuclear": "#9932CC",
   "Coal": "#696969",
-  "Natural Gas": "#B8860B",
+  "Gas": "#B8860B",
   "Oil": "#A52A2A",
   // Default color for any other technology
   "default": "#CCCCCC"
@@ -159,16 +159,24 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
     const assetData = coverageData.Asset_Amount_operating;
     if (!assetData || typeof assetData === 'number') return null;
     
+    // Calculate total capacity first
+    const totalCapacity = assetData.technologies.reduce((sum, t) => sum + (t.capacity || 0), 0);
+    
+    // Add technology name mapping
+    const technologyNameMap: Record<string, string> = {
+      "Natural Gas": "Gas"
+    };
+    
     // Sort technologies by capacity descending to make the chart more readable
     const sortedTechnologies = [...assetData.technologies]
       .sort((a, b) => (b.capacity || 0) - (a.capacity || 0))
       .map(tech => {
-        // Calculate total capacity across all technologies
-        const totalCapacity = assetData.technologies.reduce((sum, t) => sum + (t.capacity || 0), 0);
-        // Pre-calculate the percentage for each technology
+        // Calculate percentage for each technology
         const percentage = totalCapacity > 0 ? ((tech.capacity || 0) / totalCapacity) * 100 : 0;
+        const displayName = technologyNameMap[tech.technology] || tech.technology;
         return {
           ...tech,
+          displayName,
           percentage,
           tooltipText: `${tech.technology}: ${(tech.capacity || 0).toLocaleString()} MW (${percentage.toFixed(1)}%)`
         };
@@ -180,7 +188,6 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
         
         <div className="flex h-[5px] w-full rounded-sm overflow-hidden">
           {sortedTechnologies.map((tech) => {
-            // We need to wrap each segment in a div that can show a tooltip
             return (
               <div 
                 key={tech.technology}
@@ -190,7 +197,7 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
               >
                 <div
                   className="absolute inset-0 h-full"
-                  style={{ backgroundColor: technologyColors[tech.technology] || technologyColors.default }}
+                  style={{ backgroundColor: technologyColors[tech.displayName] || technologyColors.default }}
                 />
               </div>
             );
@@ -202,9 +209,9 @@ export function CountryInfo({ country = "in", className }: { country?: string; c
             <div key={tech.technology} className="flex items-center gap-1">
               <div 
                 className="w-3 h-3 rounded-sm" 
-                style={{ backgroundColor: technologyColors[tech.technology] || technologyColors.default }}
+                style={{ backgroundColor: technologyColors[tech.displayName] || technologyColors.default }}
               />
-              <span>{tech.technology}: {(tech.capacity || 0).toLocaleString()} MW</span>
+              <span>{tech.displayName}: {tech.percentage.toFixed(1)}%</span>
             </div>
           ))}
         </div>

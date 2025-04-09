@@ -1367,27 +1367,27 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Visible Plants</p>
+                    <p className="text-xs text-muted-foreground">Affected Assets</p>
                     <p className="text-lg font-medium">{companyStats.visiblePlants}</p>
                   </div>
                   <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Visible Companies</p>
+                    <p className="text-xs text-muted-foreground">Affected Companies</p>
                     <p className="text-lg font-medium">{companyStats.visibleCompanies}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Cumulative Emissions</p>
-                    <p className="text-lg font-medium">{stats.cumulativeEmissions.toFixed(2)} Mt</p>
+                <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
+                    <p className="text-xs text-muted-foreground">Reduced Emissions (year)</p>
+                    <p className="text-lg font-medium">{stats.reductionEmissions.toFixed(2)} Mt</p>
                   </div>
                   <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Reduction Emissions</p>
-                    <p className="text-lg font-medium">{stats.reductionEmissions.toFixed(2)} Mt</p>
+                    <p className="text-xs text-muted-foreground">Reduced Emissions (cumulative)</p>
+                    <p className="text-lg font-medium">{stats.cumulativeEmissions.toFixed(2)} Mt</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* <div className="grid grid-cols-2 gap-3">
                   <div className="bg-muted dark:bg-[#3A4A3A] p-3 rounded-md">
                     <p className="text-xs text-muted-foreground">Total Capacity</p>
                     <p className="text-lg font-medium">{stats.totalCapacity.toFixed(0)} MW</p>
@@ -1397,8 +1397,9 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                     <p className="text-lg font-medium">{stats.totalEmissions.toFixed(1)} Mt</p>
                   </div>
                 </div>
+                */}
 
-                {/* Company Details Section */}
+                {/* Asset Details Section */}
                 <div className="mt-8">
                   <div className="flex justify-between items-center mb-3">
                     <p className="text-sm text-muted-foreground">Top Assets Being Phased Out</p>
@@ -1413,7 +1414,7 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                       </Button>
                     </Link>
                   </div>
-                  <div className="space-y-2 max-h-[450px] overflow-y-auto pr-2 border border-border rounded-md p-2">
+                  <div className="space-y-2 max-h-[550px] overflow-y-auto pr-2 border border-border rounded-md p-2">
                     {(() => {
                       // Filter assets that are phased out in the current year
                       const phasedOutAssets = validData.filter(asset => 

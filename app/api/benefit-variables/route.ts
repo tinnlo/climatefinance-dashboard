@@ -14,9 +14,7 @@ interface YearData {
 
 // Define the benefit variables with their mapping
 const BENEFIT_VARIABLES: BenefitVariable[] = [
-  { id: "Coal", name: "Coal", color: "#ff7c43" },
-  { id: "Gas", name: "Gas", color: "#ffa600" },
-  { id: "Oil", name: "Oil", color: "#ffd29c" },
+  { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" },
   { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" },
 ]
 
@@ -45,7 +43,9 @@ async function fetchAndTransformBenefitData(country: string) {
 
   // Find which benefit variables have data
   const availableVariables = BENEFIT_VARIABLES.filter(variable => 
-    countryData[variable.id] && Object.keys(countryData[variable.id]).length > 0
+    variable.id === "Reduced Air Pollution" || 
+    (variable.id === "Reduced Economic Damages" && 
+     (countryData["Coal"] || countryData["Gas"] || countryData["Oil"]))
   )
 
   if (availableVariables.length === 0) {
@@ -53,8 +53,7 @@ async function fetchAndTransformBenefitData(country: string) {
   }
 
   // Get years from the first available variable's data
-  const firstVariable = availableVariables[0].id
-  const years = Object.keys(countryData[firstVariable])
+  const years = Object.keys(countryData["Coal"] || countryData["Gas"] || countryData["Oil"] || countryData["Reduced Air Pollution"])
     .filter(year => year >= "2024" && year <= "2050") // Filter valid years
     .sort() // Sort years in ascending order
 
@@ -64,8 +63,16 @@ async function fetchAndTransformBenefitData(country: string) {
 
     // Add each benefit variable's value for this year
     BENEFIT_VARIABLES.forEach(variable => {
-      const value = countryData[variable.id]?.[year]
-      yearData[variable.id] = typeof value === 'number' ? value : 0
+      if (variable.id === "Reduced Economic Damages") {
+        // Sum up the values from Coal, Gas, and Oil
+        const coalValue = countryData["Coal"]?.[year] || 0
+        const gasValue = countryData["Gas"]?.[year] || 0
+        const oilValue = countryData["Oil"]?.[year] || 0
+        yearData[variable.id] = coalValue + gasValue + oilValue
+      } else {
+        const value = countryData[variable.id]?.[year]
+        yearData[variable.id] = typeof value === 'number' ? value : 0
+      }
     })
 
     return yearData
