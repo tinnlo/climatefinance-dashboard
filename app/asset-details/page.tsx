@@ -339,6 +339,61 @@ export default function AssetsDetailsPage() {
     }
   };
 
+  // Add the download CSV function after the getScenarioName function
+  const downloadAsCSV = () => {
+    // Define the CSV headers
+    const headers = [
+      'Asset Name',
+      'Year',
+      'Fuel Type',
+      'Status',
+      'Owner',
+      'Shareholding (%)',
+      'Allocated Emissions (Mt)',
+      'Phased out (%)',
+      'Technology',
+      'Capacity (MW)'
+    ];
+
+    // Convert the data to CSV format
+    const csvData = processedData.map(asset => [
+      asset.name,
+      asset.phase_out_year,
+      asset.fuel_type,
+      asset.status,
+      asset.owner,
+      asset.owners && asset.owners.length > 0 
+        ? (asset.owners.find(o => o.name === asset.owner)?.share_holding || 1) * 100
+        : 100,
+      asset.allocated_emissions?.toFixed(4),
+      asset.fraction !== undefined ? (asset.fraction * 100).toFixed(1) : '100.0',
+      asset.technology || 'N/A',
+      asset.capacity
+    ]);
+
+    // Combine headers and data
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => 
+        cell === null || cell === undefined 
+          ? ''
+          : typeof cell === 'string' 
+            ? `"${cell.replace(/"/g, '""')}"` 
+            : cell
+      ).join(','))
+    ].join('\n');
+
+    // Create a Blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${countryName.toLowerCase()}_asset_details.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen bg-[#1A2A1A]">
       <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -369,53 +424,77 @@ export default function AssetsDetailsPage() {
               </div>
             </div>
             
-            {/* Search Box */}
+            {/* Search Box and Download Button */}
             <div className="mb-4">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search assets by name, owner, fuel type, year..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8"
-                />
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-4 w-4 absolute left-2 top-3 text-gray-400" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+              <div className="flex justify-between items-center mb-2">
+                <div className="relative flex-1 mr-4">
+                  <Input
+                    type="text"
+                    placeholder="Search assets by name, owner, fuel type, year..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-8"
                   />
-                </svg>
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-2 top-3 text-gray-400 hover:text-gray-200"
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-4 w-4 absolute left-2 top-3 text-gray-400" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
                   >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      className="h-4 w-4" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
-                      stroke="currentColor"
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                    />
+                  </svg>
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-2 top-3 text-gray-400 hover:text-gray-200"
                     >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M6 18L18 6M6 6l12 12" 
-                      />
-                    </svg>
-                  </button>
-                )}
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className="h-4 w-4" 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          strokeWidth={2} 
+                          d="M6 18L18 6M6 6l12 12" 
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <Button
+                  onClick={downloadAsCSV}
+                  variant="outline"
+                  size="sm"
+                  className="bg-[#3A4A3A] hover:bg-[#4A5A4A] text-white"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  Download CSV
+                </Button>
               </div>
-              <div className="flex justify-between text-xs mt-1">
+              <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">
                   Showing {filteredData.length} of {processedData.length} rows ({uniqueAssets} unique assets)
                 </span>

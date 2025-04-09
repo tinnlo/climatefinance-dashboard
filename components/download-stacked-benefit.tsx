@@ -24,18 +24,14 @@ const BENEFIT_CATEGORIES = [
   {
     name: "Economic damage reduction",
     variables: [
-      { id: "Coal", name: "Coal", color: "#ff7c43" },
-      { id: "Gas", name: "Gas", color: "#ffa600" },
-      { id: "Oil", name: "Oil", color: "#ffd29c" }
+      { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" }
     ]
   }
 ];
 
 // Flatten benefit variables for API use - define in the same order as stacked-benefit-chart.tsx
 const BENEFIT_VARIABLES = [
-  { id: "Coal", name: "Coal", color: "#ff7c43" },
-  { id: "Gas", name: "Gas", color: "#ffa600" },
-  { id: "Oil", name: "Oil", color: "#ffd29c" },
+  { id: "Reduced Economic Damages", name: "Reduced Economic Damages", color: "#ffa600" },
   { id: "Reduced Air Pollution", name: "Reduced Air Pollution", color: "#00b4d8" }
 ];
 
