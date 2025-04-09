@@ -30,6 +30,13 @@ import {
 } from "@/components/ui/select"
 import { PhaseOutChart, ChartData } from "@/components/phase-out-chart"
 import { InfoDialog } from "@/components/ui/info-dialog"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { InfoIcon } from "lucide-react"
 
 interface PhaseOutData {
   year: number
@@ -73,7 +80,9 @@ interface MapData {
   emissions: number
   uniqueId: string
   technology: string
-  owner: string
+  fraction?: number
+  owners?: { name: string, share_holding: number }[]
+  owner?: string // Keep for backward compatibility
   capacity: number
 }
 
@@ -273,15 +282,15 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
   // Scenarios for the dropdown
   const scenarios = [
     { value: "maturity", label: "By Power Plant Maturity" },
-    { value: "emission_factor", label: "By Power Plant Emission Intensity" },
-    { value: "benefits_cost_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
+    { value: "emission_factor", label: "By Power Plant Emission Factor" },
+    { value: "benefits_cost_maturity", label: "By Emissions per Opportunity Cost" },
   ]
 
   // Scenario to data mapping
   const scenarioToDataKey = {
     "maturity": "maturity",
-    "emission_factor": "emission_intensity",
-    "benefits_cost_maturity": "benefits_costs"
+    "emission_factor": "emission_factor",
+    "benefits_cost_maturity": "emissions_per_OC_maturity"
   }
 
   // Fetch country data
@@ -572,6 +581,22 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
           .attr("stroke", currentTheme === "dark" ? "#ffffff" : "#000000")
           .attr("stroke-width", 2.5)
         tooltip.transition().duration(200).style("opacity", 0.9)
+        
+        // Format owners display with smarter formatting
+        let ownersDisplay = '';
+        if (d.owners && d.owners.length > 0) {
+          ownersDisplay = d.owners.map((owner: any) => 
+            // Only show percentage if there are multiple owners or if share isn't 100%
+            (d.owners.length > 1 || owner.share_holding !== 1.0) 
+              ? `${owner.name} (${(owner.share_holding * 100).toFixed(0)}%)`
+              : owner.name
+          ).join('<br/>');
+        } else if (d.owner) {
+          ownersDisplay = d.owner;
+        } else {
+          ownersDisplay = 'N/A';
+        }
+        
         tooltip
           .html(
             `<div>
@@ -581,9 +606,10 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
               <div style="opacity: 0.9; color: ${colors.text}">
                 Emissions: ${d.emissions.toFixed(1)} MtCO2<br/>
                 Phase-out Year: ${d.phase_out_year}<br/>
+                ${d.fraction !== undefined ? `Phase-out Fraction: ${(d.fraction * 100).toFixed(1)}%<br/>` : ''}
                 Fuel Type: ${d.fuel_type}<br/>
                 Technology: ${d.technology || 'N/A'}<br/>
-                Owner: ${d.owner || 'N/A'}
+                Owner(s):<br/>${ownersDisplay}
               </div>
             </div>`
           )
@@ -1130,18 +1156,38 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
     // Get visible plants (those with phase-out year <= current year)
     const visiblePlants = validData.filter(plant => plant.phase_out_year <= currentYear);
     
-    // Get unique companies from visible plants
-    const visibleCompanies = new Set(visiblePlants.map(plant => plant.owner)).size;
+    // Extract all unique owner names, handling both owner and owners array
+    const allCompanies = new Set<string>();
+    const visibleCompanies = new Set<string>();
+    
+    validData.forEach(plant => {
+      // Handle both data structures (owners array or single owner field)
+      if (plant.owners && plant.owners.length > 0) {
+        plant.owners.forEach(owner => {
+          if (owner.name) allCompanies.add(owner.name);
+          // Add to visible companies if this plant is visible
+          if (plant.phase_out_year <= currentYear && owner.name) {
+            visibleCompanies.add(owner.name);
+          }
+        });
+      } else if (plant.owner) {
+        allCompanies.add(plant.owner);
+        // Add to visible companies if this plant is visible
+        if (plant.phase_out_year <= currentYear) {
+          visibleCompanies.add(plant.owner);
+        }
+      }
+    });
     
     // Calculate phase-out emissions (sum of emissions from visible plants)
     const phaseOutEmissions = visiblePlants.reduce((sum, plant) => sum + plant.emissions, 0);
 
     return {
       totalPlants: validData.length,
-      totalCompanies: new Set(validData.map(plant => plant.owner)).size,
+      totalCompanies: allCompanies.size,
       totalEmissions: validData.reduce((sum, plant) => sum + plant.emissions, 0),
       visiblePlants: visiblePlants.length,
-      visibleCompanies: visibleCompanies,
+      visibleCompanies: visibleCompanies.size,
       phaseOutEmissions: phaseOutEmissions
     }
   }, [validData, currentYear])
@@ -1355,9 +1401,9 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                 {/* Company Details Section */}
                 <div className="mt-8">
                   <div className="flex justify-between items-center mb-3">
-                    <p className="text-sm text-muted-foreground">Top Companies by Phase-out Emissions</p>
+                    <p className="text-sm text-muted-foreground">Top Assets Being Phased Out</p>
                     <Link 
-                      href={`/company-details?country=${convertToIso3(country)}`}
+                      href={`/asset-details?country=${convertToIso3(country)}&fallback=true&order=${selectedOrder}`}
                       passHref
                     >
                       <Button 
@@ -1369,35 +1415,82 @@ export function PhaseOutMap({ data, country = "in", chartData, selectedOrder, on
                   </div>
                   <div className="space-y-2 max-h-[450px] overflow-y-auto pr-2 border border-border rounded-md p-2">
                     {(() => {
-                      // Group plants by owner and calculate total emissions
-                      const companyEmissions = validData.reduce((acc, plant) => {
-                        if (plant.phase_out_year <= currentYear) {
-                          acc[plant.owner] = (acc[plant.owner] || 0) + plant.emissions;
-                        }
-                        return acc;
-                      }, {} as Record<string, number>);
+                      // Filter assets that are phased out in the current year
+                      const phasedOutAssets = validData.filter(asset => 
+                        asset.phase_out_year === currentYear
+                      );
 
-                      // Sort companies by emissions and take top 10
-                      const topCompanies = Object.entries(companyEmissions)
-                        .sort(([, a], [, b]) => b - a)
+                      // Sort assets by emissions for the current year
+                      const sortedAssets = phasedOutAssets
+                        .sort((a, b) => b.emissions - a.emissions)
                         .slice(0, 10);
-
-                      return topCompanies.map(([owner, emissions], index) => (
-                        <div key={`${owner}-${index}`} className="flex justify-between items-center py-2 border-b border-border last:border-0">
-                          <div className="flex items-center">
-                            <span className="text-xs font-medium mr-2">{index + 1}.</span>
-                            <div>
-                              <p className="text-xs font-medium truncate max-w-[140px]" title={owner}>
-                                {owner}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {validData.filter(plant => plant.owner === owner && plant.phase_out_year <= currentYear).length} plants
-                              </p>
+                      
+                      return sortedAssets.length > 0 ? (
+                        sortedAssets.map((asset, index) => (
+                          <div key={`${asset.uniqueId}-${index}`} className="flex justify-between items-center py-2 border-b border-border last:border-0">
+                            <div className="flex items-center">
+                              <span className="text-xs font-medium mr-2">{index + 1}.</span>
+                              <div className="relative group">
+                                <p className="text-xs font-medium truncate max-w-[140px]" title={asset.name}>
+                                  {asset.name}
+                                </p>
+                                <div className="flex items-center">
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {(() => {
+                                      // Handle owner display with better information
+                                      if (asset.owners && asset.owners.length > 0) {
+                                        if (asset.owners.length === 1) {
+                                          return `${asset.owners[0].name} - ${asset.fuel_type}`;
+                                        } else {
+                                          const primaryOwner = asset.owners[0].name || "Unknown";
+                                          return `${primaryOwner} +${asset.owners.length - 1} more - ${asset.fuel_type}`;
+                                        }
+                                      } else {
+                                        return `${asset.owner || 'Unknown'} - ${asset.fuel_type}`;
+                                      }
+                                    })()}
+                                  </p>
+                                  
+                                  {/* Add info icon with tooltip for multiple owners */}
+                                  {asset.owners && asset.owners.length > 1 && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <InfoIcon className="h-3 w-3 ml-1 text-muted-foreground" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <div className="p-1">
+                                            <p className="font-medium text-xs mb-1">All Owners:</p>
+                                            {asset.owners.map((owner, i) => (
+                                              <p key={i} className="text-xs mb-0.5">
+                                                {owner.name} ({(owner.share_holding * 100).toFixed(0)}%)
+                                              </p>
+                                            ))}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                                
+                                {/* Remove the previous hover tooltip */}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-medium">{asset.emissions.toFixed(1)} Mt</span>
+                              {asset.fraction !== undefined && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {(asset.fraction * 100).toFixed(1)}% phased out
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <span className="text-xs font-medium">{emissions.toFixed(1)} Mt</span>
+                        ))
+                      ) : (
+                        <div className="py-3 text-center text-sm text-muted-foreground">
+                          No assets phased out in {currentYear}
                         </div>
-                      ));
+                      );
                     })()}
                   </div>
                 </div>

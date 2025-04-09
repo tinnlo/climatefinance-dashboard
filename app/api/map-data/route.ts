@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server"
 import { convertToIso3 } from "@/lib/utils"
 
+// Mapping for scenario names to file name parts
+const scenarioToFileNameMap: { [key: string]: string } = {
+  "maturity": "maturity",
+  "emission_factor": "emission_factor",
+  "benefits_cost_maturity": "emissions_per_OC_maturity"
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   let country = searchParams.get("country")
@@ -13,26 +20,17 @@ export async function GET(request: Request) {
   // Convert to ISO3
   const iso3Code = convertToIso3(country)
 
-  let url: string
-  if (iso3Code === "IND") {
-    switch (order) {
-      case "emission_factor":
-        url = "https://fapublicdata.blob.core.windows.net/fa-public-data/phase_out_order_maps/IND_emission_factor_data.json"
-        break
-      case "emissions_per_OC_maturity":
-        url = "https://fapublicdata.blob.core.windows.net/fa-public-data/phase_out_order_maps/IND_emissions_per_OC_maturity_data.json"
-        break
-      default:
-        url = "https://fapublicdata.blob.core.windows.net/fa-public-data/phase_out_order_maps/IND_maturity_data.json"
-    }
-  } else {
-    url = `https://fapublicdata.blob.core.windows.net/fa-public-data/phase_out_order_maps/${iso3Code}_${order}_data.json`
-  }
+  // Map the order parameter to the correct file name part
+  const fileNamePart = scenarioToFileNameMap[order] || order
+  
+  // Construct the URL with the correct file name format
+  const url = `https://fapublicdata.blob.core.windows.net/fa-public-data/phase_out_order_maps/${iso3Code}_${fileNamePart}_data.json`
 
   console.log('Attempting to fetch map data:', {
     originalCountry: country,
     iso3Code,
     order,
+    mappedToFileNamePart: fileNamePart,
     url
   })
 

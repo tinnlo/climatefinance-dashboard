@@ -14,15 +14,15 @@ import { ResponsiveBar } from "@nivo/bar"
 // Update scenario values to match the data structure
 const scenarios = [
   { value: "maturity", label: "By Power Plant Maturity" },
-  { value: "emission_factor", label: "By Power Plant Emission Intensity" },
-  { value: "benefits_cost_maturity", label: "By Power Plant Benefits/Costs (Including Plant Maturity)" },
+  { value: "emission_factor", label: "By Power Plant Emission Factor" },
+  { value: "benefits_cost_maturity", label: "By Emissions per Opportunity Cost" },
 ]
 
 // Mapping for scenario names to file name parts
 const scenarioToFileNameMap: { [key: string]: string } = {
   "maturity": "maturity",
-  "emission_factor": "emission_intensity",
-  "benefits_cost_maturity": "benefits_costs"
+  "emission_factor": "emission_factor",
+  "benefits_cost_maturity": "emissions_per_OC_maturity"
 }
 
 // Country names mapping
