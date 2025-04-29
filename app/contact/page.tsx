@@ -25,7 +25,7 @@ function ContactContent() {
               </div>
               <div>
                 <h3 className="font-medium">Email</h3>
-                <p className="text-sm text-muted-foreground">contact@forwardglobalinstitute.com</p>
+                <p className="text-sm text-muted-foreground">moritzbaer@forwardanalytics.co</p>
               </div>
             </CardContent>
           </Card>
@@ -37,11 +37,11 @@ function ContactContent() {
             <CardContent className="space-y-4">
               <div>
                 <h3 className="font-medium">Research Department</h3>
-                <p className="text-sm text-muted-foreground">research@forwardglobalinstitute.com</p>
+                <p className="text-sm text-muted-foreground">moritzbaer@forwardanalytics.co</p>
               </div>
               <div>
                 <h3 className="font-medium">Data Requests</h3>
-                <p className="text-sm text-muted-foreground">data@forwardglobalinstitute.com</p>
+                <p className="text-sm text-muted-foreground">mathis@forwardanalytics.co</p>
               </div>
             </CardContent>
           </Card>
